@@ -94,6 +94,9 @@ var VMC_SECCIONES = [
   { re: /nuestra vida cristiana/, titulo: 'Nuestra vida cristiana' }
 ];
 
+// Texto que indica que esa semana no hay reunión normal (se muestra como aviso, no como nombre)
+var EVENTO_ESPECIAL_RE = /asamblea|conmemoraci|superintendente de circuito|sin reuni/i;
+
 function parseVMC(sheet) {
   var out = { periodo: sheet.name, reuniones: [], avisos: [] };
   var reunion = null, seccion = null, salas = null, parte = 0;
@@ -108,6 +111,7 @@ function parseVMC(sheet) {
     if (!rol || !reunion) return false;
     var nombre = '';
     for (var c2 = c + 1; c2 < (sheet.values[r] || []).length && !nombre; c2++) nombre = texto_(celda_(sheet, r, c2));
+    if (EVENTO_ESPECIAL_RE.test(nombre)) { reunion.nota = nombre; nombre = ''; }
     if (rol[0] === 'presidente') {
       reunion.secciones[0].filas.push({ texto: 'Presidente', detalle: '', asignados: nombre ? [{ slot: 'presidente', rol: 'Presidente', nombre: nombre }] : [] });
     } else {
@@ -175,6 +179,7 @@ function parseVMC(sheet) {
       for (var c = 3; c < textos.length; c++) {
         if (!textos[c]) continue;
         if (etiqueta(textos[c])) break; // LECTOR: y lo que sigue pertenece a otra asignación
+        if (EVENTO_ESPECIAL_RE.test(textos[c])) { reunion.nota = textos[c]; continue; }
         nombres.push({ col: c, nombre: textos[c] });
       }
       nombres.forEach(function (n, i) {
