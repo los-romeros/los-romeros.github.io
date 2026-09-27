@@ -345,6 +345,7 @@ function parseFinSemana(sheet) {
       continue;
     }
     if (!reunion) continue;
+    if (/^(presidente|discurso|discursante|hospitalidad|articulo|tema|lector|oracion)/.test(la)) reunion.valida = true;
 
     if (/^presidente/.test(la)) fila('Presidente y oración de inicio', '', b ? [{ slot: 'presidente', rol: 'Presidente y oración de inicio', nombre: b }] : []);
     else if (/^discurso publico/.test(la)) reunion.discurso = b;
@@ -365,7 +366,10 @@ function parseFinSemana(sheet) {
     else if (/^oracion final/.test(la)) fila('Oración final', '(en ausencia del discursante)', b ? [{ slot: 'oracion', rol: 'Oración final', nombre: b }] : []);
   }
 
+  // Una fecha sin etiquetas debajo (p. ej. pestaña "Próximas programaciones") no es una reunión.
+  out.reuniones = out.reuniones.filter(function (re) { return re.valida; });
   out.reuniones.forEach(function (re) {
+    delete re.valida;
     if (!totalAsignados_(re)) {
       re.secciones = [];
       re.nota = re.nota || 'Sin asignaciones';
