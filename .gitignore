@@ -1,0 +1,8 @@
+# Datos personales: nunca se publican
+originales/
+tools/fixtures/
+tools/out/
+web/dev-data.json
+.DS_Store
+node_modules/
+.clasprc.json

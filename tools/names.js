@@ -1,0 +1,10 @@
+const fs = require('fs'), path = require('path'), vm = require('vm');
+const ctx = {}; vm.createContext(ctx);
+for (const f of ['Parsers.js', 'Nombres.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../apps-script', f), 'utf8'), ctx);
+require('child_process').execSync('node "' + path.join(__dirname, 'run-parsers.js') + '" --json');
+const data = JSON.parse(fs.readFileSync(path.join(__dirname, 'out', 'parsed.json'), 'utf8'));
+const nombres = [];
+for (const periodos of Object.values(data)) for (const p of periodos) for (const r of p.reuniones) for (const s of r.secciones) for (const f of s.filas) for (const a of f.asignados) if (!a.externo && !a.grupo) nombres.push(a.nombre);
+const g = ctx.agruparNombres_(nombres);
+console.log(g.length, 'personas');
+for (const x of g) console.log((x.dudoso ? '?? ' : '   ') + x.nombre.padEnd(28) + ctx.nombrePublico_(x.nombre).padEnd(18) + x.alias.join(' | '));
