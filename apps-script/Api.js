@@ -1,19 +1,58 @@
 /**
- * API que consume la app web (GitHub Pages).
- * GET ?accion=publico  -> datos de la vista pública (nombres abreviados, sin correos ni teléfonos).
+ * API que consume la app web (GitHub Pages). Todo requiere sesión, salvo ping.
+ *
+ * POST (cuerpo JSON enviado como text/plain para evitar CORS):
+ *   { accion: 'entrar', credential }           -> { token, usuario }
+ *   { accion: 'datos', token }                 -> programas, resumen personal y (si corresponde) estados
+ *   { accion: 'responder', token, clave, respuesta: 'Confirmado'|'Rechazado' }
+ *   { accion: 'estado', token, clave, estado }                 (con privilegios)
+ *   { accion: 'asignar', token, clave, nombre }                (con privilegios)
+ *   { accion: 'aprobar', token, programa, periodo }            (con privilegios)
  */
 
-var CACHE_PUBLICO = 'publico-v1';
+var CACHE_BASE = 'base-v2';
+var ESTADOS_EDITABLES = ['Pendiente', 'Confirmado', 'Rechazado', 'Sin confirmación', 'Avisar manualmente'];
 
 function doGet(e) {
-  var accion = (e && e.parameter && e.parameter.accion) || 'publico';
+  var accion = (e && e.parameter && e.parameter.accion) || '';
+  if (accion === 'ping') return json_({ ok: true, hora: new Date().toISOString() });
+  return json_({ ok: false, error: 'Inicia sesión en la app para ver los programas.' });
+}
+
+function doPost(e) {
+  var p;
   try {
-    if (accion === 'publico') return json_(publicoCacheado_());
-    if (accion === 'ping') return json_({ ok: true, hora: new Date().toISOString() });
-    return json_({ ok: false, error: 'Acción desconocida' });
+    p = JSON.parse(e.postData.contents);
+  } catch (err) {
+    return json_({ ok: false, error: 'Solicitud inválida' });
+  }
+  try {
+    var cfg = config_();
+    if (p.accion === 'entrar') {
+      var correo = verificarGoogle_(p.credential, cfg);
+      var perfil = perfil_(correo);
+      if (!perfil.registrado) {
+        return json_({ ok: false, codigo: 'no-registrado', error: 'Tu correo (' + correo + ') no está en el directorio de la congregación. Pídele al administrador que lo agregue.' });
+      }
+      return json_({ ok: true, token: crearSesion_(correo), usuario: perfil });
+    }
+
+    var correoSesion = leerSesion_(p.token);
+    if (!correoSesion) return json_({ ok: false, codigo: 'sesion', error: 'Tu sesión terminó. Vuelve a entrar.' });
+    var yo = perfil_(correoSesion);
+    if (!yo.registrado) return json_({ ok: false, codigo: 'sesion', error: 'Tu correo ya no está en el directorio.' });
+
+    switch (p.accion) {
+      case 'datos': return json_(datosUsuario_(yo, cfg));
+      case 'responder': return json_(conBloqueo_(function () { return responder_(yo, p, cfg); }));
+      case 'estado': return json_(conBloqueo_(function () { return cambiarEstado_(yo, p); }));
+      case 'asignar': return json_(conBloqueo_(function () { return reasignar_(yo, p); }));
+      case 'aprobar': return json_(conBloqueo_(function () { return aprobar_(yo, p); }));
+      default: return json_({ ok: false, error: 'Acción desconocida' });
+    }
   } catch (err) {
     console.error(err);
-    return json_({ ok: false, error: 'Error interno' });
+    return json_({ ok: false, error: err.message || 'Error interno' });
   }
 }
 
@@ -21,53 +60,73 @@ function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
-function publicoCacheado_() {
-  var cache = CacheService.getScriptCache();
-  var n = cache.get(CACHE_PUBLICO + ':n');
-  if (n) {
-    var partes = cache.getAll(Array.apply(null, Array(+n)).map(function (_, i) { return CACHE_PUBLICO + ':' + i; }));
-    var txt = '';
-    for (var i = 0; i < +n; i++) txt += partes[CACHE_PUBLICO + ':' + i] || '';
-    if (txt) try { return JSON.parse(txt); } catch (e) { /* se regenera */ }
+function conBloqueo_(fn) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var r = fn();
+    limpiarCache_();
+    return r;
+  } finally {
+    lock.releaseLock();
   }
-  var datos = datosPublicos_();
-  var s = JSON.stringify(datos), trozos = {}, tam = 90000, k = 0;
-  for (var j = 0; j < s.length; j += tam) trozos[CACHE_PUBLICO + ':' + (k++)] = s.slice(j, j + tam);
-  trozos[CACHE_PUBLICO + ':n'] = String(k);
-  cache.putAll(trozos, 600);
-  return datos;
 }
+
+/* ------------------------------------------------------------------ */
+/* Datos base (iguales para todos) con caché                            */
+/* ------------------------------------------------------------------ */
 
 function limpiarCache_() {
-  var cache = CacheService.getScriptCache();
-  cache.remove(CACHE_PUBLICO + ':n');
+  CacheService.getScriptCache().remove(CACHE_BASE + ':n');
 }
 
-function datosPublicos_() {
+function baseCacheada_() {
+  var cache = CacheService.getScriptCache();
+  var n = cache.get(CACHE_BASE + ':n');
+  if (n) {
+    var claves = [];
+    for (var i = 0; i < +n; i++) claves.push(CACHE_BASE + ':' + i);
+    var partes = cache.getAll(claves), txt = '';
+    for (i = 0; i < +n; i++) txt += partes[CACHE_BASE + ':' + i] || '';
+    try { return JSON.parse(txt); } catch (e) { /* se regenera */ }
+  }
+  var base = construirBase_();
+  var s = JSON.stringify(base), trozos = {}, k = 0;
+  for (var j = 0; j < s.length; j += 90000) trozos[CACHE_BASE + ':' + (k++)] = s.slice(j, j + 90000);
+  trozos[CACHE_BASE + ':n'] = String(k);
+  try { cache.putAll(trozos, 600); } catch (e) { /* demasiado grande: sin caché */ }
+  return base;
+}
+
+/** Programas con reuniones (aprobadas y borradores), nombres completos y clave por asignado. */
+function construirBase_() {
   var cfg = config_();
   var hoy = hoyISO_();
   var desde = sumarDias_(hoy, -(+cfg.diasPasados || 7));
   var hasta = sumarDias_(hoy, +cfg.diasFuturos || 120);
 
-  var aprobados = {};
-  leerTabla_('periodos').forEach(function (p) { if (p['Estado'] === 'Aprobado') aprobados[p['Programa'] + '|' + p['Periodo']] = true; });
-
+  var periodos = {};
+  leerTabla_('periodos').forEach(function (p) { periodos[p['Programa'] + '|' + p['Periodo']] = p; });
   var nombres = {};
-  leerTabla_('asignaciones').forEach(function (a) { nombres[a['Clave']] = a['Nombre']; });
+  leerTabla_('asignaciones').forEach(function (a) { if (a['Estado'] !== 'Eliminada') nombres[a['Clave']] = a['Nombre']; });
 
-  var publicos = {};
-  leerTabla_('personas').forEach(function (p) { publicos[p['Nombre']] = p['Nombre público'] || nombrePublico_(p['Nombre']); });
-  var publico = function (n) { return publicos[n] || nombrePublico_(n); };
-
-  var porPrograma = {};
+  var porPrograma = {}, borradores = {};
   leerTabla_('datos').forEach(function (d) {
-    if (!aprobados[d['Programa'] + '|' + d['Periodo']]) return;
+    var per = periodos[d['Programa'] + '|' + d['Periodo']];
+    if (!per) return;
+    var borrador = per['Estado'] !== 'Aprobado';
     var res = JSON.parse(d['JSON']);
+    if (borrador) {
+      (borradores[d['Programa']] = borradores[d['Programa']] || []).push({
+        periodo: d['Periodo'], desde: per['Primera fecha'], hasta: per['Última fecha'], avisos: per['Avisos'] || ''
+      });
+    }
     var lista = porPrograma[d['Programa']] = porPrograma[d['Programa']] || [];
     res.reuniones.forEach(function (r) {
-      if (r.fecha < desde || r.fecha > hasta) return;
+      if (!borrador && (r.fecha < desde || r.fecha > hasta)) return;
       lista.push({
         fecha: r.fecha, hora: r.hora, titulo: r.titulo, nota: r.nota, lugar: r.lugar, tipo: r.tipo || '',
+        borrador: borrador, periodo: d['Periodo'],
         secciones: r.secciones.map(function (s) {
           return {
             titulo: s.titulo,
@@ -76,10 +135,13 @@ function datosPublicos_() {
                 texto: f.texto, detalle: f.detalle,
                 asignados: f.asignados.map(function (a) {
                   var clave = d['Programa'] + '|' + r.id + '|' + a.slot;
-                  var nombre = a.grupo ? a.nombre
-                    : a.externo ? a.nombre + (a.origen ? ' (' + a.origen + ')' : '')
-                    : publico(nombres[clave] || a.nombre);
-                  return { rol: a.rol, nombre: nombre, sala: a.sala || '' };
+                  return {
+                    clave: a.externo ? '' : clave,
+                    rol: a.rol,
+                    nombre: a.externo ? a.nombre + (a.origen ? ' (' + a.origen + ')' : '') : nombres[clave] || a.nombre,
+                    sala: a.sala || '',
+                    grupo: a.grupo || null
+                  };
                 })
               };
             })
@@ -94,27 +156,226 @@ function datosPublicos_() {
     .sort(function (a, b) { return (+a['Orden'] || 99) - (+b['Orden'] || 99); })
     .map(function (p) {
       var reuniones = (porPrograma[p['ID']] || []).sort(function (a, b) {
-        return a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : String(a.hora || '').localeCompare(String(b.hora || ''));
+        return (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || ''));
       });
-      return { id: p['ID'], nombre: p['Nombre'], icono: p['Ícono'], descripcion: p['Descripción'], reuniones: reuniones };
+      return {
+        id: p['ID'], nombre: p['Nombre'], icono: p['Ícono'], descripcion: p['Descripción'],
+        confirmacion: si_(p['Requiere confirmación']),
+        reuniones: reuniones, borradores: borradores[p['ID']] || []
+      };
     });
 
   var enlaces = leerTabla_('enlaces')
-    .filter(function (l) { return l['URL'] && !/privilegiad/i.test(l['Visibilidad']); })
+    .filter(function (l) { return l['URL']; })
     .sort(function (a, b) { return (+a['Orden'] || 99) - (+b['Orden'] || 99); })
-    .map(function (l) { return { titulo: l['Título'], url: l['URL'], descripcion: l['Descripción'] }; });
+    .map(function (l) { return { titulo: l['Título'], url: l['URL'], descripcion: l['Descripción'], privilegiado: /privilegiad/i.test(l['Visibilidad']) }; });
 
   return {
-    ok: true,
     generado: new Date().toISOString(),
-    hoy: hoy,
-    inicio: {
-      congregacion: cfg.congregacion || '',
-      mensaje: cfg.mensaje || '',
-      aviso: cfg.aviso || '',
-      direccion: cfg.direccion || ''
-    },
+    inicio: { congregacion: cfg.congregacion || '', mensaje: cfg.mensaje || '', aviso: cfg.aviso || '', direccion: cfg.direccion || '' },
     programas: programas,
     enlaces: enlaces
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Datos para un usuario                                                */
+/* ------------------------------------------------------------------ */
+
+function datosUsuario_(yo, cfg) {
+  var base = baseCacheada_();
+  var hoy = hoyISO_(), fin = sumarDias_(hoy, 6);
+  var asign = leerTabla_('asignaciones');
+  var estados = {};
+  asign.forEach(function (a) { estados[a['Clave']] = a['Estado']; });
+
+  // Información de cada asignado (para el resumen: título, lugar, hora)
+  var info = {};
+  base.programas.forEach(function (p) {
+    p.reuniones.forEach(function (r) {
+      if (r.borrador) return;
+      r.secciones.forEach(function (s) { s.filas.forEach(function (f) { f.asignados.forEach(function (a) {
+        if (a.clave) info[a.clave] = { programa: p, reunion: r, fila: f, asignado: a };
+      }); }); });
+    });
+  });
+
+  var resumen = [];
+  Object.keys(info).forEach(function (clave) {
+    var x = info[clave], r = x.reunion, a = x.asignado;
+    if (r.fecha < hoy || r.fecha > fin) return;
+    var mio = a.grupo ? (yo.grupo && a.grupo === yo.grupo) : norm_(a.nombre) === norm_(yo.nombre);
+    if (!mio) return;
+    var estado = estados[clave] || '';
+    resumen.push({
+      clave: clave, programa: x.programa.id, programaNombre: x.programa.nombre,
+      fecha: r.fecha, hora: r.hora, titulo: r.titulo, lugar: r.lugar,
+      parte: x.fila.texto, detalle: x.fila.detalle, rol: a.rol, sala: a.sala, grupo: a.grupo,
+      estado: estado,
+      puedeResponder: !a.grupo && x.programa.confirmacion && ['Pendiente', 'Confirmado', 'Rechazado'].indexOf(estado) >= 0
+    });
+  });
+  resumen.sort(function (a, b) { return (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')); });
+
+  var programas = base.programas.map(function (p) {
+    var editable = yo.editables.indexOf(p.id) >= 0;
+    return {
+      id: p.id, nombre: p.nombre, icono: p.icono, descripcion: p.descripcion, confirmacion: p.confirmacion,
+      editable: editable,
+      borradores: editable ? p.borradores : [],
+      reuniones: p.reuniones.filter(function (r) { return !r.borrador || editable; })
+    };
+  });
+
+  var out = {
+    ok: true,
+    generado: base.generado,
+    hoy: hoy,
+    usuario: { nombre: yo.nombre, correo: yo.correo, rol: yo.rol, privilegiado: yo.privilegiado, editables: yo.editables, grupo: yo.grupo },
+    inicio: base.inicio,
+    resumen: resumen,
+    programas: programas,
+    enlaces: base.enlaces.filter(function (l) { return !l.privilegiado || yo.privilegiado; })
+  };
+  if (yo.privilegiado) {
+    out.estados = {};
+    asign.forEach(function (a) { if (a['Estado'] !== 'Eliminada') out.estados[a['Clave']] = a['Estado']; });
+  }
+  if (yo.editables.length) {
+    out.personas = leerTabla_('personas').map(function (p) { return p['Nombre']; }).filter(Boolean);
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* Acciones                                                             */
+/* ------------------------------------------------------------------ */
+
+function filaAsignacion_(clave) {
+  var fila = leerTabla_('asignaciones').filter(function (a) { return a['Clave'] === clave && a['Estado'] !== 'Eliminada'; })[0];
+  if (!fila) throw new Error('No encontré esa asignación. Actualiza la app e intenta de nuevo.');
+  return fila;
+}
+
+function programaPorId_(id) {
+  return leerTabla_('programas').filter(function (p) { return p['ID'] === id; })[0];
+}
+
+function puedeEditar_(yo, programaId) {
+  if (yo.editables.indexOf(programaId) < 0) throw new Error('No tienes permiso para modificar este programa.');
+}
+
+function responder_(yo, p, cfg) {
+  if (['Confirmado', 'Rechazado'].indexOf(p.respuesta) < 0) throw new Error('Respuesta inválida');
+  var fila = filaAsignacion_(p.clave);
+  if (norm_(fila['Nombre']) !== norm_(yo.nombre)) throw new Error('Esta asignación no es tuya.');
+  var anterior = fila['Estado'];
+  actualizarFila_('asignaciones', fila, { 'Estado': p.respuesta, 'Actualizado': new Date() });
+  registrar_('Respuesta en la app', yo.nombre + ': ' + p.respuesta + ' · ' + fila['Reunión'] + ' · ' + fila['Parte']);
+  if (p.respuesta === 'Rechazado' && anterior !== 'Rechazado') avisarRechazo_(fila, cfg);
+  return { ok: true, estado: p.respuesta };
+}
+
+function cambiarEstado_(yo, p) {
+  var fila = filaAsignacion_(p.clave);
+  puedeEditar_(yo, fila['Programa']);
+  if (ESTADOS_EDITABLES.indexOf(p.estado) < 0) throw new Error('Estado inválido');
+  actualizarFila_('asignaciones', fila, { 'Estado': p.estado, 'Actualizado': new Date() });
+  registrar_('Estado cambiado', yo.nombre + ' → ' + p.estado + ' · ' + fila['Nombre'] + ' · ' + fila['Reunión']);
+  return { ok: true, estado: p.estado };
+}
+
+/** Cambia el asignado en la app y en la hoja oficial del responsable. */
+function reasignar_(yo, p) {
+  var nuevo = texto_(p.nombre);
+  if (!nuevo) throw new Error('Escribe un nombre.');
+  var fila = filaAsignacion_(p.clave);
+  puedeEditar_(yo, fila['Programa']);
+  var prog = programaPorId_(fila['Programa']);
+  var dir = directorio_();
+  var persona = reconocer_(nuevo, dir);
+  var ident = /^grupo \d+$/i.test(nuevo)
+    ? identificar_({ nombre: 'Grupo ' + nuevo.replace(/\D/g, ''), grupo: +nuevo.replace(/\D/g, '') }, dir)
+    : { nombre: persona ? persona.nombre : nuevo, reconocido: persona ? 'Sí' : 'No', correo: persona ? persona.correo : '' };
+  var nombreFinal = ident.nombre;
+
+  // Escribir en la hoja oficial
+  var aviso = '';
+  var escrito = false;
+  try {
+    escrito = escribirEnOrigen_(prog, fila, nombreFinal);
+  } catch (e) {
+    aviso = 'Se cambió en la app, pero no pude escribir en la hoja oficial: ' + e.message;
+  }
+
+  var a = { 'Nombre': nombreFinal, 'Reconocido': ident.reconocido, 'Correo': ident.correo, 'Respuesta calendario': '', 'Rechazo avisado el': '', 'Recordatorio el': '', 'Actualizado': new Date() };
+  // Si se escribió en la hoja, la próxima sincronización verá el mismo nombre y no lo revertirá.
+  if (escrito) a['Nombre en programa'] = nombreFinal;
+  a['Estado'] = estadoInicial_(prog, { 'Reconocido': a['Reconocido'], 'Correo': a['Correo'] });
+  actualizarFila_('asignaciones', fila, a);
+  registrar_('Asignado cambiado', yo.nombre + ': ' + fila['Reunión'] + ' · ' + fila['Parte'] + ' → ' + nombreFinal + (escrito ? '' : ' (solo en la app)'));
+  return { ok: true, nombre: nombreFinal, estado: a['Estado'], aviso: aviso || (ident.reconocido === 'No' ? 'Ese nombre no está en el directorio; no recibirá invitaciones.' : '') };
+}
+
+/** Busca la celda de origen de la asignación y reemplaza el nombre anterior por el nuevo. */
+function escribirEnOrigen_(prog, fila, nombreNuevo) {
+  var dato = leerTabla_('datos').filter(function (d) { return d['Programa'] === fila['Programa'] && d['Periodo'] === fila['Periodo']; })[0];
+  if (!dato) throw new Error('no encontré el periodo');
+  var partes = fila['Clave'].split('|'); // programa | id reunión | slot
+  var celda = null;
+  JSON.parse(dato['JSON']).reuniones.forEach(function (r) {
+    if (r.id !== partes[1]) return;
+    r.secciones.forEach(function (s) { s.filas.forEach(function (f) { f.asignados.forEach(function (a) {
+      if (a.slot === partes[2]) celda = a.celda;
+    }); }); });
+  });
+  if (!celda) throw new Error('no encontré la celda');
+  var sh = SpreadsheetApp.openByUrl(prog['Hoja de origen (URL)']).getSheetByName(fila['Periodo']);
+  if (!sh) throw new Error('no encontré la pestaña "' + fila['Periodo'] + '"');
+  var rango = sh.getRange(celda[0] + 1, celda[1] + 1);
+  var actual = String(rango.getDisplayValue());
+  var anterior = String(fila['Nombre en programa'] || '');
+  var valor = anterior && actual.indexOf(anterior) >= 0 ? actual.replace(anterior, nombreNuevo) : nombreNuevo;
+  rango.setValue(valor);
+  return true;
+}
+
+function aprobar_(yo, p) {
+  puedeEditar_(yo, p.programa);
+  var per = leerTabla_('periodos').filter(function (x) { return x['Programa'] === p.programa && x['Periodo'] === p.periodo; })[0];
+  if (!per) throw new Error('No encontré ese periodo.');
+  actualizarFila_('periodos', per, { 'Estado': 'Aprobado', 'Aprobado por': yo.nombre, 'Aprobado el': new Date() });
+  var prog = programaPorId_(p.programa);
+  var asign = leerTabla_('asignaciones');
+  var n = 0;
+  asign.forEach(function (a) {
+    if (a['Programa'] === p.programa && a['Periodo'] === p.periodo && a['Estado'] === 'Borrador') {
+      a['Estado'] = estadoInicial_(prog, a);
+      a['Actualizado'] = new Date();
+      n++;
+    }
+  });
+  if (n) reescribirTabla_('asignaciones', asign);
+  registrar_('Programa aprobado', yo.nombre + ': ' + prog['Nombre'] + ' · ' + p.periodo);
+  return { ok: true, asignaciones: n };
+}
+
+function avisarRechazo_(fila, cfg) {
+  var prog = programaPorId_(fila['Programa']);
+  var para = prog ? String(prog['Responsable (correo)'] || '').trim() : '';
+  if (!para || !si_(cfg.correosActivos)) return;
+  MailApp.sendEmail({
+    to: para,
+    subject: 'Asignación rechazada: ' + fila['Nombre'] + ' · ' + fila['Reunión'],
+    name: cfg.remitente || 'Programas de la congregación',
+    body: [
+      'Hola,', '',
+      fila['Nombre'] + ' indicó que no puede cumplir esta asignación:', '',
+      ' • ' + fila['Reunión'] + (fila['Hora'] ? ' · ' + fila['Hora'] : ''),
+      ' • ' + fila['Parte'] + ' (' + fila['Rol'] + ')', '',
+      'Puedes reasignarla desde la app' + (cfg.urlApp ? ': ' + cfg.urlApp : '') + ' o en tu hoja del programa.', '',
+      'Mensaje automático de la app de programas.'
+    ].join('\n')
+  });
+  actualizarFila_('asignaciones', fila, { 'Rechazo avisado el': new Date() });
 }

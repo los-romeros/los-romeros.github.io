@@ -6,7 +6,7 @@
  *   { periodo, reuniones: [Reunion], avisos: [texto] }
  * Reunion = { id, fecha 'AAAA-MM-DD', hora 'HH:MM'|null, titulo, nota, lugar,
  *             secciones: [{ titulo, filas: [{ texto, detalle, asignados: [Asignado] }] }] }
- * Asignado = { slot, rol, nombre, sala?, grupo?, externo? }
+ * Asignado = { slot, rol, nombre, celda: [fila, columna] (0-based), sala?, grupo?, externo? }
  *
  * Son funciones puras (sin servicios de Google) para poder probarlas fuera de Apps Script.
  */
@@ -109,14 +109,14 @@ function parseVMC(sheet) {
       : /^lector/.test(n) ? ['lector', 'Lector']
       : /^oracion final/.test(n) ? ['oracion', 'Oración final'] : null;
     if (!rol || !reunion) return false;
-    var nombre = '';
-    for (var c2 = c + 1; c2 < (sheet.values[r] || []).length && !nombre; c2++) nombre = texto_(celda_(sheet, r, c2));
+    var nombre = '', cn = -1;
+    for (var c2 = c + 1; c2 < (sheet.values[r] || []).length && !nombre; c2++) { nombre = texto_(celda_(sheet, r, c2)); cn = c2; }
     if (EVENTO_ESPECIAL_RE.test(nombre)) { reunion.nota = nombre; nombre = ''; }
     if (rol[0] === 'presidente') {
-      reunion.secciones[0].filas.push({ texto: 'Presidente', detalle: '', asignados: nombre ? [{ slot: 'presidente', rol: 'Presidente', nombre: nombre }] : [] });
+      reunion.secciones[0].filas.push({ texto: 'Presidente', detalle: '', asignados: nombre ? [{ slot: 'presidente', rol: 'Presidente', nombre: nombre, celda: [r, cn] }] : [] });
     } else {
       var fin = reunion.secciones[reunion.secciones.length - 1];
-      fin.filas.push({ texto: rol[1], detalle: '', asignados: nombre ? [{ slot: rol[0], rol: rol[1], nombre: nombre }] : [] });
+      fin.filas.push({ texto: rol[1], detalle: '', asignados: nombre ? [{ slot: rol[0], rol: rol[1], nombre: nombre, celda: [r, cn] }] : [] });
     }
     return true;
   }
@@ -161,7 +161,7 @@ function parseVMC(sheet) {
           if (m && texto_(m[1])) {
             (seccion || reunion.secciones[0]).filas.push({
               texto: 'Consejero sala auxiliar', detalle: '',
-              asignados: [{ slot: 'consejero-aux', rol: 'Consejero sala auxiliar', nombre: texto_(m[1]) }]
+              asignados: [{ slot: 'consejero-aux', rol: 'Consejero sala auxiliar', nombre: texto_(m[1]), celda: [r, c] }]
             });
           }
         }
@@ -193,7 +193,7 @@ function parseVMC(sheet) {
         }
         fila.asignados.push({
           slot: 'p' + parte + '-' + (sala ? norm_(sala).replace(/\W+/g, '') : 'sp') + '-' + norm_(rol),
-          rol: rol, nombre: n.nombre, sala: sala || undefined
+          rol: rol, nombre: n.nombre, sala: sala || undefined, celda: [r, n.col]
         });
       });
       (seccion || reunion.secciones[0]).filas.push(fila);
@@ -255,17 +255,18 @@ function parseAcomodacion(sheet) {
         filas.forEach(function (rr) {
           var lab = texto_(celda_(sheet, rr, g.col)), nom = texto_(celda_(sheet, rr, g.col + 1));
           if (!lab && !nom) return;
-          var asign = nom ? [{ slot: g.slot + '-' + norm_(lab || 'x').replace(/\W+/g, ''), rol: g.titulo + (lab ? ' · ' + lab : ''), nombre: nom }] : [];
+          var asign = nom ? [{ slot: g.slot + '-' + norm_(lab || 'x').replace(/\W+/g, ''), rol: g.titulo + (lab ? ' · ' + lab : ''), nombre: nom, celda: [rr, g.col + 1] }] : [];
           sec.filas.push({ texto: lab, detalle: '', asignados: asign });
         });
       } else if (g.tipo === 'filas') {
         filas.forEach(function (rr, i) {
           var nom = texto_(celda_(sheet, rr, g.col));
-          if (nom) sec.filas.push({ texto: '', detalle: '', asignados: [{ slot: g.slot + '-' + (i + 1), rol: g.titulo, nombre: nom }] });
+          if (nom) sec.filas.push({ texto: '', detalle: '', asignados: [{ slot: g.slot + '-' + (i + 1), rol: g.titulo, nombre: nom, celda: [rr, g.col] }] });
         });
       } else {
-        var nom = texto_(celda_(sheet, r, g.col)) || texto_(celda_(sheet, r + 1, g.col));
-        if (nom) sec.filas.push({ texto: '', detalle: '', asignados: [{ slot: g.slot, rol: g.titulo, nombre: nom }] });
+        var fu = texto_(celda_(sheet, r, g.col)) ? r : r + 1;
+        var nom = texto_(celda_(sheet, fu, g.col));
+        if (nom) sec.filas.push({ texto: '', detalle: '', asignados: [{ slot: g.slot, rol: g.titulo, nombre: nom, celda: [fu, g.col] }] });
       }
       if (sec.filas.some(function (x) { return x.asignados.length; })) vacia = false;
       if (sec.filas.length) reunion.secciones.push(sec);
@@ -341,29 +342,29 @@ function parseFinSemana(sheet) {
       var fh = fecha_(a) ? { fecha: fecha_(a), hora: null } : fechaTextoCorta_(texto_(a), +(base || '2000').slice(0, 4), base ? +base.slice(5, 7) : 0);
       if (!fh) continue;
       var d = separarDiscursante_(b);
-      salidas.items.push({ fecha: fh.fecha, hora: fh.hora, nombre: d.nombre, discurso: d.origen });
+      salidas.items.push({ fecha: fh.fecha, hora: fh.hora, nombre: d.nombre, discurso: d.origen, celda: [r, 1] });
       continue;
     }
     if (!reunion) continue;
     if (/^(presidente|discurso|discursante|hospitalidad|articulo|tema|lector|oracion)/.test(la)) reunion.valida = true;
 
-    if (/^presidente/.test(la)) fila('Presidente y oración de inicio', '', b ? [{ slot: 'presidente', rol: 'Presidente y oración de inicio', nombre: b }] : []);
+    if (/^presidente/.test(la)) fila('Presidente y oración de inicio', '', b ? [{ slot: 'presidente', rol: 'Presidente y oración de inicio', nombre: b, celda: [r, 1] }] : []);
     else if (/^discurso publico/.test(la)) reunion.discurso = b;
     else if (/^discursante/.test(la)) {
       if (!b) continue;
       if (!reunion.discurso && /asamblea|conmemoraci/i.test(b)) { reunion.nota = b; continue; }
       var ds = separarDiscursante_(b);
       var local = CONGREGACION_LOCAL_RE.test(ds.origen);
-      fila('Discurso público', reunion.discurso || '', [{ slot: 'discursante', rol: 'Discursante', nombre: ds.nombre, externo: !local, origen: ds.origen }]);
+      fila('Discurso público', reunion.discurso || '', [{ slot: 'discursante', rol: 'Discursante', nombre: ds.nombre, externo: !local, origen: ds.origen, celda: [r, 1] }]);
     }
     else if (/^hospitalidad/.test(la)) {
       var g = /(\d+)/.exec(b);
-      fila('Hospitalidad', '', g ? [{ slot: 'hospitalidad', rol: 'Hospitalidad', nombre: 'Grupo ' + g[1], grupo: +g[1] }] : []);
+      fila('Hospitalidad', '', g ? [{ slot: 'hospitalidad', rol: 'Hospitalidad', nombre: 'Grupo ' + g[1], grupo: +g[1], celda: [r, 1] }] : []);
     }
     else if (/^articulo atalaya/.test(la)) reunion.articulo = b;
     else if (/^tema/.test(la)) reunion.tema = b;
-    else if (/^lector/.test(la)) fila('Lector de La Atalaya', [reunion.articulo, reunion.tema].filter(Boolean).join(' — '), b ? [{ slot: 'lector', rol: 'Lector de La Atalaya', nombre: b }] : []);
-    else if (/^oracion final/.test(la)) fila('Oración final', '(en ausencia del discursante)', b ? [{ slot: 'oracion', rol: 'Oración final', nombre: b }] : []);
+    else if (/^lector/.test(la)) fila('Lector de La Atalaya', [reunion.articulo, reunion.tema].filter(Boolean).join(' — '), b ? [{ slot: 'lector', rol: 'Lector de La Atalaya', nombre: b, celda: [r, 1] }] : []);
+    else if (/^oracion final/.test(la)) fila('Oración final', '(en ausencia del discursante)', b ? [{ slot: 'oracion', rol: 'Oración final', nombre: b, celda: [r, 1] }] : []);
   }
 
   // Una fecha sin etiquetas debajo (p. ej. pestaña "Próximas programaciones") no es una reunión.
@@ -383,7 +384,7 @@ function parseFinSemana(sheet) {
         id: it.fecha + '-salida-' + (i + 1), tipo: 'salida', hora: it.hora,
         titulo: 'Discurso en ' + salidas.congregacion, lugar: salidas.direccion
       });
-      re.secciones.push({ titulo: '', filas: [{ texto: 'Discurso', detalle: it.discurso, asignados: it.nombre ? [{ slot: 'orador', rol: 'Orador (sale a discursar)', nombre: it.nombre }] : [] }] });
+      re.secciones.push({ titulo: '', filas: [{ texto: 'Discurso', detalle: it.discurso, asignados: it.nombre ? [{ slot: 'orador', rol: 'Orador (sale a discursar)', nombre: it.nombre, celda: it.celda }] : [] }] });
       out.reuniones.push(re);
     });
   }
@@ -447,7 +448,7 @@ function parsePredicacion(sheet) {
       territorio ? 'Territorio ' + territorio : '',
       grupos ? (/^\d+(\.0)?$/.test(grupos) ? 'Grupo ' + parseInt(grupos, 10) : 'Grupos: ' + grupos) : ''
     ].filter(Boolean).join(' · ');
-    re.secciones.push({ titulo: '', filas: [{ texto: 'Encargado', detalle: detalle, asignados: [{ slot: 'encargado', rol: 'Encargado de la salida', nombre: encargado }] }] });
+    re.secciones.push({ titulo: '', filas: [{ texto: 'Encargado', detalle: detalle, asignados: [{ slot: 'encargado', rol: 'Encargado de la salida', nombre: encargado, celda: [r, col.encargado] }] }] });
     out.reuniones.push(re);
   }
   return out;
@@ -479,11 +480,11 @@ function parseAseo(sheet) {
     var g = /(\d+)/.exec(texto_(celda_(sheet, r, col.grupo)));
     var re = nuevaReunion_(f, { titulo: 'Aseo después de la reunión' });
     var filas = [];
-    if (g) filas.push({ texto: 'Grupo a cargo', detalle: 'Auditorio, salas, baños, pisos y jardín', asignados: [{ slot: 'grupo', rol: 'Aseo', nombre: 'Grupo ' + g[1], grupo: +g[1] }] });
+    if (g) filas.push({ texto: 'Grupo a cargo', detalle: 'Auditorio, salas, baños, pisos y jardín', asignados: [{ slot: 'grupo', rol: 'Aseo', nombre: 'Grupo ' + g[1], grupo: +g[1], celda: [r, col.grupo] }] });
     var sup = col.sup == null ? '' : texto_(celda_(sheet, r, col.sup));
     var aux = col.aux == null ? '' : texto_(celda_(sheet, r, col.aux));
-    if (sup) filas.push({ texto: 'Encargado', detalle: '', asignados: [{ slot: 'encargado', rol: 'Encargado de aseo', nombre: sup }] });
-    if (aux) filas.push({ texto: 'Auxiliar', detalle: '', asignados: [{ slot: 'auxiliar', rol: 'Auxiliar de aseo', nombre: aux }] });
+    if (sup) filas.push({ texto: 'Encargado', detalle: '', asignados: [{ slot: 'encargado', rol: 'Encargado de aseo', nombre: sup, celda: [r, col.sup] }] });
+    if (aux) filas.push({ texto: 'Auxiliar', detalle: '', asignados: [{ slot: 'auxiliar', rol: 'Auxiliar de aseo', nombre: aux, celda: [r, col.aux] }] });
     re.secciones.push({ titulo: '', filas: filas });
     out.reuniones.push(re);
   }

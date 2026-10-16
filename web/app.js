@@ -1,11 +1,17 @@
 (function () {
   'use strict';
 
-  var CLAVE_DATOS = 'programas-datos-v1';
+  var CLAVE_SESION = 'programas-sesion-v1';
+  var CLAVE_DATOS = 'programas-datos-v2';
   var DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
   var DIAS_CORTOS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   var MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   var MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  var ESTADOS_EDITABLES = ['Pendiente', 'Confirmado', 'Rechazado', 'Sin confirmación', 'Avisar manualmente'];
+  var CLASE_ESTADO = {
+    'Confirmado': 'ok', 'Pendiente': 'pend', 'Rechazado': 'rech', 'Sin confirmación': 'neutro',
+    'Avisar manualmente': 'manual', 'Borrador': 'neutro'
+  };
   var COLOR_SECCION = {
     'tesoros de la biblia': 'var(--tesoros)',
     'seamos mejores maestros': 'var(--maestros)',
@@ -19,7 +25,8 @@
     mapa: '<path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/>',
     escoba: '<path d="M19 3 11 11"/><path d="M8.5 10.5 13.5 15.5 10 21H3.5L5 14z"/><path d="M6.5 17.5 5 21M9 18l-1 3"/>',
     grupo: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>',
-    calendario: '<rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>'
+    calendario: '<rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>',
+    check: '<path d="M4 12.5 9.5 18 20 6.5"/>'
   };
 
   function svg(nombre, extra) {
@@ -30,9 +37,10 @@
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
   var SVG_PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>';
-  var SVG_AVISO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17.5v.01"/></svg>';
 
-  var estado = { datos: null, sinConexion: false, busqueda: '', verAnteriores: false };
+  var cfg = window.APP_CONFIG || {};
+  var DEMO = /[?&]demo\b/.test(location.search);
+  var estado = { datos: null, token: null, sinConexion: false, busqueda: '', verAnteriores: false, error: '', confirmarAprobar: '' };
   var app = document.getElementById('app');
   var eventoInstalar = null;
 
@@ -51,117 +59,243 @@
     var d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
-  function fechaLarga(iso) {
-    var p = partes(iso);
-    return DIAS[diaSemana(iso)] + ' ' + p.d + ' de ' + MESES[p.m - 1];
+  function fechaLarga(iso) { var p = partes(iso); return DIAS[diaSemana(iso)] + ' ' + p.d + ' de ' + MESES[p.m - 1]; }
+  function fechaCorta(iso) { var p = partes(iso); return DIAS_CORTOS[diaSemana(iso)].toLowerCase() + ' ' + p.d + ' ' + MESES_CORTOS[p.m - 1]; }
+  function cuando(iso, hoy) {
+    if (iso === hoy) return 'Hoy';
+    var p = partes(hoy), man = new Date(Date.UTC(p.a, p.m - 1, p.d + 1));
+    if (iso === man.toISOString().slice(0, 10)) return 'Mañana';
+    return fechaCorta(iso);
   }
-  function fechaCorta(iso) {
-    var p = partes(iso);
-    return DIAS_CORTOS[diaSemana(iso)].toLowerCase() + ' ' + p.d + ' ' + MESES_CORTOS[p.m - 1];
-  }
-  function leerCache() {
-    try { return JSON.parse(localStorage.getItem(CLAVE_DATOS) || 'null'); } catch (e) { return null; }
-  }
-  function guardarCache(d) {
-    try { localStorage.setItem(CLAVE_DATOS, JSON.stringify(d)); } catch (e) { /* sin almacenamiento */ }
+  function mayuscula(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+  function primerNombre(n) { return String(n || '').split(' ')[0]; }
+  function leer(clave) { try { return JSON.parse(localStorage.getItem(clave) || 'null'); } catch (e) { return null; } }
+  function guardar(clave, v) { try { if (v == null) localStorage.removeItem(clave); else localStorage.setItem(clave, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } }
+
+  /* ---------- servidor ---------- */
+  function api(accion, datos) {
+    if (DEMO) return demoApi(accion, datos || {});
+    var cuerpo = Object.assign({ accion: accion, token: estado.token }, datos || {});
+    return fetch(cfg.apiUrl, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(cuerpo) })
+      .then(function (r) { if (!r.ok) throw new Error('red'); return r.json(); })
+      .then(function (r) {
+        if (!r.ok && r.codigo === 'sesion') { salir(r.error); throw new Error('sesion'); }
+        return r;
+      });
   }
 
-  /* ---------- datos ---------- */
   function cargar() {
-    var cache = leerCache();
-    if (cache && !/[?&]demo\b/.test(location.search)) { estado.datos = cache; render(); }
-    var cfg = window.APP_CONFIG || {};
-    var demo = /[?&]demo\b/.test(location.search); // vista previa local con dev-data.json
-    var url = cfg.apiUrl && !demo ? cfg.apiUrl + (cfg.apiUrl.indexOf('?') < 0 ? '?' : '&') + 'accion=publico' : 'dev-data.json';
-    fetch(url, { cache: 'no-store', redirect: 'follow' })
-      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-      .then(function (d) {
-        if (!d || !d.ok) throw new Error('respuesta inválida');
-        estado.datos = d;
-        estado.sinConexion = false;
-        guardarCache(d);
-        render();
-      })
-      .catch(function () {
-        estado.sinConexion = true;
-        render();
-      });
+    if (!estado.token && !DEMO) { renderLogin(); return; }
+    var cache = DEMO ? null : leer(CLAVE_DATOS);
+    if (cache && !estado.datos) { estado.datos = cache; render(); }
+    var pedido = DEMO ? fetch('dev-data.json', { cache: 'no-store' }).then(function (r) { return r.json(); }) : api('datos');
+    pedido.then(function (d) {
+      if (!d || !d.ok) throw new Error(d && d.error || 'respuesta inválida');
+      estado.datos = d;
+      estado.sinConexion = false;
+      if (!DEMO) guardar(CLAVE_DATOS, d);
+      render();
+    }).catch(function (e) {
+      if (e.message === 'sesion') return;
+      estado.sinConexion = true;
+      render();
+    });
+  }
+
+  function salir(mensaje) {
+    estado.token = null;
+    estado.datos = null;
+    estado.error = mensaje || '';
+    guardar(CLAVE_SESION, null);
+    guardar(CLAVE_DATOS, null);
+    try { if (window.google) google.accounts.id.disableAutoSelect(); } catch (e) { /* nada */ }
+    location.hash = '';
+    renderLogin();
+  }
+
+  /* ---------- inicio de sesión ---------- */
+  function renderLogin() {
+    document.title = 'Programas · Entrar';
+    app.innerHTML =
+      '<section class="login">' +
+      '<div class="login-marca">' + svg('calendario', ' class="hero-logo"') + '<span>Programas</span></div>' +
+      '<h1>Programas y asignaciones de la congregación</h1>' +
+      '<p>Entra con tu cuenta de Google para ver tus responsabilidades de la semana y todos los programas.</p>' +
+      '<div id="google-btn" class="google-btn"></div>' +
+      (estado.error ? '<p class="login-error" role="alert">' + esc(estado.error) + '</p>' : '') +
+      '<p class="login-nota">Usa el mismo correo que entregaste a la congregación. Solo se entra una vez en cada teléfono.</p>' +
+      '</section>';
+    if (!cfg.googleClientId) {
+      document.getElementById('google-btn').innerHTML = '<p class="login-error">Falta configurar el acceso con Google.</p>';
+      return;
+    }
+    cargarGoogle(function () {
+      google.accounts.id.initialize({ client_id: cfg.googleClientId, callback: alEntrar, auto_select: true, ux_mode: 'popup' });
+      google.accounts.id.renderButton(document.getElementById('google-btn'), { theme: 'filled_blue', size: 'large', shape: 'pill', text: 'signin_with', locale: 'es', width: 280 });
+    });
+  }
+
+  function cargarGoogle(listo) {
+    if (window.google && google.accounts) { listo(); return; }
+    var s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.async = true;
+    s.onload = listo;
+    s.onerror = function () { estado.error = 'No se pudo cargar el acceso de Google. Revisa tu conexión.'; renderLogin(); };
+    document.head.appendChild(s);
+  }
+
+  function alEntrar(resp) {
+    estado.error = '';
+    app.innerHTML = '<p class="cargando">Entrando…</p>';
+    api('entrar', { credential: resp.credential }).then(function (r) {
+      if (!r.ok) { estado.error = r.error; renderLogin(); return; }
+      estado.token = r.token;
+      guardar(CLAVE_SESION, r.token);
+      cargar();
+    }).catch(function () { estado.error = 'No se pudo conectar. Intenta de nuevo.'; renderLogin(); });
   }
 
   /* ---------- vistas ---------- */
   function render() {
-    var ruta = location.hash.replace(/^#\/?/, '');
     if (!estado.datos) {
       app.innerHTML = estado.sinConexion
         ? '<p class="cargando">No se pudieron cargar los programas. Revisa tu conexión e intenta de nuevo.</p>'
         : '<p class="cargando">Cargando programas…</p>';
       return;
     }
+    var ruta = location.hash.replace(/^#\/?/, '');
     var m = /^p\/([\w-]+)/.exec(ruta);
     var prog = m && estado.datos.programas.filter(function (p) { return p.id === m[1]; })[0];
     if (prog) renderPrograma(prog); else renderInicio();
   }
 
   function proximaDe(prog, hoy) {
-    return prog.reuniones.filter(function (r) { return r.fecha >= hoy; })[0];
+    return prog.reuniones.filter(function (r) { return !r.borrador && r.fecha >= hoy; })[0];
   }
 
   function renderInicio() {
-    var d = estado.datos, hoy = hoyISO();
+    var d = estado.datos, hoy = d.hoy || hoyISO(), u = d.usuario || {};
     document.title = 'Programas · ' + (d.inicio.congregacion || 'Congregación');
+
+    var h = '<header class="hero hero-usuario"><div class="hero-top">' + svg('calendario', ' class="hero-logo"') +
+      '<span>' + esc(d.inicio.congregacion || 'Congregación') + '</span></div>' +
+      '<div class="hero-fecha">' + esc(mayuscula(fechaLarga(hoy))) + '</div>' +
+      '<h1>Hola, ' + esc(primerNombre(u.nombre)) + '</h1>' +
+      (d.inicio.aviso ? '<p class="hero-aviso">' + esc(d.inicio.aviso) + '</p>' : '') +
+      '</header>';
+    if (estado.sinConexion) h += '<div class="estado-red">Sin conexión. Estás viendo los últimos datos guardados.</div>';
+
+    // Resumen personal
+    h += '<section class="resumen" aria-labelledby="t-resumen"><h2 id="t-resumen">Tus próximos 7 días</h2>';
+    if (!d.resumen || !d.resumen.length) {
+      h += '<p class="resumen-vacio">No tienes asignaciones en los próximos 7 días.</p>';
+    } else {
+      d.resumen.forEach(function (x) { h += itemResumenHTML(x, hoy); });
+    }
+    h += '</section>';
+
+    // Programas por aprobar
+    var porAprobar = [];
+    d.programas.forEach(function (p) { (p.borradores || []).forEach(function (b) { porAprobar.push({ p: p, b: b }); }); });
+    if (porAprobar.length) {
+      h += '<section class="bloque"><h2>Por aprobar</h2><div class="aprobar-lista">';
+      porAprobar.forEach(function (x) {
+        var id = x.p.id + '|' + x.b.periodo;
+        var confirmando = estado.confirmarAprobar === id;
+        h += '<div class="aprobar">' +
+          '<div><div class="aprobar-t">' + esc(x.p.nombre) + ' · ' + esc(x.b.periodo) + '</div>' +
+          (x.b.desde ? '<div class="aprobar-d">Del ' + esc(fechaCorta(x.b.desde)) + ' al ' + esc(fechaCorta(x.b.hasta)) + '</div>' : '') +
+          (x.b.avisos ? '<div class="aprobar-aviso">' + esc(x.b.avisos) + '</div>' : '') + '</div>' +
+          '<div class="aprobar-acc"><a class="btn btn-sec" href="#p/' + esc(x.p.id) + '">Revisar</a>' +
+          '<button class="btn" type="button" data-aprobar="' + esc(id) + '">' + (confirmando ? '¿Publicar? Sí, aprobar' : 'Aprobar') + '</button></div></div>';
+      });
+      h += '</div></section>';
+    }
+
+    // Programas
     var proximas = d.programas.map(function (p) { return { p: p, r: proximaDe(p, hoy) }; })
       .filter(function (x) { return x.r; })
       .sort(function (a, b) { return (a.r.fecha + (a.r.hora || '')).localeCompare(b.r.fecha + (b.r.hora || '')); });
     var destacada = proximas[0];
-
-    var h = '<header class="hero"><div class="hero-top">' + svg('calendario', ' class="hero-logo"') +
-      '<span>' + esc(d.inicio.congregacion || 'Congregación') + '</span></div>';
-    if (d.inicio.aviso) {
-      h += '<div class="hero-fecha">Aviso</div><h1>' + esc(d.inicio.aviso) + '</h1>';
-      if (destacada) h += '<a class="hero-btn" href="#p/' + esc(destacada.p.id) + '">Ver ' + esc(destacada.p.nombre.toLowerCase()) + '</a>';
-    } else if (destacada) {
-      var r = destacada.r;
-      h += '<div class="hero-fecha">' + (r.fecha === hoy ? 'Hoy' : esc(fechaCorta(r.fecha))) + (r.hora ? ' · ' + esc(r.hora) : '') + '</div>' +
-        '<h1>' + esc(destacada.p.nombre) + '</h1>' +
-        '<a class="hero-btn" href="#p/' + esc(destacada.p.id) + '">Ver programa</a>';
-    } else {
-      h += '<div class="hero-fecha">' + esc(fechaLarga(hoy)) + '</div><h1>Programas y asignaciones</h1>';
-    }
-    h += '</header>';
-    if (estado.sinConexion) h += '<div class="estado-red">Sin conexión. Estás viendo los últimos datos guardados.</div>';
-
-    h += '<nav class="mosaico" aria-label="Programas">';
+    h += '<section class="bloque"><h2>Programas</h2><nav class="mosaico" aria-label="Programas">';
     d.programas.forEach(function (p) {
       var prox = proximaDe(p, hoy);
-      var sub = prox ? (prox.fecha === hoy ? 'Hoy' : fechaCorta(prox.fecha)) + (prox.hora ? ' · ' + prox.hora : '') : 'Sin fechas próximas';
+      var sub = prox ? cuando(prox.fecha, hoy) + (prox.hora ? ' · ' + prox.hora : '') : 'Sin fechas próximas';
       var activo = destacada && destacada.p.id === p.id;
       h += '<a class="baldosa' + (activo ? ' activa' : '') + '" href="#p/' + esc(p.id) + '">' +
         svg(p.icono, ' class="baldosa-icono"') +
         '<span class="baldosa-nombre">' + esc(p.nombre) + '</span>' +
         '<span class="baldosa-sub">' + esc(sub) + '</span></a>';
     });
-    h += '</nav>';
+    h += '</nav></section>';
 
     if (d.inicio.mensaje || d.inicio.direccion) {
       h += '<section class="tarjeta">' + (d.inicio.mensaje ? '<p class="mensaje">' + esc(d.inicio.mensaje) + '</p>' : '') +
         (d.inicio.direccion ? '<p class="mensaje-dir">' + SVG_PIN + '<span>Salón del Reino: ' + esc(d.inicio.direccion) + '</span></p>' : '') + '</section>';
     }
-    if (d.enlaces && d.enlaces.length) {
-      h += '<section class="bloque"><h2>Enlaces</h2><div class="enlaces">';
-      d.enlaces.forEach(function (l) {
-        h += '<a href="' + esc(l.url) + '" target="_blank" rel="noopener"><span><div class="t">' + esc(l.titulo) + '</div>' +
-          (l.descripcion ? '<div class="d">' + esc(l.descripcion) + '</div>' : '') + '</span>' + SVG_CHEVRON + '</a>';
-      });
-      h += '</div></section>';
-    }
+    var publicos = (d.enlaces || []).filter(function (l) { return !l.privilegiado; });
+    var especiales = (d.enlaces || []).filter(function (l) { return l.privilegiado; });
+    h += enlacesHTML('Enlaces', publicos) + enlacesHTML('Contenido especial', especiales);
     h += instalarHTML();
-    h += '<p class="pie">Actualizado ' + esc(new Date(d.generado).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })) + '</p>';
+    h += '<p class="pie">Conectado como ' + esc(u.nombre || '') + (u.rol ? ' · ' + esc(u.rol) : '') +
+      ' · <button type="button" class="enlace-boton" id="salir">Salir</button><br>Actualizado ' +
+      esc(new Date(d.generado).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })) + '</p>';
     app.innerHTML = h;
-    var b = document.getElementById('btn-instalar');
-    if (b) b.addEventListener('click', function () {
+
+    app.querySelectorAll('[data-responder]').forEach(function (b) {
+      b.addEventListener('click', function () { responder(b.getAttribute('data-clave'), b.getAttribute('data-responder')); });
+    });
+    app.querySelectorAll('[data-aprobar]').forEach(function (b) {
+      b.addEventListener('click', function () { aprobar(b.getAttribute('data-aprobar')); });
+    });
+    var bs = document.getElementById('salir');
+    if (bs) bs.addEventListener('click', function () { salir(); });
+    var bi = document.getElementById('btn-instalar');
+    if (bi) bi.addEventListener('click', function () {
       eventoInstalar.prompt();
       eventoInstalar.userChoice.finally(function () { eventoInstalar = null; render(); });
     });
+  }
+
+  function itemResumenHTML(x, hoy) {
+    var p = partes(x.fecha);
+    var h = '<article class="mia"><div class="mia-fecha"><span class="ds">' + DIAS_CORTOS[diaSemana(x.fecha)] + '</span><span class="dn">' + p.d + '</span>' +
+      '<span class="ms">' + MESES_CORTOS[p.m - 1] + '</span></div><div class="mia-cuerpo">' +
+      '<div class="mia-prog">' + esc(x.programaNombre) + ' · ' + esc(cuando(x.fecha, hoy)) + (x.hora ? ' · ' + esc(x.hora) : '') + '</div>' +
+      tituloResumen(x) +
+      (x.lugar ? '<div class="lugar">' + SVG_PIN + '<span>' + esc(x.lugar) + '</span></div>' : '');
+    if (x.puedeResponder) {
+      h += '<div class="mia-acc">' +
+        '<button type="button" class="btn-resp si' + (x.estado === 'Confirmado' ? ' marcado' : '') + '" data-responder="Confirmado" data-clave="' + esc(x.clave) + '">' + svg('check') + 'Confirmo</button>' +
+        '<button type="button" class="btn-resp no' + (x.estado === 'Rechazado' ? ' marcado' : '') + '" data-responder="Rechazado" data-clave="' + esc(x.clave) + '">No puedo</button></div>';
+    } else if (x.estado && x.estado !== 'Sin confirmación') {
+      h += '<div class="mia-acc">' + pastilla(x.estado) + '</div>';
+    }
+    return h + '</div></article>';
+  }
+
+  // Título del resumen: la parte del programa cuando el rol es genérico ("Asignado", "Titular"…)
+  function tituloResumen(x) {
+    var generico = /^(asignado|titular|ayudante)$/i.test(x.rol);
+    var principal = x.grupo ? 'Tu grupo (' + x.grupo + '): ' + x.rol : generico && x.parte ? x.parte : x.rol;
+    var secundario = generico ? x.rol : x.parte && norm(x.rol).indexOf(norm(x.parte)) < 0 ? x.parte : '';
+    if (x.sala) secundario = (secundario ? secundario + ' · ' : '') + x.sala;
+    return '<div class="mia-rol">' + esc(principal) + '</div>' + (secundario ? '<div class="mia-parte">' + esc(secundario) + '</div>' : '');
+  }
+
+  function pastilla(e) {
+    return '<span class="estado ' + (CLASE_ESTADO[e] || 'neutro') + '">' + esc(e) + '</span>';
+  }
+
+  function enlacesHTML(titulo, lista) {
+    if (!lista.length) return '';
+    var h = '<section class="bloque"><h2>' + esc(titulo) + '</h2><div class="enlaces">';
+    lista.forEach(function (l) {
+      h += '<a href="' + esc(l.url) + '" target="_blank" rel="noopener"><span><div class="t">' + esc(l.titulo) + '</div>' +
+        (l.descripcion ? '<div class="d">' + esc(l.descripcion) + '</div>' : '') + '</span>' + SVG_CHEVRON + '</a>';
+    });
+    return h + '</div></section>';
   }
 
   function instalarHTML() {
@@ -179,12 +313,40 @@
     return h + '</section>';
   }
 
+  function responder(clave, respuesta) {
+    var item = estado.datos.resumen.filter(function (x) { return x.clave === clave; })[0];
+    var antes = item.estado;
+    item.estado = respuesta;
+    render();
+    api('responder', { clave: clave, respuesta: respuesta }).then(function (r) {
+      if (!r.ok) throw new Error(r.error);
+      aviso(respuesta === 'Confirmado' ? 'Gracias, quedó confirmado.' : 'Listo. Se avisó al responsable del programa.');
+    }).catch(function (e) {
+      if (e.message === 'sesion') return;
+      item.estado = antes;
+      render();
+      aviso(e.message && e.message !== 'red' ? e.message : 'No se pudo guardar. Revisa tu conexión.', true);
+    });
+  }
+
+  function aprobar(id) {
+    if (estado.confirmarAprobar !== id) { estado.confirmarAprobar = id; render(); return; }
+    estado.confirmarAprobar = '';
+    var p = id.split('|');
+    aviso('Aprobando…');
+    api('aprobar', { programa: p[0], periodo: p.slice(1).join('|') }).then(function (r) {
+      if (!r.ok) throw new Error(r.error);
+      aviso('Programa aprobado y publicado.');
+      cargar();
+    }).catch(function (e) { if (e.message !== 'sesion') aviso(e.message || 'No se pudo aprobar.', true); });
+  }
+
+  /* ---------- programa ---------- */
   function renderPrograma(prog) {
-    var hoy = hoyISO();
+    var d = estado.datos, hoy = d.hoy || hoyISO();
     document.title = prog.nombre + ' · Programas';
     var q = norm(estado.busqueda);
 
-    // Agrupa por fecha (predicación tiene varias salidas por día)
     var dias = [];
     prog.reuniones.forEach(function (r) {
       var ult = dias[dias.length - 1];
@@ -192,13 +354,13 @@
       else dias.push({ fecha: r.fecha, reuniones: [r] });
     });
     if (q) {
-      dias = dias.map(function (d) {
-        return { fecha: d.fecha, reuniones: d.reuniones.filter(function (r) { return reunionTiene(r, q); }) };
-      }).filter(function (d) { return d.reuniones.length; });
+      dias = dias.map(function (x) {
+        return { fecha: x.fecha, reuniones: x.reuniones.filter(function (r) { return reunionTiene(r, q); }) };
+      }).filter(function (x) { return x.reuniones.length; });
     }
-    var anteriores = dias.filter(function (d) { return d.fecha < hoy; });
-    var visibles = estado.verAnteriores || q ? dias : dias.filter(function (d) { return d.fecha >= hoy; });
-    var proxima = dias.filter(function (d) { return d.fecha >= hoy; })[0];
+    var anteriores = dias.filter(function (x) { return x.fecha < hoy; });
+    var visibles = estado.verAnteriores || q ? dias : dias.filter(function (x) { return x.fecha >= hoy; });
+    var proxima = dias.filter(function (x) { return x.fecha >= hoy && x.reuniones.some(function (r) { return !r.borrador; }); })[0];
 
     var h = '<div class="barra"><div class="barra-top">' +
       '<button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Inicio</button>' +
@@ -207,6 +369,11 @@
       '<input id="buscar" type="search" placeholder="Buscar un nombre" autocomplete="off" value="' + esc(estado.busqueda) + '" aria-label="Buscar un nombre"></label></div>';
 
     if (estado.sinConexion) h += '<div class="estado-red">Sin conexión. Estás viendo los últimos datos guardados.</div>';
+    if (d.estados) {
+      h += '<p class="leyenda"><span><i class="punto ok"></i> Confirmado</span><span><i class="punto pend"></i> Pendiente</span>' +
+        '<span><i class="punto rech"></i> Rechazado</span><span><i class="punto manual"></i> Avisar a mano</span></p>';
+    }
+    if (prog.editable) h += '<p class="ayuda-editar">Toca un nombre para cambiar el asignado o su estado.</p>';
     if (anteriores.length && !estado.verAnteriores && !q) {
       h += '<button class="btn btn-sec" type="button" id="anteriores">Ver fechas anteriores (' + anteriores.length + ')</button>';
     }
@@ -214,16 +381,16 @@
       h += '<p class="vacio">' + (q ? 'No hay asignaciones para «' + esc(estado.busqueda) + '».' : 'Aún no hay un programa publicado con fechas próximas.') + '</p>';
     }
     var mesActual = '';
-    visibles.forEach(function (d) {
-      var p = partes(d.fecha);
+    visibles.forEach(function (x) {
+      var p = partes(x.fecha);
       var mes = MESES[p.m - 1] + ' ' + p.a;
       if (mes !== mesActual) { h += '<h2 class="mes">' + esc(mes) + '</h2>'; mesActual = mes; }
-      var clase = 'dia' + (d.fecha < hoy ? ' pasado' : '') + (proxima && d.fecha === proxima.fecha ? ' proximo' : '');
-      h += '<article class="' + clase + '" id="d-' + d.fecha + '">' +
-        '<div class="fecha"><span class="ds">' + DIAS_CORTOS[diaSemana(d.fecha)] + '</span><span class="dn">' + p.d + '</span>' +
+      var clase = 'dia' + (x.fecha < hoy ? ' pasado' : '') + (proxima && x.fecha === proxima.fecha ? ' proximo' : '');
+      h += '<article class="' + clase + '">' +
+        '<div class="fecha"><span class="ds">' + DIAS_CORTOS[diaSemana(x.fecha)] + '</span><span class="dn">' + p.d + '</span>' +
         '<span class="ms">' + MESES_CORTOS[p.m - 1] + '</span>' +
-        (d.fecha === hoy ? '<span class="tag">Hoy</span>' : proxima && d.fecha === proxima.fecha ? '<span class="tag">Próxima</span>' : '') +
-        '</div><div class="reuniones">' + d.reuniones.map(function (r) { return reunionHTML(r, q); }).join('') + '</div></article>';
+        (x.fecha === hoy ? '<span class="tag">Hoy</span>' : proxima && x.fecha === proxima.fecha ? '<span class="tag">Próxima</span>' : '') +
+        '</div><div class="reuniones">' + x.reuniones.map(function (r) { return reunionHTML(r, q, prog); }).join('') + '</div></article>';
     });
     app.innerHTML = h;
 
@@ -242,19 +409,21 @@
     });
     var ant = document.getElementById('anteriores');
     if (ant) ant.addEventListener('click', function () { estado.verAnteriores = true; renderPrograma(prog); });
+    app.querySelectorAll('[data-editar]').forEach(function (b) {
+      b.addEventListener('click', function () { abrirEditor(prog, b.getAttribute('data-editar')); });
+    });
   }
 
   function reunionTiene(r, q) {
     return r.secciones.some(function (s) {
-      return s.filas.some(function (f) {
-        return f.asignados.some(function (a) { return norm(a.nombre).indexOf(q) >= 0; });
-      });
+      return s.filas.some(function (f) { return f.asignados.some(function (a) { return norm(a.nombre).indexOf(q) >= 0; }); });
     });
   }
 
-  function reunionHTML(r, q) {
+  function reunionHTML(r, q, prog) {
     var h = '<div class="reunion"><div class="reunion-cab"><span class="t">' + esc(r.titulo || '') + '</span>' +
-      (r.hora ? '<span class="h">' + esc(r.hora) + ' h</span>' : '') + '</div>';
+      (r.hora ? '<span class="h">' + esc(r.hora) + ' h</span>' : '') +
+      (r.borrador ? '<span class="estado neutro">Borrador · ' + esc(r.periodo) + '</span>' : '') + '</div>';
     if (r.lugar) h += '<div class="lugar">' + SVG_PIN + '<span>' + esc(r.lugar) + '</span></div>';
     if (r.nota) h += '<div class="nota">' + esc(r.nota) + '</div>';
     r.secciones.forEach(function (s) {
@@ -268,28 +437,115 @@
           h += '<div class="izq">' + (f.texto ? '<div class="txt">' + esc(f.texto) + '</div>' : '') +
             (f.detalle ? '<div class="det">' + esc(f.detalle) + '</div>' : '') + '</div>';
         }
-        h += '<div class="nombres">' + (f.asignados.length ? f.asignados.map(function (a) { return personaHTML(a, q, f); }).join('') : '<span class="sin-nombre">—</span>') + '</div></div>';
+        h += '<div class="nombres">' + (f.asignados.length ? f.asignados.map(function (a) { return personaHTML(a, q, prog); }).join('') : '<span class="sin-nombre">—</span>') + '</div></div>';
       });
       h += '</div>';
     });
     return h + '</div>';
   }
 
-  function personaHTML(a, q, fila) {
+  function personaHTML(a, q, prog) {
+    var d = estado.datos, yo = d.usuario && d.usuario.nombre;
     var extra = [];
     if (a.rol === 'Ayudante') extra.push('ayudante');
     if (a.sala === 'Sala auxiliar') extra.push('sala auxiliar');
-    var marcado = q && norm(a.nombre).indexOf(q) >= 0;
-    return '<span class="persona' + (marcado ? ' resaltado' : '') + '">' + esc(a.nombre) +
-      (extra.length ? '<small>' + esc(extra.join(' · ')) + '</small>' : '') + '</span>';
+    var clase = 'persona' + ((q && norm(a.nombre).indexOf(q) >= 0) || (yo && norm(a.nombre) === norm(yo)) ? ' resaltado' : '');
+    var est = d.estados && a.clave ? d.estados[a.clave] : '';
+    var contenido = esc(a.nombre) + (extra.length ? '<small>' + esc(extra.join(' · ')) + '</small>' : '') +
+      (est && est !== 'Sin confirmación' && est !== 'Borrador' ? ' <i class="punto ' + (CLASE_ESTADO[est] || 'neutro') + '" title="' + esc(est) + '"></i>' : '');
+    if (prog.editable && a.clave) {
+      return '<button type="button" class="' + clase + ' editable" data-editar="' + esc(a.clave) + '">' + contenido + '</button>';
+    }
+    return '<span class="' + clase + '">' + contenido + '</span>';
+  }
+
+  /* ---------- edición (con privilegios) ---------- */
+  function buscarAsignado(prog, clave) {
+    var out = null;
+    prog.reuniones.forEach(function (r) {
+      r.secciones.forEach(function (s) { s.filas.forEach(function (f) { f.asignados.forEach(function (a) {
+        if (a.clave === clave) out = { r: r, f: f, a: a };
+      }); }); });
+    });
+    return out;
+  }
+
+  function abrirEditor(prog, clave) {
+    var x = buscarAsignado(prog, clave);
+    if (!x) return;
+    var d = estado.datos, est = (d.estados || {})[clave] || '';
+    var opciones = ESTADOS_EDITABLES.map(function (e) { return '<option' + (e === est ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('');
+    var cont = document.createElement('div');
+    cont.className = 'editor-fondo';
+    cont.innerHTML =
+      '<form class="editor" role="dialog" aria-modal="true" aria-labelledby="ed-t">' +
+      '<div class="editor-cab"><div id="ed-t" class="editor-t">' + esc(x.f.texto || x.a.rol) + '</div>' +
+      '<div class="editor-d">' + esc(fechaLarga(x.r.fecha)) + (x.r.hora ? ' · ' + esc(x.r.hora) : '') + ' · ' + esc(x.a.rol) + '</div></div>' +
+      '<label for="ed-nombre">Asignado</label>' +
+      '<input id="ed-nombre" list="ed-personas" value="' + esc(x.a.nombre) + '" autocomplete="off">' +
+      '<datalist id="ed-personas">' + (d.personas || []).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>' +
+      (est && est !== 'Borrador' ? '<label for="ed-estado">Estado</label><select id="ed-estado">' + opciones + '</select>' : '') +
+      '<p class="editor-nota">Si cambias el nombre, también se cambia en la hoja oficial del programa y la asignación vuelve a quedar pendiente.</p>' +
+      '<p class="editor-msg" id="ed-msg" role="status"></p>' +
+      '<div class="editor-acc"><button type="button" class="btn btn-sec" id="ed-cancelar">Cancelar</button><button type="submit" class="btn" id="ed-guardar">Guardar</button></div>' +
+      '</form>';
+    document.body.appendChild(cont);
+    var cerrar = function () { cont.remove(); };
+    cont.addEventListener('click', function (e) { if (e.target === cont) cerrar(); });
+    document.getElementById('ed-cancelar').addEventListener('click', cerrar);
+    cont.querySelector('form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var nombre = document.getElementById('ed-nombre').value.trim();
+      var sel = document.getElementById('ed-estado');
+      var nuevoEstado = sel ? sel.value : est;
+      var msg = document.getElementById('ed-msg');
+      var pedido;
+      if (nombre && nombre !== x.a.nombre) pedido = api('asignar', { clave: clave, nombre: nombre });
+      else if (nuevoEstado !== est) pedido = api('estado', { clave: clave, estado: nuevoEstado });
+      else { cerrar(); return; }
+      document.getElementById('ed-guardar').disabled = true;
+      msg.textContent = 'Guardando…';
+      pedido.then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        cerrar();
+        aviso(r.aviso || 'Cambio guardado.', !!r.aviso);
+        cargar();
+      }).catch(function (err) {
+        if (err.message === 'sesion') { cerrar(); return; }
+        msg.textContent = err.message && err.message !== 'red' ? err.message : 'No se pudo guardar. Revisa tu conexión.';
+        document.getElementById('ed-guardar').disabled = false;
+      });
+    });
+    document.getElementById('ed-nombre').focus();
+  }
+
+  /* ---------- avisos breves ---------- */
+  function aviso(texto, esError) {
+    var t = document.getElementById('toast');
+    if (!t) { t = document.createElement('div'); t.id = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+    t.className = 'toast' + (esError ? ' error' : '');
+    t.textContent = texto;
+    clearTimeout(aviso.t);
+    aviso.t = setTimeout(function () { t.className = 'toast oculto'; }, 4000);
+  }
+
+  /* ---------- modo demo (solo local) ---------- */
+  function demoApi(accion, p) {
+    var d = estado.datos;
+    if (accion === 'responder' || accion === 'estado') { if (d.estados) d.estados[p.clave] = p.respuesta || p.estado; }
+    if (accion === 'aprobar') d.programas.forEach(function (x) {
+      if (x.id === p.programa) { x.borradores = []; x.reuniones.forEach(function (r) { r.borrador = false; }); }
+    });
+    return Promise.resolve({ ok: true, aviso: accion === 'asignar' ? '(demo) En la app real se escribe en la hoja oficial.' : '' });
   }
 
   /* ---------- arranque ---------- */
   window.addEventListener('hashchange', function () { render(); window.scrollTo(0, 0); });
-  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); eventoInstalar = e; render(); });
-  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') cargar(); });
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); eventoInstalar = e; if (estado.datos) render(); });
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && (estado.token || DEMO)) cargar(); });
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     navigator.serviceWorker.register('sw.js').catch(function () { /* sin modo offline */ });
   }
+  estado.token = leer(CLAVE_SESION);
   cargar();
 })();
