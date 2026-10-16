@@ -363,7 +363,7 @@ function parseFinSemana(sheet) {
     }
     else if (/^articulo atalaya/.test(la)) reunion.articulo = b;
     else if (/^tema/.test(la)) reunion.tema = b;
-    else if (/^lector/.test(la)) fila('Lector de La Atalaya', [reunion.articulo, reunion.tema].filter(Boolean).join(' — '), b ? [{ slot: 'lector', rol: 'Lector de La Atalaya', nombre: b, celda: [r, 1] }] : []);
+    else if (/^lector/.test(la)) fila('Lector de La Atalaya', '', b ? [{ slot: 'lector', rol: 'Lector de La Atalaya', nombre: b, celda: [r, 1] }] : []);
     else if (/^oracion final/.test(la)) fila('Oración final', '(en ausencia del discursante)', b ? [{ slot: 'oracion', rol: 'Oración final', nombre: b, celda: [r, 1] }] : []);
   }
 

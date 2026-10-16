@@ -30,6 +30,11 @@ var HOJAS = {
     titulos: ['Correo', 'Nombre', 'Rol', 'Programas'],
     anchos: [260, 200, 110, 260]
   },
+  avisos: {
+    nombre: 'Avisos',
+    titulos: ['Título', 'Detalle', 'Ícono', 'Mostrar hasta', 'Orden'],
+    anchos: [260, 260, 110, 120, 60]
+  },
   enlaces: {
     nombre: 'Enlaces',
     titulos: ['Título', 'URL', 'Descripción', 'Visibilidad', 'Orden'],
@@ -81,6 +86,7 @@ function hoja_(clave) {
 
 /** Lee una pestaña como lista de objetos { titulo: valor, _fila: n }. */
 function leerTabla_(clave, opciones) {
+  if (opciones && opciones.opcional && !planilla_().getSheetByName(HOJAS[clave].nombre)) return [];
   var sh = hoja_(clave);
   var rango = sh.getDataRange();
   var valores = rango.getValues();

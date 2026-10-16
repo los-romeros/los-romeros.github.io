@@ -107,6 +107,12 @@ function construirBase_() {
 
   var periodos = {};
   leerTabla_('periodos').forEach(function (p) { periodos[p['Programa'] + '|' + p['Periodo']] = p; });
+  // Superintendente y auxiliar de cada grupo (se muestran junto a hospitalidad y aseo)
+  var grupos = {};
+  leerTabla_('grupos').forEach(function (g) {
+    var t = [g['Superintendente'] && 'Sup.: ' + g['Superintendente'], g['Auxiliar'] && 'Aux.: ' + g['Auxiliar']].filter(Boolean).join(' · ');
+    if (t) grupos[+g['Grupo']] = t;
+  });
   var nombres = {};
   leerTabla_('asignaciones').forEach(function (a) { if (a['Estado'] !== 'Eliminada') nombres[a['Clave']] = a['Nombre']; });
 
@@ -140,7 +146,8 @@ function construirBase_() {
                     rol: a.rol,
                     nombre: a.externo ? a.nombre + (a.origen ? ' (' + a.origen + ')' : '') : nombres[clave] || a.nombre,
                     sala: a.sala || '',
-                    grupo: a.grupo || null
+                    grupo: a.grupo || null,
+                    encargados: a.grupo ? grupos[a.grupo] || '' : ''
                   };
                 })
               };
@@ -170,9 +177,23 @@ function construirBase_() {
     .sort(function (a, b) { return (+a['Orden'] || 99) - (+b['Orden'] || 99); })
     .map(function (l) { return { titulo: l['Título'], url: l['URL'], descripcion: l['Descripción'], privilegiado: /privilegiad/i.test(l['Visibilidad']) }; });
 
+  var avisos = leerTabla_('avisos', { opcional: true })
+    .filter(function (a) {
+      if (!a['Título']) return false;
+      var h = a['Mostrar hasta'];
+      return !(h instanceof Date) || Utilities.formatDate(h, Session.getScriptTimeZone(), 'yyyy-MM-dd') >= hoy;
+    })
+    .sort(function (a, b) { return (+a['Orden'] || 99) - (+b['Orden'] || 99); })
+    .map(function (a) { return { titulo: a['Título'], detalle: a['Detalle'], icono: a['Ícono'] || 'megafono' }; });
+  if (cfg.aviso) avisos.unshift({ titulo: cfg.aviso, detalle: '', icono: 'megafono' });
+
   return {
     generado: new Date().toISOString(),
-    inicio: { congregacion: cfg.congregacion || '', mensaje: cfg.mensaje || '', aviso: cfg.aviso || '', direccion: cfg.direccion || '' },
+    inicio: {
+      congregacion: cfg.congregacion || '', mensaje: cfg.mensaje || '', direccion: cfg.direccion || '',
+      avisos: avisos,
+      zoom: { vmc: cfg.zoomEntreSemana || '', finsemana: cfg.zoomFinSemana || cfg.zoomEntreSemana || '' }
+    },
     programas: programas,
     enlaces: enlaces
   };

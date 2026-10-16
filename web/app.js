@@ -26,7 +26,9 @@
     escoba: '<path d="M19 3 11 11"/><path d="M8.5 10.5 13.5 15.5 10 21H3.5L5 14z"/><path d="M6.5 17.5 5 21M9 18l-1 3"/>',
     grupo: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>',
     calendario: '<rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>',
-    check: '<path d="M4 12.5 9.5 18 20 6.5"/>'
+    check: '<path d="M4 12.5 9.5 18 20 6.5"/>',
+    megafono: '<path d="M3 10v4a1 1 0 0 0 1 1h2l5 4V5L6 9H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/>',
+    video: '<rect x="2.5" y="6" width="13" height="12" rx="2"/><path d="m15.5 10.5 6-3.5v10l-6-3.5"/>'
   };
 
   function svg(nombre, extra) {
@@ -37,6 +39,16 @@
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
   var SVG_PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>';
+
+  // Costa de Concón: mar, cerros y edificios (decorativo)
+  var PAISAJE = '<svg class="paisaje" viewBox="0 0 400 120" preserveAspectRatio="xMidYMax slice" aria-hidden="true">' +
+    '<path d="M0 78 C60 60 110 66 160 72 S260 58 310 50 S370 44 400 46 V120 H0z" fill="var(--cerro)"/>' +
+    '<g fill="var(--edificio)"><rect x="300" y="18" width="12" height="36"/><rect x="316" y="8" width="13" height="44"/><rect x="333" y="22" width="10" height="28"/><rect x="348" y="12" width="12" height="36"/></g>' +
+    '<path d="M0 88 C50 82 90 92 140 88 S240 80 300 86 S370 90 400 84 V120 H0z" fill="var(--mar)"/>' +
+    '<path d="M0 98 C40 94 80 101 120 98 S200 92 250 98 S340 103 400 96" fill="none" stroke="var(--espuma)" stroke-width="2"/>' +
+    '<path d="M210 120 C260 104 330 100 400 104 V120z" fill="var(--arena)"/>' +
+    '<path d="M240 30 q6 -6 12 0 q6 -6 12 0M272 42 q4 -4 8 0 q4 -4 8 0" fill="none" stroke="var(--edificio)" stroke-width="1.6"/>' +
+    '</svg>';
 
   var cfg = window.APP_CONFIG || {};
   var DEMO = /[?&]demo\b/.test(location.search);
@@ -178,21 +190,29 @@
     var d = estado.datos, hoy = d.hoy || hoyISO(), u = d.usuario || {};
     document.title = 'Programas · ' + (d.inicio.congregacion || 'Congregación');
 
-    var h = '<header class="hero hero-usuario"><div class="hero-top">' + svg('calendario', ' class="hero-logo"') +
-      '<span>' + esc(d.inicio.congregacion || 'Congregación') + '</span></div>' +
-      '<div class="hero-fecha">' + esc(mayuscula(fechaLarga(hoy))) + '</div>' +
-      '<h1>Hola, ' + esc(primerNombre(u.nombre)) + '</h1>' +
-      (d.inicio.aviso ? '<p class="hero-aviso">' + esc(d.inicio.aviso) + '</p>' : '') +
-      '</header>';
+    var h = '<header class="cabecera-app">' + svg('calendario', ' class="cab-logo"') + '<span>' + esc(d.inicio.congregacion || 'Congregación') + '</span></header>' +
+      '<section class="saludo"><div class="saludo-fecha">' + esc(mayuscula(fechaLarga(hoy))) + '</div>' +
+      '<h1>Hola, ' + esc(primerNombre(u.nombre)) + '</h1><p>Tu semana, de un vistazo.</p></section>';
     if (estado.sinConexion) h += '<div class="estado-red">Sin conexión. Estás viendo los últimos datos guardados.</div>';
 
-    // Resumen personal
-    h += '<section class="resumen" aria-labelledby="t-resumen"><h2 id="t-resumen">Tus próximos 7 días</h2>';
-    if (!d.resumen || !d.resumen.length) {
-      h += '<p class="resumen-vacio">No tienes asignaciones en los próximos 7 días.</p>';
-    } else {
-      d.resumen.forEach(function (x) { h += itemResumenHTML(x, hoy); });
+    // Avisos (solo informativos, no se pueden tocar)
+    var avisos = d.inicio.avisos || [];
+    if (avisos.length) {
+      h += '<section class="avisos" aria-label="Avisos">';
+      avisos.forEach(function (a) {
+        h += '<div class="aviso-item"><span class="circulo ' + (a.icono === 'megafono' ? 'beige' : 'teal') + '">' + svg(a.icono || 'megafono') + '</span>' +
+          '<div><div class="aviso-t">' + esc(a.titulo) + '</div>' + (a.detalle ? '<div class="aviso-d">' + esc(a.detalle) + '</div>' : '') + '</div></div>';
+      });
+      h += '</section>';
     }
+
+    // Resumen personal
+    var items = d.resumen || [];
+    h += '<section class="resumen' + (items.length ? '' : ' vacio-r') + '" aria-labelledby="t-resumen">' +
+      '<div class="resumen-cab"><span class="circulo teal">' + svg('calendario') + '</span>' +
+      '<div><h2 id="t-resumen">Tus próximos 7 días</h2>' +
+      (items.length ? '' : '<p class="resumen-vacio">No tienes asignaciones en los próximos 7 días.</p>') + '</div></div>';
+    items.forEach(function (x) { h += itemResumenHTML(x, hoy); });
     h += '</section>';
 
     // Programas por aprobar
@@ -221,18 +241,21 @@
     h += '<section class="bloque"><h2>Programas</h2><nav class="mosaico" aria-label="Programas">';
     d.programas.forEach(function (p) {
       var prox = proximaDe(p, hoy);
-      var sub = prox ? cuando(prox.fecha, hoy) + (prox.hora ? ' · ' + prox.hora : '') : 'Sin fechas próximas';
+      var sub = prox ? mayuscula(cuando(prox.fecha, hoy)) + (prox.hora ? ' · ' + prox.hora : '') : 'Sin fechas próximas';
       var activo = destacada && destacada.p.id === p.id;
       h += '<a class="baldosa' + (activo ? ' activa' : '') + '" href="#p/' + esc(p.id) + '">' +
-        svg(p.icono, ' class="baldosa-icono"') +
+        '<span class="baldosa-top"><span class="circulo">' + svg(p.icono) + '</span>' +
+        (activo && prox.fecha === hoy ? '<span class="tag-hoy">Hoy</span>' : '') + SVG_CHEVRON + '</span>' +
         '<span class="baldosa-nombre">' + esc(p.nombre) + '</span>' +
-        '<span class="baldosa-sub">' + esc(sub) + '</span></a>';
+        '<span class="baldosa-fecha">' + svg('calendario') + esc(sub) + '</span></a>';
     });
     h += '</nav></section>';
 
     if (d.inicio.mensaje || d.inicio.direccion) {
       h += '<section class="tarjeta">' + (d.inicio.mensaje ? '<p class="mensaje">' + esc(d.inicio.mensaje) + '</p>' : '') +
-        (d.inicio.direccion ? '<p class="mensaje-dir">' + SVG_PIN + '<span>Salón del Reino: ' + esc(d.inicio.direccion) + '</span></p>' : '') + '</section>';
+        (d.inicio.direccion ? '<a class="mapa" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' +
+          encodeURIComponent('Salón del Reino ' + d.inicio.direccion) + '">' + SVG_PIN + '<span><strong>Salón del Reino</strong><br>' + esc(d.inicio.direccion) +
+          '</span><span class="mapa-ir">Cómo llegar</span></a>' : '') + '</section>';
     }
     var publicos = (d.enlaces || []).filter(function (l) { return !l.privilegiado; });
     var especiales = (d.enlaces || []).filter(function (l) { return l.privilegiado; });
@@ -241,6 +264,7 @@
     h += '<p class="pie">Conectado como ' + esc(u.nombre || '') + (u.rol ? ' · ' + esc(u.rol) : '') +
       ' · <button type="button" class="enlace-boton" id="salir">Salir</button><br>Actualizado ' +
       esc(new Date(d.generado).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })) + '</p>';
+    h += PAISAJE;
     app.innerHTML = h;
 
     app.querySelectorAll('[data-responder]').forEach(function (b) {
@@ -368,6 +392,8 @@
       '<label class="buscar">' + SVG_LUPA +
       '<input id="buscar" type="search" placeholder="Buscar un nombre" autocomplete="off" value="' + esc(estado.busqueda) + '" aria-label="Buscar un nombre"></label></div>';
 
+    var zoom = d.inicio.zoom && d.inicio.zoom[prog.id];
+    if (zoom) h += '<a class="zoom" href="' + esc(zoom) + '" target="_blank" rel="noopener">' + svg('video') + '<span>Conectarse por Zoom</span>' + SVG_CHEVRON + '</a>';
     if (estado.sinConexion) h += '<div class="estado-red">Sin conexión. Estás viendo los últimos datos guardados.</div>';
     if (d.estados) {
       h += '<p class="leyenda"><span><i class="punto ok"></i> Confirmado</span><span><i class="punto pend"></i> Pendiente</span>' +
@@ -437,26 +463,39 @@
           h += '<div class="izq">' + (f.texto ? '<div class="txt">' + esc(f.texto) + '</div>' : '') +
             (f.detalle ? '<div class="det">' + esc(f.detalle) + '</div>' : '') + '</div>';
         }
-        h += '<div class="nombres">' + (f.asignados.length ? f.asignados.map(function (a) { return personaHTML(a, q, prog); }).join('') : '<span class="sin-nombre">—</span>') + '</div></div>';
+        h += nombresHTML(f, q, prog) + '</div>';
       });
       h += '</div>';
     });
     return h + '</div>';
   }
 
+  function nombresHTML(f, q, prog) {
+    if (!f.asignados.length) return '<div class="nombres"><span class="sin-nombre">—</span></div>';
+    var conSala = f.asignados.some(function (a) { return a.sala === 'Sala auxiliar'; });
+    if (!conSala) return '<div class="nombres">' + f.asignados.map(function (a) { return personaHTML(a, q, prog); }).join('') + '</div>';
+    var grupo = function (aux) {
+      var lista = f.asignados.filter(function (a) { return (a.sala === 'Sala auxiliar') === aux; });
+      if (!lista.length) return '';
+      return '<div class="sala' + (aux ? ' aux' : '') + '"><span class="sala-t">' + (aux ? 'Sala auxiliar' : 'Sala principal') + '</span>' +
+        '<div class="nombres">' + lista.map(function (a) { return personaHTML(a, q, prog); }).join('') + '</div></div>';
+    };
+    return '<div class="salas">' + grupo(false) + grupo(true) + '</div>';
+  }
+
   function personaHTML(a, q, prog) {
     var d = estado.datos, yo = d.usuario && d.usuario.nombre;
     var extra = [];
     if (a.rol === 'Ayudante') extra.push('ayudante');
-    if (a.sala === 'Sala auxiliar') extra.push('sala auxiliar');
     var clase = 'persona' + ((q && norm(a.nombre).indexOf(q) >= 0) || (yo && norm(a.nombre) === norm(yo)) ? ' resaltado' : '');
     var est = d.estados && a.clave ? d.estados[a.clave] : '';
     var contenido = esc(a.nombre) + (extra.length ? '<small>' + esc(extra.join(' · ')) + '</small>' : '') +
       (est && est !== 'Sin confirmación' && est !== 'Borrador' ? ' <i class="punto ' + (CLASE_ESTADO[est] || 'neutro') + '" title="' + esc(est) + '"></i>' : '');
+    var enc = a.encargados ? '<span class="encargados">' + esc(a.encargados) + '</span>' : '';
     if (prog.editable && a.clave) {
-      return '<button type="button" class="' + clase + ' editable" data-editar="' + esc(a.clave) + '">' + contenido + '</button>';
+      return '<span class="persona-bloque"><button type="button" class="' + clase + ' editable" data-editar="' + esc(a.clave) + '">' + contenido + '</button>' + enc + '</span>';
     }
-    return '<span class="' + clase + '">' + contenido + '</span>';
+    return '<span class="persona-bloque"><span class="' + clase + '">' + contenido + '</span>' + enc + '</span>';
   }
 
   /* ---------- edición (con privilegios) ---------- */

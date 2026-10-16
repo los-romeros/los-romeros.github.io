@@ -31,7 +31,7 @@ const programas = PROGS.map(([id, nombre, icono, confirmacion]) => {
           const clave = a.externo ? '' : id + '|' + r.id + '|' + a.slot;
           if (clave) estados[clave] = confirmacion ? ESTADOS[n++ % ESTADOS.length] : 'Sin confirmación';
           if (!a.externo && !a.grupo) nombres.add(a.nombre);
-          const x = { clave, rol: a.rol, sala: a.sala || '', grupo: a.grupo || null,
+          const x = { clave, rol: a.rol, sala: a.sala || '', grupo: a.grupo || null, encargados: a.grupo ? 'Sup.: Pablo Morales · Aux.: Daniel Reyes' : '',
             nombre: a.externo ? a.nombre + (a.origen ? ' (' + a.origen + ')' : '') : a.nombre };
           if (clave && r.fecha >= hoy && r.fecha <= fin && ctx.norm_(a.nombre) === ctx.norm_(yo)) {
             resumen.push({ clave, programa: id, programaNombre: nombre, fecha: r.fecha, hora: r.hora, titulo: r.titulo, lugar: r.lugar,
@@ -52,7 +52,9 @@ resumen.sort((a, b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hor
 const out = {
   ok: true, generado: new Date().toISOString(), hoy,
   usuario: { nombre: yo, correo: 'demo@example.com', rol: 'admin', privilegiado: true, editables: PROGS.map(p => p[0]), grupo: 4 },
-  inicio: { congregacion: 'Congregación Los Romeros · Concón', mensaje: 'Bienvenidos. Aquí encontrarás los programas y asignaciones de la congregación.', aviso: '', direccion: 'Jardín Poniente 795, Concón' },
+  inicio: { congregacion: 'Congregación Los Romeros · Concón', mensaje: 'Bienvenidos. Aquí encontrarás los programas y asignaciones de la congregación.', direccion: 'Jardín Poniente 795, Concón',
+    avisos: [{ titulo: 'Asamblea Regional', detalle: '9 al 11 de octubre', icono: 'megafono' }, { titulo: 'Visita del superintendente de circuito', detalle: '3 al 8 de noviembre', icono: 'grupo' }],
+    zoom: { vmc: 'https://zoom.us/j/0000000000', finsemana: 'https://zoom.us/j/0000000000' } },
   resumen, programas, estados,
   personas: [...nombres].sort((a, b) => a.localeCompare(b, 'es')),
   enlaces: [{ titulo: 'Ejemplo: formulario de informe', url: 'https://forms.google.com', descripcion: 'Enlace de ejemplo', privilegiado: false },

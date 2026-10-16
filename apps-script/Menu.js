@@ -32,7 +32,9 @@ var INICIO_POR_DEFECTO = [
   ['urlApp', '', 'Dirección de la app publicada (se usa en los correos)'],
   ['remitente', 'Programas Los Romeros', 'Nombre que aparece como remitente de los correos'],
   ['correosActivos', 'No', 'Sí = se envían correos automáticos. Déjalo en No mientras se prueba'],
-  ['googleClientId', '', 'ID de cliente de Google para el acceso con privilegios (fase 3)']
+  ['googleClientId', '', 'ID de cliente de Google (termina en .apps.googleusercontent.com)'],
+  ['zoomEntreSemana', '', 'Enlace de Zoom de la reunión de entre semana'],
+  ['zoomFinSemana', '', 'Enlace de Zoom de la reunión del fin de semana (vacío = el mismo de entre semana)']
 ];
 
 var PROGRAMAS_POR_DEFECTO = [
@@ -96,6 +98,8 @@ function prepararPlanilla() {
   lista_('programas', 'Lector', Object.keys(LECTORES));
   lista_('usuarios', 'Rol', ['admin', 'editor']);
   lista_('enlaces', 'Visibilidad', ['público', 'privilegiado']);
+  lista_('avisos', 'Ícono', ['megafono', 'grupo', 'calendario', 'libro']);
+  hoja_('avisos').getRange('D2:D200').setNumberFormat('d/m/yyyy');
   lista_('periodos', 'Estado', ['Borrador', 'Aprobado']);
   lista_('asignaciones', 'Estado', ESTADOS);
 
