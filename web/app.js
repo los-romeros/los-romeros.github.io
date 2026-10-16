@@ -24,7 +24,7 @@
 
   function svg(nombre, extra) {
     var p = ICONOS[nombre] || ICONOS.calendario;
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
@@ -109,26 +109,43 @@
   function renderInicio() {
     var d = estado.datos, hoy = hoyISO();
     document.title = 'Programas · ' + (d.inicio.congregacion || 'Congregación');
-    var h = '';
-    h += '<header class="cabecera"><span class="eyebrow">Programas y asignaciones</span>' +
-      '<h1>' + esc(d.inicio.congregacion || 'Congregación') + '</h1>' +
-      '<div class="hoy">Hoy es ' + esc(fechaLarga(hoy)) + '</div></header>';
-    if (estado.sinConexion) h += '<div class="estado-red">Sin conexión. Estás viendo los últimos datos guardados.</div>';
-    if (d.inicio.aviso) h += '<div class="aviso" role="note">' + SVG_AVISO + '<div>' + esc(d.inicio.aviso) + '</div></div>';
-    if (d.inicio.mensaje || d.inicio.direccion) {
-      h += '<section>' + (d.inicio.mensaje ? '<p class="mensaje">' + esc(d.inicio.mensaje) + '</p>' : '') +
-        (d.inicio.direccion ? '<p class="mensaje-dir">Salón del Reino: ' + esc(d.inicio.direccion) + '</p>' : '') + '</section>';
+    var proximas = d.programas.map(function (p) { return { p: p, r: proximaDe(p, hoy) }; })
+      .filter(function (x) { return x.r; })
+      .sort(function (a, b) { return (a.r.fecha + (a.r.hora || '')).localeCompare(b.r.fecha + (b.r.hora || '')); });
+    var destacada = proximas[0];
+
+    var h = '<header class="hero"><div class="hero-top">' + svg('calendario', ' class="hero-logo"') +
+      '<span>' + esc(d.inicio.congregacion || 'Congregación') + '</span></div>';
+    if (d.inicio.aviso) {
+      h += '<div class="hero-fecha">Aviso</div><h1>' + esc(d.inicio.aviso) + '</h1>';
+      if (destacada) h += '<a class="hero-btn" href="#p/' + esc(destacada.p.id) + '">Ver ' + esc(destacada.p.nombre.toLowerCase()) + '</a>';
+    } else if (destacada) {
+      var r = destacada.r;
+      h += '<div class="hero-fecha">' + (r.fecha === hoy ? 'Hoy' : esc(fechaCorta(r.fecha))) + (r.hora ? ' · ' + esc(r.hora) : '') + '</div>' +
+        '<h1>' + esc(destacada.p.nombre) + '</h1>' +
+        '<a class="hero-btn" href="#p/' + esc(destacada.p.id) + '">Ver programa</a>';
+    } else {
+      h += '<div class="hero-fecha">' + esc(fechaLarga(hoy)) + '</div><h1>Programas y asignaciones</h1>';
     }
-    h += '<section class="bloque"><h2>Programas</h2><div class="botones">';
+    h += '</header>';
+    if (estado.sinConexion) h += '<div class="estado-red">Sin conexión. Estás viendo los últimos datos guardados.</div>';
+
+    h += '<nav class="mosaico" aria-label="Programas">';
     d.programas.forEach(function (p) {
       var prox = proximaDe(p, hoy);
-      var sub = prox ? 'Próxima: ' + fechaCorta(prox.fecha) + (prox.hora ? ' · ' + prox.hora : '') : (p.reuniones.length ? 'Sin fechas próximas' : 'Aún sin programa publicado');
-      h += '<a class="boton-programa" href="#p/' + esc(p.id) + '">' +
-        '<span class="icono">' + svg(p.icono) + '</span>' +
-        '<span><div class="nombre">' + esc(p.nombre) + '</div><div class="proxima">' + esc(sub) + '</div></span>' +
-        SVG_CHEVRON + '</a>';
+      var sub = prox ? (prox.fecha === hoy ? 'Hoy' : fechaCorta(prox.fecha)) + (prox.hora ? ' · ' + prox.hora : '') : 'Sin fechas próximas';
+      var activo = destacada && destacada.p.id === p.id;
+      h += '<a class="baldosa' + (activo ? ' activa' : '') + '" href="#p/' + esc(p.id) + '">' +
+        svg(p.icono, ' class="baldosa-icono"') +
+        '<span class="baldosa-nombre">' + esc(p.nombre) + '</span>' +
+        '<span class="baldosa-sub">' + esc(sub) + '</span></a>';
     });
-    h += '</div></section>';
+    h += '</nav>';
+
+    if (d.inicio.mensaje || d.inicio.direccion) {
+      h += '<section class="tarjeta">' + (d.inicio.mensaje ? '<p class="mensaje">' + esc(d.inicio.mensaje) + '</p>' : '') +
+        (d.inicio.direccion ? '<p class="mensaje-dir">' + SVG_PIN + '<span>Salón del Reino: ' + esc(d.inicio.direccion) + '</span></p>' : '') + '</section>';
+    }
     if (d.enlaces && d.enlaces.length) {
       h += '<section class="bloque"><h2>Enlaces</h2><div class="enlaces">';
       d.enlaces.forEach(function (l) {
