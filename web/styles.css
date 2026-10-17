@@ -448,3 +448,5 @@ a { color: var(--primary-ink); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+.lugar-link { color: var(--primary-ink); text-decoration: underline; text-underline-offset: 3px; }
+.mia .lugar-link, .mia .lugar { font-size: 14px; }

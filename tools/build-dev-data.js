@@ -31,8 +31,8 @@ const programas = PROGS.map(([id, nombre, icono, confirmacion]) => {
           const clave = a.externo ? '' : id + '|' + r.id + '|' + a.slot;
           if (clave) estados[clave] = confirmacion ? ESTADOS[n++ % ESTADOS.length] : 'Sin confirmación';
           if (!a.externo && !a.grupo) nombres.add(a.nombre);
-          const x = { clave, rol: a.rol, sala: a.sala || '', grupo: a.grupo || null, encargados: a.grupo ? 'Sup.: Pablo Morales · Aux.: Daniel Reyes' : '',
-            nombre: a.externo ? a.nombre + (a.origen ? ' (' + a.origen + ')' : '') : a.nombre };
+          const x = { clave, rol: a.rol, sala: a.sala || '', grupo: a.grupo || null, sub: a.grupo ? 'Pablo Morales · Daniel Reyes' : a.externo ? a.origen || '' : '',
+            nombre: a.nombre };
           if (clave && r.fecha >= hoy && r.fecha <= fin && ctx.norm_(a.nombre) === ctx.norm_(yo)) {
             resumen.push({ clave, programa: id, programaNombre: nombre, fecha: r.fecha, hora: r.hora, titulo: r.titulo, lugar: r.lugar,
               parte: f.texto, detalle: f.detalle, rol: a.rol, sala: a.sala || '', grupo: null, estado: estados[clave],

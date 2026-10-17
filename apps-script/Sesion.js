@@ -74,8 +74,27 @@ function perfil_(correo) {
     registrado: !!(persona || usuario),
     nombre: persona ? persona['Nombre'] : usuario ? usuario['Nombre'] || correo : correo,
     grupo: persona ? +persona['Grupo'] || null : null,
+    perfiles: persona ? String(persona['Perfil'] || '').split(/[,;]+/).map(norm_).filter(Boolean) : [],
     rol: rol,
     privilegiado: !!rol,
     editables: editables
   };
+}
+
+/**
+ * ¿El usuario pertenece a la audiencia indicada? Texto separado por comas con:
+ * todos, privilegiados, admin, editor, lector, un perfil (anciano, participa…), "grupo N" o un correo.
+ * Vacío = todos. El admin lo ve todo.
+ */
+function enAudiencia_(texto, yo) {
+  var partes = String(texto || '').split(/[,;]+/).map(norm_).filter(Boolean);
+  if (!partes.length || yo.rol === 'admin') return true;
+  return partes.some(function (x) {
+    if (x === 'todos') return true;
+    if (x === 'privilegiados') return yo.privilegiado;
+    if (x === yo.rol) return true;
+    if (/^grupo \d+$/.test(x)) return yo.grupo === +x.replace(/\D/g, '');
+    if (x.indexOf('@') > 0) return x === yo.correo;
+    return yo.perfiles.indexOf(x) >= 0 || yo.perfiles.indexOf(x.replace(/s$/, '')) >= 0;
+  });
 }

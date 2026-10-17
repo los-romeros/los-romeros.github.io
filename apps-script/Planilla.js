@@ -12,13 +12,13 @@ var HOJAS = {
   },
   programas: {
     nombre: 'Programas',
-    titulos: ['ID', 'Nombre', 'Lector', 'Hoja de origen (URL)', 'Responsable (correo)', 'Requiere confirmación', 'Visible', 'Orden', 'Ícono', 'Descripción'],
+    titulos: ['ID', 'Nombre', 'Lector', 'Hoja de origen (URL)', 'Responsable (correo)', 'Requiere confirmación', 'Visible', 'Orden', 'Ícono', 'Descripción', 'Visible para', 'Estados visibles para'],
     anchos: [110, 230, 110, 320, 220, 150, 80, 60, 70, 300]
   },
   personas: {
     nombre: 'Personas',
-    titulos: ['Nombre', 'Otras formas de escribirlo (separadas por ;)', 'Nombre público', 'Correo', 'Teléfono (WhatsApp)', 'Grupo', 'Notas'],
-    anchos: [220, 260, 160, 240, 150, 70, 240]
+    titulos: ['Nombre', 'Otras formas de escribirlo (separadas por ;)', 'Nombre público', 'Correo', 'Teléfono (WhatsApp)', 'Grupo', 'Notas', 'Perfil'],
+    anchos: [220, 260, 160, 240, 150, 70, 240, 180]
   },
   grupos: {
     nombre: 'Grupos',
@@ -32,8 +32,13 @@ var HOJAS = {
   },
   avisos: {
     nombre: 'Avisos',
-    titulos: ['Título', 'Detalle', 'Ícono', 'Mostrar hasta', 'Orden'],
-    anchos: [260, 260, 110, 120, 60]
+    titulos: ['Título', 'Detalle', 'Ícono', 'Mostrar hasta', 'Orden', 'Visible para'],
+    anchos: [260, 260, 110, 120, 60, 200]
+  },
+  visibilidad: {
+    nombre: 'Visibilidad',
+    titulos: ['Programa', 'Elemento', 'Visible para', 'Nota'],
+    anchos: [110, 220, 200, 380]
   },
   enlaces: {
     nombre: 'Enlaces',

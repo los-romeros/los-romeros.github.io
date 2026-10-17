@@ -204,6 +204,17 @@ function parseVMC(sheet) {
   }
 
   out.reuniones = out.reuniones.filter(function (re) {
+    var numeros = {};
+    re.secciones.forEach(function (s) { s.filas.forEach(function (f) {
+      var m = /^(\d+)\./.exec(f.texto);
+      if (m) numeros[m[1]] = (numeros[m[1]] || 0) + 1;
+    }); });
+    re.secciones.forEach(function (s) {
+      s.filas = s.filas.filter(function (f) {
+        var m = /^(\d+)\./.exec(f.texto);
+        return f.asignados.length || !m || numeros[m[1]] < 2;
+      });
+    });
     re.secciones = re.secciones.filter(function (s) { return s.filas.length; });
     if (!totalAsignados_(re)) {
       re.secciones = [];
@@ -371,6 +382,9 @@ function parseFinSemana(sheet) {
   out.reuniones = out.reuniones.filter(function (re) { return re.valida; });
   out.reuniones.forEach(function (re) {
     delete re.valida;
+    var filas = re.secciones[0] ? re.secciones[0].filas : [];
+    var hosp = filas.filter(function (f) { return f.texto === 'Hospitalidad'; });
+    if (hosp.length) re.secciones[0].filas = filas.filter(function (f) { return f.texto !== 'Hospitalidad'; }).concat(hosp);
     if (!totalAsignados_(re)) {
       re.secciones = [];
       re.nota = re.nota || 'Sin asignaciones';

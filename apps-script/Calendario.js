@@ -76,14 +76,13 @@ function infoReuniones_() {
  * Trabaja sobre el arreglo en memoria; quien llama decide cuándo guardarlo. Devuelve cuántas envió.
  */
 function procesarInvitaciones_(asignaciones, cfg) {
-  if (!si_(cfg.invitacionesActivas)) return 0;
   var hoy = hoyISO_();
   var dir = directorio_();
   var programas = {};
   leerTabla_('programas').forEach(function (p) { programas[p['ID']] = p; });
   var aprobados = {};
   leerTabla_('periodos').forEach(function (p) { if (p['Estado'] === 'Aprobado') aprobados[p['Programa'] + '|' + p['Periodo']] = true; });
-  var info = null, cal = null, n = 0, inicio = Date.now();
+  var info = null, cal = null, enviadas = 0, completados = 0, inicio = Date.now();
 
   asignaciones.forEach(function (a) {
     if (Date.now() - inicio > 240000) return; // dejar el resto para la próxima vuelta
@@ -95,6 +94,7 @@ function procesarInvitaciones_(asignaciones, cfg) {
       var ident = identificar_({ nombre: a['Nombre'], grupo: a['Reconocido'] === 'Grupo' ? +String(a['Nombre']).replace(/\D/g, '') : null }, dir);
       if (ident.correo) {
         a['Correo'] = ident.correo;
+        completados++;
         if (a['Estado'] === 'Avisar manualmente') a['Estado'] = estadoInicial_(programas[a['Programa']], a);
       }
     }
@@ -107,10 +107,10 @@ function procesarInvitaciones_(asignaciones, cfg) {
     var ev = crearEvento_(cal, a, prog, x, cfg);
     a['ID evento'] = ev.getId();
     a['Invitado el'] = new Date();
-    n++;
+    enviadas++;
   });
-  if (n) registrar_('Invitaciones enviadas', n + ' invitación(es) de calendario');
-  return n;
+  if (enviadas) registrar_('Invitaciones enviadas', enviadas + ' invitación(es) de calendario');
+  return enviadas + completados; // cantidad de filas modificadas (para saber si hay que guardar)
 }
 
 function crearEvento_(cal, a, prog, x, cfg) {

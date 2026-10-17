@@ -39,6 +39,7 @@ var INICIO_POR_DEFECTO = [
   ['horaAvisoDiaAntes', '18', 'Hora (0-23) del aviso del día anterior'],
   ['resumenSemanal', 'Sí', 'Sí = cada lunes, correo con las asignaciones de la semana'],
   ['diasParaAprobar', '60', 'Un programa aparece en "Por aprobar" cuando empieza dentro de estos días'],
+  ['comoLlegar', 'https://hub.jw.org/meetings/goto/entry-point/meetings?scope_kind=location&scope_id=bd526297-dfc2-5cc3-bc45-47ab953040c9&eventId=137ea843-c7f9-41b7-a363-25762f26f397', 'Enlace del botón "Cómo llegar" (vacío = Google Maps con la dirección)'],
   ['zoomEntreSemana', '', 'Enlace de Zoom de la reunión de entre semana'],
   ['zoomFinSemana', '', 'Enlace de Zoom de la reunión del fin de semana (vacío = el mismo de entre semana)']
 ];
@@ -87,6 +88,17 @@ function prepararPlanilla() {
   if (hoja_('programas').getLastRow() < 2) {
     hoja_('programas').getRange(2, 1, PROGRAMAS_POR_DEFECTO.length, PROGRAMAS_POR_DEFECTO[0].length).setValues(PROGRAMAS_POR_DEFECTO);
   }
+  if (hoja_('visibilidad').getLastRow() < 2) {
+    hoja_('visibilidad').getRange(2, 1, 1, 4).setValues([['finsemana', 'Discursos que salen', 'anciano',
+      'Elemento: "Discursos que salen", el nombre de una parte o rol (p. ej. "Hospitalidad"), o el título de una sección. Visible para: todos, anciano, participa, privilegiados, grupo 3 o correos, separados por coma.']]);
+  }
+  var progs = leerTabla_('programas');
+  progs.forEach(function (p) {
+    var cambios = {};
+    if (!p['Visible para']) cambios['Visible para'] = p['ID'] === 'acomodacion' ? 'anciano, participa' : 'todos';
+    if (!p['Estados visibles para']) cambios['Estados visibles para'] = p['ID'] === 'vmc' ? 'anciano' : 'privilegiados';
+    if (Object.keys(cambios).length) actualizarFila_('programas', p, cambios);
+  });
   if (hoja_('grupos').getLastRow() < 2) {
     hoja_('grupos').getRange(2, 1, 9, 1).setValues([[1], [2], [3], [4], [5], [6], [7], [8], [9]]);
   }

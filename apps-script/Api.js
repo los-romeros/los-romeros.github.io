@@ -110,7 +110,7 @@ function construirBase_() {
   // Superintendente y auxiliar de cada grupo (se muestran junto a hospitalidad y aseo)
   var grupos = {};
   leerTabla_('grupos').forEach(function (g) {
-    var t = [g['Superintendente'] && 'Sup.: ' + g['Superintendente'], g['Auxiliar'] && 'Aux.: ' + g['Auxiliar']].filter(Boolean).join(' · ');
+    var t = [g['Superintendente'], g['Auxiliar']].filter(Boolean).join(' · ');
     if (t) grupos[+g['Grupo']] = t;
   });
   var nombres = {};
@@ -145,10 +145,10 @@ function construirBase_() {
                   return {
                     clave: a.externo ? '' : clave,
                     rol: a.rol,
-                    nombre: a.externo ? a.nombre + (a.origen ? ' (' + a.origen + ')' : '') : nombres[clave] || a.nombre,
+                    nombre: a.externo ? a.nombre : nombres[clave] || a.nombre,
                     sala: a.sala || '',
                     grupo: a.grupo || null,
-                    encargados: a.grupo ? grupos[a.grupo] || '' : ''
+                    sub: a.grupo ? grupos[a.grupo] || '' : a.externo ? a.origen || '' : ''
                   };
                 })
               };
@@ -163,12 +163,12 @@ function construirBase_() {
     .filter(function (p) { return p['ID'] && si_(p['Visible']); })
     .sort(function (a, b) { return (+a['Orden'] || 99) - (+b['Orden'] || 99); })
     .map(function (p) {
-      var reuniones = (porPrograma[p['ID']] || []).sort(function (a, b) {
-        return (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || ''));
-      });
+      var orden = function (r) { return r.fecha + (p['ID'] !== 'predicacion' && r.tipo === 'salida' ? '1' : '0') + (r.hora || ''); };
+      var reuniones = (porPrograma[p['ID']] || []).sort(function (a, b) { return orden(a).localeCompare(orden(b)); });
       return {
         id: p['ID'], nombre: p['Nombre'], icono: p['Ícono'], descripcion: p['Descripción'],
         confirmacion: si_(p['Requiere confirmación']),
+        visiblePara: p['Visible para'] || '', estadosPara: p['Estados visibles para'] || 'privilegiados',
         reuniones: reuniones, borradores: borradores[p['ID']] || []
       };
     });
@@ -176,7 +176,10 @@ function construirBase_() {
   var enlaces = leerTabla_('enlaces')
     .filter(function (l) { return l['URL']; })
     .sort(function (a, b) { return (+a['Orden'] || 99) - (+b['Orden'] || 99); })
-    .map(function (l) { return { titulo: l['Título'], url: l['URL'], descripcion: l['Descripción'], privilegiado: /privilegiad/i.test(l['Visibilidad']) }; });
+    .map(function (l) {
+      var v = String(l['Visibilidad'] || '');
+      return { titulo: l['Título'], url: l['URL'], descripcion: l['Descripción'], privilegiado: !/^(p[uú]blico|todos)?$/i.test(v.trim()), visiblePara: /^p[uú]blico$/i.test(v.trim()) ? 'todos' : /privilegiad/i.test(v) ? 'privilegiados' : v };
+    });
 
   var avisos = leerTabla_('avisos', { opcional: true })
     .filter(function (a) {
@@ -185,13 +188,18 @@ function construirBase_() {
       return !(h instanceof Date) || Utilities.formatDate(h, Session.getScriptTimeZone(), 'yyyy-MM-dd') >= hoy;
     })
     .sort(function (a, b) { return (+a['Orden'] || 99) - (+b['Orden'] || 99); })
-    .map(function (a) { return { titulo: a['Título'], detalle: a['Detalle'], icono: a['Ícono'] || 'megafono' }; });
+    .map(function (a) { return { titulo: a['Título'], detalle: a['Detalle'], icono: a['Ícono'] || 'megafono', visiblePara: a['Visible para'] || '' }; });
   if (cfg.aviso) avisos.unshift({ titulo: cfg.aviso, detalle: '', icono: 'megafono' });
+
+  var reglas = leerTabla_('visibilidad', { opcional: true })
+    .filter(function (v) { return v['Programa'] && v['Elemento']; })
+    .map(function (v) { return { programa: v['Programa'], elemento: norm_(v['Elemento']), visiblePara: v['Visible para'] }; });
 
   return {
     generado: new Date().toISOString(),
+    reglas: reglas,
     inicio: {
-      congregacion: cfg.congregacion || '', mensaje: cfg.mensaje || '', direccion: cfg.direccion || '',
+      congregacion: cfg.congregacion || '', mensaje: cfg.mensaje || '', direccion: cfg.direccion || '', comoLlegar: cfg.comoLlegar || '',
       avisos: avisos,
       zoom: { vmc: cfg.zoomEntreSemana || '', finsemana: cfg.zoomFinSemana || cfg.zoomEntreSemana || '' }
     },
@@ -239,29 +247,50 @@ function datosUsuario_(yo, cfg) {
   });
   resumen.sort(function (a, b) { return (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')); });
 
-  var programas = base.programas.map(function (p) {
+  var programas = base.programas.filter(function (p) {
+    return yo.editables.indexOf(p.id) >= 0 || enAudiencia_(p.visiblePara, yo);
+  }).map(function (p) {
     var editable = yo.editables.indexOf(p.id) >= 0;
+    var ocultas = (base.reglas || []).filter(function (g) { return g.programa === p.id && !editable && !enAudiencia_(g.visiblePara, yo); });
+    var oculto = function (texto) { texto = norm_(texto); return ocultas.some(function (g) { return texto && texto.indexOf(g.elemento) >= 0; }); };
+    var salidasOcultas = ocultas.some(function (g) { return /que salen|salida|salientes/.test(g.elemento); });
+    var reuniones = p.reuniones.filter(function (r) { return (!r.borrador || editable) && !(salidasOcultas && r.tipo === 'salida'); }).map(function (r) {
+      if (!ocultas.length) return r;
+      var copia = JSON.parse(JSON.stringify(r));
+      copia.secciones = copia.secciones.filter(function (s) { return !oculto(s.titulo); }).map(function (s) {
+        s.filas = s.filas.filter(function (f) { return !oculto(f.texto) && !f.asignados.some(function (a) { return oculto(a.rol); }); });
+        return s;
+      }).filter(function (s) { return s.filas.length; });
+      return copia;
+    });
     return {
       id: p.id, nombre: p.nombre, icono: p.icono, descripcion: p.descripcion, confirmacion: p.confirmacion,
       editable: editable,
       borradores: editable ? p.borradores : [],
-      reuniones: p.reuniones.filter(function (r) { return !r.borrador || editable; })
+      verEstados: editable || enAudiencia_(p.estadosPara, yo),
+      reuniones: reuniones
     };
   });
+  var verEstados = {};
+  programas.forEach(function (p) { if (p.verEstados) verEstados[p.id] = true; });
 
   var out = {
     ok: true,
     generado: base.generado,
     hoy: hoy,
     usuario: { nombre: yo.nombre, correo: yo.correo, rol: yo.rol, privilegiado: yo.privilegiado, editables: yo.editables, grupo: yo.grupo },
-    inicio: base.inicio,
+    inicio: (function () {
+      var ini = JSON.parse(JSON.stringify(base.inicio));
+      ini.avisos = (ini.avisos || []).filter(function (a) { return enAudiencia_(a.visiblePara, yo); });
+      return ini;
+    })(),
     resumen: resumen,
     programas: programas,
-    enlaces: base.enlaces.filter(function (l) { return !l.privilegiado || yo.privilegiado; })
+    enlaces: base.enlaces.filter(function (l) { return enAudiencia_(l.visiblePara, yo); })
   };
-  if (yo.privilegiado) {
+  if (Object.keys(verEstados).length) {
     out.estados = {};
-    asign.forEach(function (a) { if (a['Estado'] !== 'Eliminada') out.estados[a['Clave']] = a['Estado']; });
+    asign.forEach(function (a) { if (a['Estado'] !== 'Eliminada' && verEstados[a['Programa']]) out.estados[a['Clave']] = a['Estado']; });
   }
   if (yo.editables.length) {
     out.personas = leerTabla_('personas').map(function (p) { return p['Nombre']; }).filter(Boolean);

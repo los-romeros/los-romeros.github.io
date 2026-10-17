@@ -79,6 +79,7 @@
     if (iso === man.toISOString().slice(0, 10)) return 'Mañana';
     return fechaCorta(iso);
   }
+  function mapsURL(q) { return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q); }
   function mayuscula(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
   function primerNombre(n) { return String(n || '').split(' ')[0]; }
   function leer(clave) { try { return JSON.parse(localStorage.getItem(clave) || 'null'); } catch (e) { return null; } }
@@ -192,7 +193,7 @@
 
     var h = '<header class="cabecera-app">' + svg('calendario', ' class="cab-logo"') + '<span>' + esc(d.inicio.congregacion || 'Congregación') + '</span></header>' +
       '<section class="saludo"><div class="saludo-fecha">' + esc(mayuscula(fechaLarga(hoy))) + '</div>' +
-      '<h1>Hola, ' + esc(primerNombre(u.nombre)) + '</h1><p>Tu semana, de un vistazo.</p></section>';
+      '<h1>Hola, ' + esc(primerNombre(u.nombre)) + '</h1><p>Tu semana de un vistazo</p></section>';
     if (estado.sinConexion) h += '<div class="estado-red">Sin conexión. Estás viendo los últimos datos guardados.</div>';
 
     // Avisos (solo informativos, no se pueden tocar)
@@ -254,8 +255,7 @@
 
     if (d.inicio.mensaje || d.inicio.direccion) {
       h += '<section class="tarjeta">' + (d.inicio.mensaje ? '<p class="mensaje">' + esc(d.inicio.mensaje) + '</p>' : '') +
-        (d.inicio.direccion ? '<a class="mapa" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' +
-          encodeURIComponent('Salón del Reino ' + d.inicio.direccion) + '">' + SVG_PIN + '<span><strong>Salón del Reino</strong><br>' + esc(d.inicio.direccion) +
+        (d.inicio.direccion ? '<a class="mapa" target="_blank" rel="noopener" href="' + esc(d.inicio.comoLlegar || mapsURL('Salón del Reino ' + d.inicio.direccion)) + '">' + SVG_PIN + '<span><strong>Salón del Reino</strong><br>' + esc(d.inicio.direccion) +
           '</span><span class="mapa-ir">Cómo llegar</span></a>' : '') + '</section>';
     }
     var publicos = (d.enlaces || []).filter(function (l) { return !l.privilegiado; });
@@ -311,8 +311,6 @@
       h += '<div class="mia-acc">' +
         '<button type="button" class="btn-resp si' + (x.estado === 'Confirmado' ? ' marcado' : '') + '" data-responder="Confirmado" data-clave="' + esc(x.clave) + '">' + svg('check') + 'Confirmo</button>' +
         '<button type="button" class="btn-resp no' + (x.estado === 'Rechazado' ? ' marcado' : '') + '" data-responder="Rechazado" data-clave="' + esc(x.clave) + '">No puedo</button></div>';
-    } else if (x.estado && x.estado !== 'Sin confirmación') {
-      h += '<div class="mia-acc">' + pastilla(x.estado) + '</div>';
     }
     return h + '</div></article>';
   }
@@ -468,7 +466,12 @@
     var h = '<div class="reunion"><div class="reunion-cab"><span class="t">' + esc(r.titulo || '') + '</span>' +
       (r.hora ? '<span class="h">' + esc(r.hora) + ' h</span>' : '') +
       (r.borrador ? '<span class="estado neutro">Borrador · ' + esc(r.periodo) + '</span>' : '') + '</div>';
-    if (r.lugar) h += '<div class="lugar">' + SVG_PIN + '<span>' + esc(r.lugar) + '</span></div>';
+    if (r.lugar) {
+      var esDireccion = !/zoom|tel[eé]fono|cartas/i.test(r.lugar);
+      h += esDireccion
+        ? '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(mapsURL(r.lugar + (/conc[oó]n|vi[nñ]a|re[nñ]aca|valpara/i.test(r.lugar) ? '' : ', Concón'))) + '">' + SVG_PIN + '<span>' + esc(r.lugar) + '</span></a>'
+        : '<div class="lugar">' + SVG_PIN + '<span>' + esc(r.lugar) + '</span></div>';
+    }
     if (r.nota) h += '<div class="nota">' + esc(r.nota) + '</div>';
     r.secciones.forEach(function (s) {
       var color = COLOR_SECCION[norm(s.titulo)];
@@ -509,7 +512,7 @@
     var est = d.estados && a.clave ? d.estados[a.clave] : '';
     var contenido = esc(a.nombre) + (extra.length ? '<small>' + esc(extra.join(' · ')) + '</small>' : '') +
       (est && est !== 'Sin confirmación' && est !== 'Borrador' ? ' <i class="punto ' + (CLASE_ESTADO[est] || 'neutro') + '" title="' + esc(est) + '"></i>' : '');
-    var enc = a.encargados ? '<span class="encargados">' + esc(a.encargados) + '</span>' : '';
+    var enc = a.sub ? '<span class="encargados">' + esc(a.sub) + '</span>' : '';
     if (prog.editable && a.clave) {
       return '<span class="persona-bloque"><button type="button" class="' + clase + ' editable" data-editar="' + esc(a.clave) + '">' + contenido + '</button>' + enc + '</span>';
     }
