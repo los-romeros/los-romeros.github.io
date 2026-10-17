@@ -16,7 +16,10 @@ function sincronizar() {
   }
 }
 
+var MINUTOS_ESPERA_CAMBIOS = 25; // un periodo aprobado debe quedar quieto este tiempo antes de aplicar cambios
+
 function sincronizar_() {
+  asegurarColumnas_('periodos');
   var cfg = config_();
   var programas = leerTabla_('programas').filter(function (p) {
     return p['ID'] && LECTORES[p['Lector']] && String(p['Hoja de origen (URL)']).indexOf('http') === 0;
@@ -29,6 +32,8 @@ function sincronizar_() {
   var desde = sumarDias_(hoyISO_(), -DIAS_HISTORIA);
   var resumen = [];
   var hubo = false;
+  var vistas = {};      // pestañas visibles leídas en esta vuelta: 'programa|pestaña'
+  var abiertos = {};    // programas cuya hoja se pudo abrir
 
   programas.forEach(function (prog) {
     var ss;
@@ -38,6 +43,7 @@ function sincronizar_() {
       registrar_('Error de acceso', 'No pude abrir la hoja de "' + prog['Nombre'] + '". ¿Está compartida con esta cuenta? ' + e.message);
       return;
     }
+    abiertos[prog['ID']] = true;
     ss.getSheets().forEach(function (sh) {
       if (sh.isSheetHidden()) return;
       var rango = sh.getDataRange();
@@ -51,15 +57,30 @@ function sincronizar_() {
       if (!res.reuniones.length) return;
       var fechas = res.reuniones.map(function (r) { return r.fecha; }).sort();
       if (fechas[fechas.length - 1] < desde) return;
+      vistas[prog['ID'] + '|' + res.periodo] = true;
 
       res.reuniones.forEach(function (r) { if (!r.hora) r.hora = horaPorDefecto_(prog['ID'], r, cfg, especiales); });
       var json = JSON.stringify(res);
       var huella = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, json)).slice(0, 12);
       var per = periodos.filter(function (p) { return p['Programa'] === prog['ID'] && p['Periodo'] === res.periodo; })[0];
-      if (per && per['Huella'] === huella) return;
+      if (per && per['Huella'] === huella) {
+        if (per['Huella pendiente']) { per['Huella pendiente'] = ''; per['Cambio visto'] = ''; hubo = true; }
+        return;
+      }
 
-      hubo = true;
       var ahora = new Date();
+      // En un programa ya aprobado, esperar a que la hoja quede quieta antes de aplicar (evita invitar a un nombre a medio escribir)
+      if (per && per['Estado'] === 'Aprobado') {
+        if (per['Huella pendiente'] !== huella) {
+          per['Huella pendiente'] = huella;
+          per['Cambio visto'] = ahora;
+          hubo = true;
+          return;
+        }
+        if (ahora - new Date(per['Cambio visto']) < MINUTOS_ESPERA_CAMBIOS * 60000) return;
+      }
+      hubo = true;
+      if (per) { per['Huella pendiente'] = ''; per['Cambio visto'] = ''; }
       if (!per) {
         per = { 'Programa': prog['ID'], 'Periodo': res.periodo, 'Estado': 'Borrador', 'Detectado': ahora };
         periodos.push(per);
@@ -79,6 +100,18 @@ function sincronizar_() {
     });
   });
 
+  // Borradores cuya pestaña se ocultó o eliminó: se retiran (así el responsable decide qué meses quedan para aprobar)
+  var retirar = periodos.filter(function (p) { return p['Estado'] !== 'Aprobado' && abiertos[p['Programa']] && !vistas[p['Programa'] + '|' + p['Periodo']]; });
+  if (retirar.length) {
+    var claveDe = function (x) { return x['Programa'] + '|' + x['Periodo']; };
+    var fuera = {};
+    retirar.forEach(function (p) { fuera[claveDe(p)] = true; registrar_('Borrador retirado', p['Programa'] + ' · ' + p['Periodo'] + ' (pestaña oculta o eliminada)'); });
+    periodos = periodos.filter(function (p) { return !fuera[claveDe(p)]; });
+    datos = datos.filter(function (d) { return !fuera[claveDe(d)]; });
+    asignaciones = asignaciones.filter(function (a) { return !fuera[claveDe(a)]; });
+    hubo = true;
+  }
+
   // Periodos aprobados a mano en la planilla: sus asignaciones dejan de ser borrador.
   periodos.forEach(function (per) {
     if (per['Estado'] !== 'Aprobado') return;
@@ -92,12 +125,19 @@ function sincronizar_() {
     });
   });
 
-  if (hubo) {
+  var invitadas = 0;
+  try {
+    invitadas = procesarInvitaciones_(asignaciones, cfg);
+  } catch (e) {
+    registrar_('Error en invitaciones', e.message);
+  }
+  if (hubo || invitadas) {
     reescribirTabla_('periodos', periodos);
     reescribirTabla_('datos', datos);
     reescribirTabla_('asignaciones', asignaciones);
     limpiarCache_();
   }
+  try { asegurarTareas_(); } catch (e) { /* sin permiso para crear tareas desde aquí */ }
   resumen.forEach(function (x) {
     registrar_('Programa ' + (x.periodo['Estado'] === 'Borrador' ? 'detectado' : 'actualizado'),
       x.programa['Nombre'] + ' · ' + x.periodo['Periodo'] + ' · ' + x.cambios.nuevas + ' nuevas, ' + x.cambios.cambiadas + ' cambiadas, ' + x.cambios.eliminadas + ' eliminadas');
@@ -192,6 +232,7 @@ function actualizarAsignaciones_(prog, per, res, asignaciones, dir) {
             out.cambiadas++;
           }
           for (var k2 in base) fila[k2] = base[k2];
+          if (fila['ID evento']) { eliminarEvento_(fila['ID evento']); fila['ID evento'] = ''; fila['Invitado el'] = ''; }
           fila['Nombre en programa'] = a.nombre;
           fila['Nombre'] = ident.nombre;
           fila['Reconocido'] = ident.reconocido;
@@ -210,6 +251,7 @@ function actualizarAsignaciones_(prog, per, res, asignaciones, dir) {
     if (a['Programa'] === prog['ID'] && a['Periodo'] === per['Periodo'] && !vistas[a['Clave']] && a['Estado'] !== 'Eliminada') {
       a['Estado'] = 'Eliminada';
       a['Actualizado'] = ahora;
+      if (a['ID evento']) { eliminarEvento_(a['ID evento']); a['ID evento'] = ''; }
       out.eliminadas++;
     }
   });

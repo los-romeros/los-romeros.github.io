@@ -47,8 +47,8 @@ var HOJAS = {
   },
   periodos: {
     nombre: 'Periodos',
-    titulos: ['Programa', 'Periodo', 'Estado', 'Primera fecha', 'Última fecha', 'Huella', 'Detectado', 'Actualizado', 'Aprobado por', 'Aprobado el', 'Avisos'],
-    anchos: [110, 220, 100, 100, 100, 90, 140, 140, 200, 140, 380],
+    titulos: ['Programa', 'Periodo', 'Estado', 'Primera fecha', 'Última fecha', 'Huella', 'Detectado', 'Actualizado', 'Aprobado por', 'Aprobado el', 'Avisos', 'Huella pendiente', 'Cambio visto'],
+    anchos: [110, 220, 100, 100, 100, 90, 140, 140, 200, 140, 380, 90, 140],
     sistema: true
   },
   asignaciones: {
@@ -134,6 +134,18 @@ function reescribirTabla_(clave, objetos) {
   if (!objetos.length) return;
   var filas = objetos.map(function (o) { return titulos.map(function (t) { return o[t] === undefined ? '' : o[t]; }); });
   sh.getRange(2, 1, filas.length, titulos.length).setValues(filas);
+}
+
+/** Agrega al final las columnas nuevas que aún no existan (para actualizar planillas antiguas sin pasos manuales). */
+function asegurarColumnas_(clave) {
+  var sh = hoja_(clave);
+  var actuales = sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getValues()[0];
+  HOJAS[clave].titulos.forEach(function (t) {
+    if (actuales.indexOf(t) < 0) {
+      sh.getRange(1, actuales.filter(String).length + 1).setValue(t).setFontWeight('bold');
+      actuales.push(t);
+    }
+  });
 }
 
 function config_() {

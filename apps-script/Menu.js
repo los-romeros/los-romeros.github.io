@@ -33,6 +33,12 @@ var INICIO_POR_DEFECTO = [
   ['remitente', 'Programas Los Romeros', 'Nombre que aparece como remitente de los correos'],
   ['correosActivos', 'No', 'Sí = se envían correos automáticos. Déjalo en No mientras se prueba'],
   ['googleClientId', '', 'ID de cliente de Google (termina en .apps.googleusercontent.com)'],
+  ['invitacionesActivas', 'No', 'Sí = se envían invitaciones de Google Calendar a los asignados con correo'],
+  ['soloEstosCorreos', '', 'Modo prueba: si escribes correos aquí (separados por coma), solo ellos reciben invitaciones y correos'],
+  ['avisoDiaAntes', 'Sí', 'Sí = correo la tarde anterior a cada asignación'],
+  ['horaAvisoDiaAntes', '18', 'Hora (0-23) del aviso del día anterior'],
+  ['resumenSemanal', 'Sí', 'Sí = cada lunes, correo con las asignaciones de la semana'],
+  ['diasParaAprobar', '60', 'Un programa aparece en "Por aprobar" cuando empieza dentro de estos días'],
   ['zoomEntreSemana', '', 'Enlace de Zoom de la reunión de entre semana'],
   ['zoomFinSemana', '', 'Enlace de Zoom de la reunión del fin de semana (vacío = el mismo de entre semana)']
 ];
@@ -164,9 +170,9 @@ function armarDirectorio() {
 
 /** Crea (una sola vez) la tarea que sincroniza cada 15 minutos. */
 function instalarTareas() {
-  var existentes = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
-  if (existentes.indexOf('sincronizar') < 0) ScriptApp.newTrigger('sincronizar').timeBased().everyMinutes(15).create();
-  SpreadsheetApp.getActive().toast('Tareas automáticas activas.', 'Programas', 5);
+  asegurarTareas_();
+  calendario_();
+  SpreadsheetApp.getActive().toast('Tareas automáticas activas (cada 15 minutos y cada hora).', 'Programas', 5);
 }
 
 function verUrlApi() {

@@ -122,6 +122,7 @@ function construirBase_() {
     if (!per) return;
     var borrador = per['Estado'] !== 'Aprobado';
     var res = JSON.parse(d['JSON']);
+    if (borrador && per['Primera fecha'] > sumarDias_(hoy, +cfg.diasParaAprobar || 60)) return; // aún muy lejano
     if (borrador) {
       (borradores[d['Programa']] = borradores[d['Programa']] || []).push({
         periodo: d['Periodo'], desde: per['Primera fecha'], hasta: per['Última fecha'], avisos: per['Avisos'] || ''
@@ -329,7 +330,8 @@ function reasignar_(yo, p) {
     aviso = 'Se cambió en la app, pero no pude escribir en la hoja oficial: ' + e.message;
   }
 
-  var a = { 'Nombre': nombreFinal, 'Reconocido': ident.reconocido, 'Correo': ident.correo, 'Respuesta calendario': '', 'Rechazo avisado el': '', 'Recordatorio el': '', 'Actualizado': new Date() };
+  if (fila['ID evento']) eliminarEvento_(fila['ID evento']);
+  var a = { 'Nombre': nombreFinal, 'Reconocido': ident.reconocido, 'Correo': ident.correo, 'Respuesta calendario': '', 'Rechazo avisado el': '', 'Recordatorio el': '', 'ID evento': '', 'Invitado el': '', 'Actualizado': new Date() };
   // Si se escribió en la hoja, la próxima sincronización verá el mismo nombre y no lo revertirá.
   if (escrito) a['Nombre en programa'] = nombreFinal;
   a['Estado'] = estadoInicial_(prog, { 'Reconocido': a['Reconocido'], 'Correo': a['Correo'] });
@@ -376,27 +378,15 @@ function aprobar_(yo, p) {
       n++;
     }
   });
-  if (n) reescribirTabla_('asignaciones', asign);
+  try { procesarInvitaciones_(asign, config_()); } catch (e) { registrar_('Error en invitaciones', e.message); }
+  reescribirTabla_('asignaciones', asign);
   registrar_('Programa aprobado', yo.nombre + ': ' + prog['Nombre'] + ' · ' + p.periodo);
   return { ok: true, asignaciones: n };
 }
 
 function avisarRechazo_(fila, cfg) {
-  var prog = programaPorId_(fila['Programa']);
-  var para = prog ? String(prog['Responsable (correo)'] || '').trim() : '';
-  if (!para || !si_(cfg.correosActivos)) return;
-  MailApp.sendEmail({
-    to: para,
-    subject: 'Asignación rechazada: ' + fila['Nombre'] + ' · ' + fila['Reunión'],
-    name: cfg.remitente || 'Programas de la congregación',
-    body: [
-      'Hola,', '',
-      fila['Nombre'] + ' indicó que no puede cumplir esta asignación:', '',
-      ' • ' + fila['Reunión'] + (fila['Hora'] ? ' · ' + fila['Hora'] : ''),
-      ' • ' + fila['Parte'] + ' (' + fila['Rol'] + ')', '',
-      'Puedes reasignarla desde la app' + (cfg.urlApp ? ': ' + cfg.urlApp : '') + ' o en tu hoja del programa.', '',
-      'Mensaje automático de la app de programas.'
-    ].join('\n')
-  });
-  actualizarFila_('asignaciones', fila, { 'Rechazo avisado el': new Date() });
+  var a = {};
+  for (var k in fila) a[k] = fila[k];
+  avisarRechazoMemoria_(a, programaPorId_(fila['Programa']), cfg);
+  if (a['Rechazo avisado el']) actualizarFila_('asignaciones', fila, { 'Rechazo avisado el': a['Rechazo avisado el'] });
 }

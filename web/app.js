@@ -247,6 +247,7 @@
         '<span class="baldosa-top"><span class="circulo">' + svg(p.icono) + '</span>' +
         (activo && prox.fecha === hoy ? '<span class="tag-hoy">Hoy</span>' : '') + SVG_CHEVRON + '</span>' +
         '<span class="baldosa-nombre">' + esc(p.nombre) + '</span>' +
+        (prox && detalleBaldosa(p, prox) ? '<span class="baldosa-det">' + esc(detalleBaldosa(p, prox)) + '</span>' : '') +
         '<span class="baldosa-fecha">' + svg('calendario') + esc(sub) + '</span></a>';
     });
     h += '</nav></section>';
@@ -280,6 +281,23 @@
       eventoInstalar.prompt();
       eventoInstalar.userChoice.finally(function () { eventoInstalar = null; render(); });
     });
+  }
+
+  // Línea pequeña bajo el nombre del programa: grupo de aseo, o lugar y territorio de la próxima salida
+  function detalleBaldosa(p, r) {
+    var asignados = [];
+    r.secciones.forEach(function (s) { s.filas.forEach(function (f) { f.asignados.forEach(function (a) { asignados.push({ a: a, f: f }); }); }); });
+    if (p.id === 'aseo') {
+      var g = asignados.filter(function (x) { return x.a.grupo; })[0];
+      return g ? g.a.nombre : '';
+    }
+    if (p.id === 'predicacion') {
+      if (/grupo/i.test(r.titulo || '')) return 'Por grupos';
+      var det = asignados[0] ? asignados[0].f.detalle || '' : '';
+      var terr = /Territorio ([^·]+)/.exec(det);
+      return [r.lugar, terr ? 'Terr. ' + terr[1].trim() : ''].filter(Boolean).join(' · ');
+    }
+    return '';
   }
 
   function itemResumenHTML(x, hoy) {
