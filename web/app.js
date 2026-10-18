@@ -834,7 +834,7 @@
 
   /* ---------- resumen de territorios ---------- */
   function renderTerritorios() {
-    document.title = 'Territorios · Programas';
+    document.title = 'Territorios · Cong. Los Romeros';
     var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Inicio</button>' +
       '<h1>Territorios</h1></div>' +
       '<label class="buscar">' + SVG_LUPA + '<input id="buscar-t" type="search" inputmode="numeric" placeholder="Buscar territorio" autocomplete="off" value="' + esc(estado.buscarTerr || '') + '" aria-label="Buscar territorio"></label></div>';
@@ -968,7 +968,7 @@
   }
 
   function renderInformes() {
-    document.title = 'Informes · Programas';
+    document.title = 'Informes · Cong. Los Romeros';
     var t = estado.informesDatos;
     var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Inicio</button>' +
       '<h1>Informes' + (t ? ' de ' + esc(t.mesNombre) : '') + '</h1></div></div>';
@@ -1016,7 +1016,7 @@
 
   /* ---------- No pasar ---------- */
   function renderNoPasar(sel) {
-    document.title = 'No pasar · Programas';
+    document.title = 'No pasar · Cong. Los Romeros';
     var t = estado.noPasar;
     var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Volver</button><h1>No pasar</h1></div></div>';
     if (!t) {
@@ -1109,7 +1109,7 @@
 
   /* ---------- Mapa del territorio ---------- */
   function renderMapa() {
-    document.title = 'Mapa del territorio · Programas';
+    document.title = 'Mapa del territorio · Cong. Los Romeros';
     app.innerHTML = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Volver</button><h1>Mapa del territorio</h1></div></div>' +
       '<div class="tarjeta" id="mapa-estado"><p class="mensaje">Preparando el mapa…</p></div>';
     document.getElementById('volver').addEventListener('click', volverAtras);
