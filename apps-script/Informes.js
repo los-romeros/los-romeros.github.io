@@ -9,13 +9,22 @@
  */
 
 var MESES_LARGOS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-var TITULOS_INFORMES = ['Marca temporal', 'Correo', 'Nombre', 'Grupo', 'Mes', 'Servicio', 'Participó', 'Estudios', 'Horas', 'Comentarios', 'Ingresado por'];
+var TITULOS_INFORMES = ['Marca temporal', 'Correo', 'Nombre', 'Grupo', 'Mes', 'Servicio', 'Participó', 'Estudios', 'Horas', 'Comentarios', 'Ingresado por', 'Horas otros servicios'];
 var SERVICIOS = ['Publicador', 'Precursor Auxiliar', 'Precursor Regular'];
 
 function planillaInformes_() {
   var props = PropertiesService.getScriptProperties();
   var id = props.getProperty('INFORMES_ID');
-  if (id) { try { return SpreadsheetApp.openById(id); } catch (e) { /* se vuelve a crear */ } }
+  if (id) {
+    try {
+      var existente = SpreadsheetApp.openById(id);
+      var hoja = existente.getSheetByName('Informes');
+      if (hoja && hoja.getLastColumn() < TITULOS_INFORMES.length) {
+        hoja.getRange(1, 1, 1, TITULOS_INFORMES.length).setValues([TITULOS_INFORMES]).setFontWeight('bold').setBackground('#5e8499').setFontColor('#ffffff');
+      }
+      return existente;
+    } catch (e) { /* se vuelve a crear */ }
+  }
   var ss = SpreadsheetApp.create('Informes de predicación');
   var sh = ss.getSheets()[0];
   sh.setName('Informes');
@@ -45,7 +54,7 @@ function leerInformes_(cfg, dir) {
   v.forEach(function (r, i) {
     if (!r[2] || !r[4]) return;
     out.push({ ts: r[0], correo: String(r[1] || '').toLowerCase(), nombre: r[2], grupo: +r[3] || null, mes: String(r[4]), servicio: r[5], participo: r[6],
-      estudios: r[7], horas: r[8], comentarios: r[9], ingresadoPor: r[10], origen: 'app', fila: i + 2 });
+      estudios: r[7], horas: r[8], comentarios: r[9], ingresadoPor: r[10], otros: r[11] || '', origen: 'app', fila: i + 2 });
   });
   String(cfg.informesFormularios || '').split(/[,\s]+/).filter(function (u) { return u.indexOf('http') === 0; }).forEach(function (url) {
     try {
@@ -114,7 +123,7 @@ function estadoInforme_(yo, cfg) {
   var grupos = gruposVisiblesInformes_(yo);
   return {
     mes: mes, mesNombre: nombreMes_(mes),
-    enviado: mio ? { servicio: mio.servicio, participo: mio.participo, estudios: mio.estudios, horas: mio.horas, comentarios: mio.comentarios, origen: mio.origen } : null,
+    enviado: mio ? { servicio: mio.servicio, participo: mio.participo, estudios: mio.estudios, horas: mio.horas, otros: mio.otros || '', comentarios: mio.comentarios, origen: mio.origen } : null,
     editable: hoyISO_() <= hasta, editableHasta: hasta,
     servicio: (mio && mio.servicio) || (ultimo && ultimo.servicio) || (persona && persona.servicio) || 'Publicador',
     verGrupos: grupos === 'todos' || grupos.length > 0
@@ -141,7 +150,11 @@ function guardarInforme_(yo, p, cfg) {
   var participo = p.participo === 'No' ? 'No' : 'Sí';
   var estudios = Math.max(0, Math.min(99, parseInt(p.estudios, 10) || 0));
   var horas = /precursor/i.test(servicio) ? Math.max(0, Math.min(300, parseFloat(String(p.horas).replace(',', '.')) || 0)) : '';
-  var fila = [new Date(), correo, nombre, grupo || '', mes, servicio, participo, estudios, horas, texto_(p.comentarios || '').slice(0, 500), ingresadoPor];
+  // Horas de otros servicios (LDC, Escuela, etc.): solo precursores regulares, y con nota obligatoria
+  var otros = servicio === 'Precursor Regular' ? Math.max(0, Math.min(300, parseFloat(String(p.otros || '').replace(',', '.')) || 0)) : 0;
+  var comentarios = texto_(p.comentarios || '').slice(0, 500);
+  if (otros > 0 && !comentarios) throw new Error('Indica en comentarios a qué corresponden las horas de otros servicios (por ejemplo, LDC).');
+  var fila = [new Date(), correo, nombre, grupo || '', mes, servicio, participo, estudios, horas, comentarios, ingresadoPor, otros || ''];
   var sh = planillaInformes_().getSheetByName('Informes');
   if (previo && previo.origen === 'app') sh.getRange(previo.fila, 1, 1, fila.length).setValues([fila]);
   else sh.appendRow(fila);
@@ -165,7 +178,7 @@ function informesGrupos_(yo, p, cfg) {
     var inf = informeDe_(informes, x.nombre, mes);
     (porGrupo[+x.grupo] = porGrupo[+x.grupo] || []).push({
       nombre: x.nombre,
-      informe: inf ? { servicio: inf.servicio, participo: inf.participo, estudios: inf.estudios, horas: inf.horas, comentarios: inf.comentarios, origen: inf.origen, ingresadoPor: inf.ingresadoPor || '' } : null
+      informe: inf ? { servicio: inf.servicio, participo: inf.participo, estudios: inf.estudios, horas: inf.horas, otros: inf.otros || '', comentarios: inf.comentarios, origen: inf.origen, ingresadoPor: inf.ingresadoPor || '' } : null
     });
   });
   var lista = Object.keys(porGrupo).sort(function (a, b) { return +a - +b; }).map(function (g) {
@@ -177,6 +190,7 @@ function informesGrupos_(yo, p, cfg) {
       enviados: hechos.length,
       participaron: hechos.filter(function (m) { return /^s/i.test(String(m.informe.participo)); }).length,
       horas: hechos.reduce(function (s, m) { return s + (+m.informe.horas || 0); }, 0),
+      otros: hechos.reduce(function (s, m) { return s + (+m.informe.otros || 0); }, 0),
       estudios: hechos.reduce(function (s, m) { return s + (+m.informe.estudios || 0); }, 0)
     };
   });

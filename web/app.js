@@ -871,13 +871,22 @@
       '<label class="mz"><input type="radio" name="if-part" value="No"' + (/^n/i.test(participo) ? ' checked' : '') + '><span>No</span></label></div>' +
       '<div class="rg-fila"><div><label for="if-est">Estudios bíblicos</label><input id="if-est" type="number" min="0" max="99" inputmode="numeric" value="' + esc(previo && previo.estudios !== '' && previo.estudios != null ? previo.estudios : 0) + '"></div>' +
       '<div id="if-horas-c"><label for="if-horas">Horas</label><input id="if-horas" type="number" min="0" max="300" step="0.5" inputmode="decimal" value="' + esc(previo && previo.horas ? previo.horas : '') + '"></div></div>' +
-      '<label for="if-com">Comentarios</label><textarea id="if-com" rows="2" placeholder="Opcional">' + esc(previo ? previo.comentarios || '' : '') + '</textarea>' +
+      '<div id="if-otros-c"><label for="if-otros">Horas otros servicios</label><input id="if-otros" type="number" min="0" max="300" step="0.5" inputmode="decimal" placeholder="Ej.: LDC, Escuela de precursores" value="' + esc(previo && previo.otros ? previo.otros : '') + '"></div>' +
+      '<label for="if-com" id="if-com-l">Comentarios</label><textarea id="if-com" rows="2" placeholder="Opcional">' + esc(previo ? previo.comentarios || '' : '') + '</textarea>' +
       '<p class="editor-msg" id="if-msg" role="status"></p>' +
       '<div class="editor-acc"><button type="button" class="btn btn-sec" id="if-cancelar">Cancelar</button><button type="submit" class="btn" id="if-guardar">Enviar informe</button></div></form>';
     document.body.appendChild(cont);
-    var horasVisibles = function () { document.getElementById('if-horas-c').hidden = !/precursor/i.test(document.getElementById('if-serv').value); };
+    var horasVisibles = function () {
+      var serv = document.getElementById('if-serv').value;
+      document.getElementById('if-horas-c').hidden = !/precursor/i.test(serv);
+      document.getElementById('if-otros-c').hidden = serv !== 'Precursor Regular';
+      var pideNota = serv === 'Precursor Regular' && +document.getElementById('if-otros').value > 0;
+      document.getElementById('if-com-l').textContent = pideNota ? 'Comentarios (indica a qué corresponden las horas de otros servicios)' : 'Comentarios';
+      document.getElementById('if-com').placeholder = pideNota ? 'Ej.: 20 h LDC' : 'Opcional';
+    };
     horasVisibles();
     document.getElementById('if-serv').addEventListener('change', horasVisibles);
+    document.getElementById('if-otros').addEventListener('input', horasVisibles);
     var cerrar = function () { cont.remove(); };
     cont.addEventListener('click', function (e) { if (e.target === cont) cerrar(); });
     document.getElementById('if-cancelar').addEventListener('click', cerrar);
@@ -890,8 +899,10 @@
         participo: (cont.querySelector('input[name="if-part"]:checked') || {}).value || 'Sí',
         estudios: document.getElementById('if-est').value,
         horas: document.getElementById('if-horas').value,
+        otros: document.getElementById('if-serv').value === 'Precursor Regular' ? document.getElementById('if-otros').value : '',
         comentarios: document.getElementById('if-com').value
       };
+      if (+datos.otros > 0 && !datos.comentarios.trim()) { msg.textContent = 'Indica en comentarios a qué corresponden las horas de otros servicios (por ejemplo, LDC).'; document.getElementById('if-com').focus(); return; }
       if (/precursor/i.test(datos.servicio) && datos.participo === 'Sí' && !datos.horas) { msg.textContent = 'Indica las horas.'; return; }
       document.getElementById('if-guardar').disabled = true;
       msg.textContent = 'Enviando…';
@@ -932,12 +943,12 @@
       h += '<article class="terr"><div class="terr-cab"><span class="terr-n">' + g.grupo + '</span><div><div class="terr-t">Grupo ' + g.grupo + '</div>' +
         '<div class="terr-u' + (faltan.length ? ' viejo' : '') + '">' + g.enviados + ' de ' + g.miembros.length + ' enviaron' + (faltan.length ? ' · faltan ' + faltan.length : '') + '</div></div></div>' +
         '<div class="terr-barra"><span style="width:' + (g.miembros.length ? Math.round(100 * g.enviados / g.miembros.length) : 0) + '%"></span></div>' +
-        '<div class="terr-cifra">Participaron ' + g.participaron + ' · Horas (precursores) ' + g.horas + ' · Estudios ' + g.estudios + '</div>' +
+        '<div class="terr-cifra">Participaron ' + g.participaron + ' · Horas (precursores) ' + g.horas + (g.otros ? ' + ' + g.otros + ' otros servicios' : '') + ' · Estudios ' + g.estudios + '</div>' +
         '<div class="miembros">' + g.miembros.map(function (m) {
           var x = m.informe;
           return '<button type="button" class="miembro' + (x ? ' ok' : '') + '" data-miembro="' + esc(m.nombre) + '">' +
             '<span class="m-nombre">' + esc(m.nombre) + '</span>' +
-            '<span class="m-det">' + (x ? esc((/^n/i.test(String(x.participo)) ? 'No participó' : 'Participó') + (x.horas ? ' · ' + x.horas + ' h' : '') + (+x.estudios ? ' · ' + x.estudios + ' est.' : '') + (/precursor/i.test(x.servicio) ? ' · ' + x.servicio : '')) : 'Pendiente · tocar para ingresar') + '</span></button>';
+            '<span class="m-det">' + (x ? esc((/^n/i.test(String(x.participo)) ? 'No participó' : 'Participó') + (x.horas ? ' · ' + x.horas + ' h' : '') + (+x.otros ? ' + ' + x.otros + ' h otros' : '') + (+x.estudios ? ' · ' + x.estudios + ' est.' : '') + (/precursor/i.test(x.servicio) ? ' · ' + x.servicio : '')) : 'Pendiente · tocar para ingresar') + '</span></button>';
         }).join('') + '</div></article>';
     });
     if (!t.grupos.length) h += '<p class="vacio">No hay personas con grupo asignado en el directorio.</p>';
