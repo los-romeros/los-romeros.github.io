@@ -118,6 +118,7 @@
       estado.sinConexion = false;
       if (!DEMO) guardar(CLAVE_DATOS, d);
       render();
+      if (avisosDisponibles() && Notification.permission === 'granted' && !estado.avisoRefrescado) { estado.avisoRefrescado = true; activarAvisos(false); }
     }).catch(function (e) {
       if (e.message === 'sesion') return;
       estado.sinConexion = true;
@@ -190,6 +191,7 @@
     var ruta = location.hash.replace(/^#\/?/, '');
     if (ruta === 'territorios' && estado.datos.territorios && estado.datos.territorios.puedeVer) { renderTerritorios(); return; }
     var m = /^p\/([\w-]+)/.exec(ruta);
+    if (ruta === 'registrar') { renderInicio(); return; }
     var prog = m && estado.datos.programas.filter(function (p) { return p.id === m[1]; })[0];
     if (prog) renderPrograma(prog); else renderInicio();
   }
@@ -231,6 +233,12 @@
           '<div><div class="aviso-t">' + esc(a.titulo) + '</div>' + (a.detalle ? '<div class="aviso-d">' + esc(a.detalle) + '</div>' : '') + '</div></div>';
       });
       h += '</section>';
+    }
+
+    // Activar notificaciones en este teléfono
+    if (avisosDisponibles() && !avisosActivos()) {
+      h += '<button type="button" class="activar-avisos" id="activar-avisos"><span class="circulo teal">' + svg('megafono') + '</span>' +
+        '<span><span class="registrar-t">Activar avisos en este teléfono</span><span class="registrar-d">Te avisamos de nuevas asignaciones, el día anterior y lo que tengas pendiente.</span></span>' + SVG_CHEVRON + '</button>';
     }
 
     // Resumen personal
@@ -317,6 +325,13 @@
     app.querySelectorAll('[data-aprobar]').forEach(function (b) {
       b.addEventListener('click', function () { aprobar(b.getAttribute('data-aprobar')); });
     });
+    var ba = document.getElementById('activar-avisos');
+    if (ba) ba.addEventListener('click', function () { activarAvisos(true); });
+    // Desde una notificación de registro pendiente
+    if (location.hash === '#registrar') {
+      history.replaceState(null, '', location.pathname + location.search);
+      if ((d.registrosPendientes || []).length) abrirRegistro(d.registrosPendientes[0]);
+    }
     var bs = document.getElementById('salir');
     if (bs) bs.addEventListener('click', function () { salir(); });
     var bi = document.getElementById('btn-instalar');
@@ -767,6 +782,50 @@
       var n = document.getElementById('buscar-t'); n.focus();
     });
     document.getElementById('registrar-nuevo').addEventListener('click', function () { abrirRegistro(null); });
+  }
+
+  /* ---------- notificaciones en el teléfono ---------- */
+  var FIREBASE_SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+  function avisosDisponibles() {
+    return !!(cfg.firebase && cfg.vapidKey && 'Notification' in window && 'serviceWorker' in navigator && location.protocol === 'https:' && !DEMO);
+  }
+  function avisosActivos() {
+    return Notification.permission === 'granted' && !!leer('programas-push');
+  }
+  function cargarScript(src) {
+    return new Promise(function (ok, mal) {
+      var s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = mal; document.head.appendChild(s);
+    });
+  }
+  /** Pide permiso (si pidePermiso) y registra el teléfono en el servidor. */
+  function activarAvisos(pidePermiso) {
+    if (!avisosDisponibles()) return;
+    var ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    var instalada = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (pidePermiso && ios && !instalada) {
+      aviso('En iPhone, primero agrega la app a la pantalla de inicio (Compartir ▸ Agregar a inicio) y ábrela desde ahí.', true);
+      return;
+    }
+    var permiso = pidePermiso ? Notification.requestPermission() : Promise.resolve(Notification.permission);
+    permiso.then(function (p) {
+      if (p !== 'granted') { if (pidePermiso) aviso('No se activaron los avisos. Puedes permitirlos en la configuración del navegador.', true); throw new Error('sin permiso'); }
+      return window.firebase ? null : cargarScript(FIREBASE_SDK + 'firebase-app-compat.js').then(function () { return cargarScript(FIREBASE_SDK + 'firebase-messaging-compat.js'); });
+    }).then(function () {
+      if (!firebase.apps.length) firebase.initializeApp(cfg.firebase);
+      return navigator.serviceWorker.ready;
+    }).then(function (reg) {
+      return firebase.messaging().getToken({ vapidKey: cfg.vapidKey, serviceWorkerRegistration: reg });
+    }).then(function (token) {
+      if (!token) throw new Error('sin token');
+      if (leer('programas-push') === token && !pidePermiso) return null;
+      return api('dispositivo', { dispositivo: token, plataforma: navigator.userAgent.slice(0, 60) }).then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        guardar('programas-push', token);
+        if (pidePermiso) { aviso('Listo, este teléfono recibirá los avisos.'); render(); }
+      });
+    }).catch(function (e) {
+      if (pidePermiso && e.message !== 'sin permiso' && e.message !== 'sesion') aviso('No se pudieron activar los avisos: ' + e.message, true);
+    });
   }
 
   /* ---------- avisos breves ---------- */

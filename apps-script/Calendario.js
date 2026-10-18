@@ -108,6 +108,7 @@ function procesarInvitaciones_(asignaciones, cfg) {
     a['ID evento'] = ev.getId();
     a['Invitado el'] = new Date();
     enviadas++;
+    try { notificar_(cfg, a['Correo'], 'Nueva asignación', nombreAsignacion_(a) + ' · ' + a['Reunión'] + (a['Hora'] ? ' · ' + a['Hora'] : ''), './', 'nueva-' + a['Clave']); } catch (e) { /* sin notificación */ }
   });
   if (enviadas) registrar_('Invitaciones enviadas', enviadas + ' invitación(es) de calendario');
   return enviadas + completados; // cantidad de filas modificadas (para saber si hay que guardar)
@@ -229,7 +230,8 @@ function avisarRechazoMemoria_(a, prog, cfg) {
     'Puedes reasignarla desde la app' + (cfg.urlApp ? ': ' + cfg.urlApp : '') + ' o en tu hoja del programa.', '',
     'Mensaje automático de la app de programas.'
   ]);
-  if (ok) a['Rechazo avisado el'] = new Date();
+  var push = notificar_(cfg, para, 'Asignación rechazada', a['Nombre'] + ' no puede: ' + nombreAsignacion_(a) + ' · ' + a['Reunión'], './', 'rechazo-' + a['Clave']);
+  if (ok || push) a['Rechazo avisado el'] = new Date();
 }
 
 /** Recordatorio por correo a quienes no han respondido 2 días después de la invitación. */
@@ -267,6 +269,8 @@ function avisosDiaAntes_(asign, cfg) {
   });
   Object.keys(porPersona).forEach(function (correo) {
     var lista = porPersona[correo];
+    notificar_(cfg, correo, 'Mañana tienes ' + (lista.length > 1 ? lista.length + ' asignaciones' : 'una asignación'),
+      lista.map(function (a) { return nombreAsignacion_(a) + (a['Hora'] ? ' · ' + a['Hora'] : ''); }).join(' · '), './', 'manana-' + correo);
     enviarCorreo_(cfg, correo, 'Mañana tienes una asignación', [
       'Hola ' + String(lista[0]['Nombre']).split(' ')[0] + ',', '', 'Te recordamos que mañana tienes:', ''
     ].concat(lista.map(lineaAsignacion_)).concat(['', cfg.urlApp ? 'Ver en la app: ' + cfg.urlApp : '', '', 'Mensaje automático de la app de programas.']));
@@ -301,6 +305,7 @@ function asegurarTareas_() {
   var existentes = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
   if (existentes.indexOf('sincronizar') < 0) ScriptApp.newTrigger('sincronizar').timeBased().everyMinutes(15).create();
   if (existentes.indexOf('tareasHorarias') < 0) ScriptApp.newTrigger('tareasHorarias').timeBased().everyHours(1).create();
+  if (existentes.indexOf('notificacionesFrecuentes') < 0) ScriptApp.newTrigger('notificacionesFrecuentes').timeBased().everyMinutes(10).create();
 }
 
 /**

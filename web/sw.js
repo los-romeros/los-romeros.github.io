@@ -1,5 +1,32 @@
-// Guarda la app para abrirla sin conexión. Los datos se guardan aparte (localStorage).
-var VERSION = 'v9';
+// Guarda la app para abrirla sin conexión (los datos se guardan aparte, en localStorage)
+// y muestra las notificaciones que llegan por Firebase Cloud Messaging.
+var VERSION = 'v10';
+var FIREBASE_SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+importScripts('config.js');
+if (self.APP_CONFIG && self.APP_CONFIG.firebase) {
+  try {
+    importScripts(FIREBASE_SDK + 'firebase-app-compat.js', FIREBASE_SDK + 'firebase-messaging-compat.js');
+    firebase.initializeApp(self.APP_CONFIG.firebase);
+    firebase.messaging().onBackgroundMessage(function (m) {
+      var d = m.data || {};
+      return self.registration.showNotification(d.titulo || 'Programas', {
+        body: d.cuerpo || '', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png',
+        tag: d.tag || undefined, renotify: !!d.tag, data: { url: d.url || './' }
+      });
+    });
+  } catch (e) { /* sin notificaciones */ }
+}
+
+self.addEventListener('notificationclick', function (e) {
+  e.notification.close();
+  var destino = new URL((e.notification.data && e.notification.data.url) || './', self.location.href).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (lista) {
+    for (var i = 0; i < lista.length; i++) {
+      if ('focus' in lista[i]) { lista[i].navigate(destino); return lista[i].focus(); }
+    }
+    return self.clients.openWindow(destino);
+  }));
+});
 var ARCHIVOS = ['./', 'index.html', 'styles.css', 'app.js', 'config.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png'];
 
 self.addEventListener('install', function (e) {

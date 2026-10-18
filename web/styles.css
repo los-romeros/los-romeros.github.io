@@ -518,3 +518,5 @@ a { color: var(--primary-ink); }
 .terr-hi { display: grid; grid-template-columns: 92px 1fr; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
 .terr-hi .f { color: var(--muted); font-variant-numeric: tabular-nums; }
 .terr-hi small { display: block; color: var(--muted); }
+.activar-avisos { appearance: none; border: 0; width: 100%; text-align: left; display: grid; grid-template-columns: 52px 1fr auto; gap: 14px; align-items: center; background: var(--teal-soft); color: var(--ink); border-radius: var(--radius); padding: 14px 16px; cursor: pointer; }
+.activar-avisos .registrar-d { color: var(--muted); }

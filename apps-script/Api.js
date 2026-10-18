@@ -49,6 +49,7 @@ function doPost(e) {
       case 'asignar': return json_(conBloqueo_(function () { return reasignar_(yo, p); }));
       case 'aprobar': return json_(conBloqueo_(function () { return aprobar_(yo, p); }));
       case 'registrar': return json_(registrarPredicacion_(yo, p, cfg));
+      case 'dispositivo': return json_(conBloqueo_(function () { return registrarDispositivo_(yo, p); }));
       case 'territorios': return json_(resumenTerritorios_(yo, cfg));
       default: return json_({ ok: false, error: 'Acción desconocida' });
     }

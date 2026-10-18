@@ -68,6 +68,12 @@ var HOJAS = {
     anchos: [110, 200, 600],
     sistema: true
   },
+  dispositivos: {
+    nombre: 'Dispositivos',
+    titulos: ['Correo', 'Nombre', 'Token', 'Plataforma', 'Registrado', 'Último uso'],
+    anchos: [220, 180, 300, 220, 140, 140],
+    sistema: true
+  },
   registro: {
     nombre: 'Registro',
     titulos: ['Fecha', 'Evento', 'Detalle'],
@@ -158,7 +164,8 @@ function reescribirTabla_(clave, objetos) {
 
 /** Agrega al final las columnas nuevas que aún no existan (para actualizar planillas antiguas sin pasos manuales). */
 function asegurarColumnas_(clave) {
-  var sh = hoja_(clave);
+  var ss = planilla_();
+  var sh = ss.getSheetByName(HOJAS[clave].nombre) || ss.insertSheet(HOJAS[clave].nombre);
   var actuales = sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getValues()[0];
   HOJAS[clave].titulos.forEach(function (t) {
     if (actuales.indexOf(t) < 0) {
