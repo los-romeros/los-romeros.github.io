@@ -8,6 +8,7 @@ function onOpen() {
     .addItem('Revisar respuestas y recordatorios ahora', 'menuTareasHorarias')
     .addItem('Agregar al directorio los nombres de los programas', 'armarDirectorio')
     .addItem('Crear hoja de aseo (plantilla)', 'crearPlantillaAseo')
+    .addItem('Importar personas (grupo y servicio) desde una planilla', 'importarPersonas')
     .addSeparator()
     .addItem('Reiniciar prueba de invitaciones', 'reiniciarPruebaInvitaciones')
     .addItem('Preparar planilla (pestañas y formatos)', 'prepararPlanilla')
@@ -268,4 +269,57 @@ function migrarPerfiles_() {
     PERFILES.forEach(function (f) { if (texto.indexOf(f.id) >= 0) cambios[f.columna] = true; });
     actualizarFila_('personas', p, cambios);
   });
+}
+
+/**
+ * Completa el directorio con una planilla de importación (columnas: Nombre | Formato original | Grupo | Servicio | Nombrado | Último mes informado).
+ * Agrega a quienes faltan y completa Grupo, Servicio y la casilla Anciano solo donde están vacíos (no sobrescribe).
+ */
+function importarPersonas() {
+  var ui = SpreadsheetApp.getUi();
+  var r = ui.prompt('Importar personas', 'Pega el enlace de la planilla de importación:', ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return;
+  var origen = SpreadsheetApp.openByUrl(r.getResponseText().trim()).getSheets()[0].getDataRange().getValues();
+  var tit = origen.shift().map(norm_);
+  var c = function (t) { return tit.indexOf(norm_(t)); };
+  var cNom = c('Nombre'), cOrig = c('Formato original'), cGrupo = c('Grupo'), cServ = c('Servicio'), cNombrado = c('Nombrado'), cMes = c('Último mes informado');
+
+  var dir = directorio_();
+  var filas = leerTabla_('personas');
+  var porNombre = {};
+  filas.forEach(function (f) { porNombre[f['Nombre']] = f; });
+  var nuevos = 0, completados = 0, distintos = [];
+  origen.forEach(function (o) {
+    var nombre = texto_(o[cNom]);
+    if (!nombre) return;
+    var p = reconocer_(nombre, dir) || (cOrig >= 0 ? reconocer_(nombreFormulario_(o[cOrig]), dir) : null);
+    var grupo = o[cGrupo], servicio = texto_(o[cServ]), anciano = /anciano/i.test(o[cNombrado]), siervo = /siervo/i.test(o[cNombrado]);
+    if (p && porNombre[p.nombre]) {
+      var f = porNombre[p.nombre], cambio = false;
+      if (!f['Grupo'] && grupo) { f['Grupo'] = grupo; cambio = true; }
+      else if (f['Grupo'] && grupo && +f['Grupo'] !== +grupo) distintos.push(p.nombre + ' (planilla: ' + f['Grupo'] + ', registro: ' + grupo + ')');
+      if (!f['Servicio'] && servicio) { f['Servicio'] = servicio; cambio = true; }
+      if (anciano && f['Anciano'] !== true) { f['Anciano'] = true; cambio = true; }
+      if (siervo && !/siervo/i.test(f['Notas'])) { f['Notas'] = (f['Notas'] ? f['Notas'] + ' · ' : '') + 'Siervo ministerial'; cambio = true; }
+      if (cambio) completados++;
+    } else {
+      var nuevo = {
+        'Nombre': nombre, 'Nombre público': nombrePublico_(nombre), 'Grupo': grupo || '', 'Servicio': servicio,
+        'Anciano': anciano, 'Participa': false, 'Capitán': false, 'Secretario': false,
+        'Notas': (siervo ? 'Siervo ministerial · ' : '') + 'Agregado desde el registro de informes' + (cMes >= 0 && o[cMes] ? ' (último: ' + o[cMes] + ')' : '')
+      };
+      filas.push(nuevo);
+      porNombre[nombre] = nuevo;
+      dir.personas.push({ id: nombre, nombre: nombre, alias: [] });
+      dir.indice = indicePersonas_(dir.personas);
+      nuevos++;
+    }
+  });
+  filas.sort(function (a, b) { return String(a['Nombre']).localeCompare(String(b['Nombre']), 'es'); });
+  reescribirTabla_('personas', filas);
+  PERFILES.forEach(function (pf) { var rg = columna_('personas', pf.columna); if (rg) rg.insertCheckboxes(); });
+  limpiarCache_();
+  registrar_('Personas importadas', nuevos + ' nuevas, ' + completados + ' completadas');
+  ui.alert('Listo', nuevos + ' persona(s) agregadas y ' + completados + ' completadas (grupo, servicio o anciano).' +
+    (distintos.length ? '\n\nEstas tienen un grupo distinto al del registro y NO se cambiaron:\n' + distintos.join('\n') : ''), ui.ButtonSet.OK);
 }
