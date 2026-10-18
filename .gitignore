@@ -6,3 +6,4 @@ web/dev-data.json
 .DS_Store
 node_modules/
 .clasprc.json
+web/dev-territorios.json

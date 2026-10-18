@@ -454,3 +454,67 @@ a { color: var(--primary-ink); }
 .mia-acc .estado { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; padding: 5px 12px; }
 .mia-acc .estado svg { width: 14px; height: 14px; }
 .mia-acc { align-items: center; }
+
+/* ---------- Requiere atención y registro ---------- */
+.atencion { background: #f6e3df; border-radius: var(--radius); padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; }
+.atencion h2 { margin: 0 0 4px; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: #94291b; }
+.atencion-item { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 8px 0; }
+.atencion-item + .atencion-item { border-top: 1px solid rgba(148, 41, 27, .15); }
+.atencion-t { font-weight: 700; color: #3d1a14; }
+.atencion-d { font-size: 14px; color: #6b3a32; }
+.atencion .btn { background: #b8473a; color: #fff; align-self: center; }
+
+.registrar-aviso {
+  appearance: none;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  background: var(--beige);
+  color: var(--ink);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  cursor: pointer;
+  box-shadow: var(--sombra);
+}
+.registrar-aviso .circulo.beige { background: rgba(255, 255, 255, .6); }
+.registrar-t { display: block; font-weight: 800; font-size: 18px; }
+.registrar-d { display: block; font-size: 15px; color: var(--beige-ink); }
+.registrar-aviso .chevron { color: var(--beige-ink); }
+
+.rg-fila { display: grid; grid-template-columns: 1fr 110px; gap: 10px; }
+.rg-fila > div { display: flex; flex-direction: column; gap: 4px; }
+.editor textarea { width: 100%; border: 1px solid var(--line); background: var(--paper); border-radius: 10px; padding: 10px 12px; font: inherit; color: var(--ink); resize: vertical; }
+.manzanas { display: flex; flex-wrap: wrap; gap: 8px; }
+.manzanas.apagado { opacity: .35; pointer-events: none; }
+.mz { position: relative; }
+.mz input { position: absolute; opacity: 0; inset: 0; }
+.mz span { display: inline-grid; place-items: center; min-width: 44px; height: 40px; padding: 0 10px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--paper); font-weight: 700; }
+.mz input:checked + span { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.mz input:focus-visible + span { outline: 3px solid var(--primary); outline-offset: 2px; }
+.editor .rg-check { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: 16px; color: var(--ink); font-weight: 600; }
+.editor { max-height: 92vh; overflow-y: auto; }
+
+/* ---------- Territorios ---------- */
+.filtros { display: flex; flex-wrap: wrap; gap: 8px; }
+.filtro { appearance: none; border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 14px; font-weight: 600; font-size: 14px; cursor: pointer; color: var(--ink); }
+.filtro.activo { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.terr { background: var(--surface); border-radius: var(--radius); box-shadow: var(--sombra); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.terr-cab { display: grid; grid-template-columns: 48px 1fr; gap: 12px; align-items: center; }
+.terr-n { width: 48px; height: 48px; border-radius: 12px; background: var(--primary-soft); color: var(--primary-ink); display: grid; place-items: center; font-weight: 800; font-size: 20px; font-variant-numeric: tabular-nums; }
+.terr-t { font-weight: 700; font-size: 17px; }
+.terr-u { font-size: 14px; color: var(--muted); }
+.terr-u.viejo { color: #b8473a; font-weight: 600; }
+.terr-barra { height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.terr-barra span { display: block; height: 100%; background: var(--primary); border-radius: 999px; }
+.terr-cifra { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.terr-l { font-size: 15px; }
+.terr-l span { display: block; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.terr-l.ok { color: #2a6a3c; font-weight: 600; }
+.terr-h summary { cursor: pointer; font-weight: 600; color: var(--primary-ink); font-size: 14px; }
+.terr-hi { display: grid; grid-template-columns: 92px 1fr; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.terr-hi .f { color: var(--muted); font-variant-numeric: tabular-nums; }
+.terr-hi small { display: block; color: var(--muted); }

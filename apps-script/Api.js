@@ -48,6 +48,8 @@ function doPost(e) {
       case 'estado': return json_(conBloqueo_(function () { return cambiarEstado_(yo, p); }));
       case 'asignar': return json_(conBloqueo_(function () { return reasignar_(yo, p); }));
       case 'aprobar': return json_(conBloqueo_(function () { return aprobar_(yo, p); }));
+      case 'registrar': return json_(registrarPredicacion_(yo, p, cfg));
+      case 'territorios': return json_(resumenTerritorios_(yo, cfg));
       default: return json_({ ok: false, error: 'Acción desconocida' });
     }
   } catch (err) {
@@ -288,6 +290,27 @@ function datosUsuario_(yo, cfg) {
     programas: programas,
     enlaces: base.enlaces.filter(function (l) { return enAudiencia_(l.visiblePara, yo); })
   };
+  // Requiere atención: asignaciones rechazadas en los programas que el usuario puede editar
+  var nombresProg = {};
+  base.programas.forEach(function (p) { nombresProg[p.id] = p.nombre; });
+  out.alertas = asign.filter(function (a) {
+    return a['Estado'] === 'Rechazado' && a['Fecha'] >= hoy && yo.editables.indexOf(a['Programa']) >= 0;
+  }).map(function (a) {
+    return { clave: a['Clave'], programa: a['Programa'], programaNombre: nombresProg[a['Programa']] || a['Programa'],
+      fecha: a['Fecha'], hora: a['Hora'], rol: a['Rol'], parte: a['Parte'], nombre: a['Nombre'] };
+  }).sort(function (a, b) { return a.fecha.localeCompare(b.fecha); });
+
+  // Registro de predicación pendiente y acceso al resumen de territorios
+  try {
+    out.registrosPendientes = registrosPendientes_(yo, info, cfg);
+    out.territorios = { puedeVer: puedeVerTerritorios_(yo, cfg) && !!cfg.registroPredicacion };
+    if (out.registrosPendientes.length || out.territorios.puedeVer) out.territorios.manzanas = manzanasPorTerritorio_(planillaRegistro_(cfg));
+  } catch (e) {
+    console.warn(e);
+    out.registrosPendientes = [];
+    out.territorios = { puedeVer: false };
+  }
+
   if (Object.keys(verEstados).length) {
     out.estados = {};
     asign.forEach(function (a) { if (a['Estado'] !== 'Eliminada' && verEstados[a['Programa']]) out.estados[a['Clave']] = a['Estado']; });

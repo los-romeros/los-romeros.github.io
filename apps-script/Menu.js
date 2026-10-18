@@ -47,6 +47,8 @@ var INICIO_POR_DEFECTO = [
   ['resumenSemanal', 'Sí', 'Sí = cada lunes, correo con las asignaciones de la semana'],
   ['diasParaAprobar', '60', 'Un programa aparece en "Por aprobar" cuando empieza dentro de estos días'],
   ['comoLlegar', 'https://hub.jw.org/meetings/goto/entry-point/meetings?scope_kind=location&scope_id=bd526297-dfc2-5cc3-bc45-47ab953040c9&eventId=137ea843-c7f9-41b7-a363-25762f26f397', 'Enlace del botón "Cómo llegar" (vacío = Google Maps con la dirección)'],
+  ['registroPredicacion', '', 'URL de la planilla "Registro Predicación (Respuestas)" (la que recibe el formulario de los capitanes)'],
+  ['territoriosVisiblePara', 'anciano, capitan', 'Quiénes ven el resumen de territorios en la app'],
   ['zoomPredicacion', '', 'Enlace de Zoom de la predicación (se abre al tocar "Predicación por Zoom")'],
   ['zoomEntreSemana', '', 'Enlace de Zoom de la reunión de entre semana'],
   ['zoomFinSemana', '', 'Enlace de Zoom de la reunión del fin de semana (vacío = el mismo de entre semana)']

@@ -72,7 +72,7 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
   function fechaLarga(iso) { var p = partes(iso); return DIAS[diaSemana(iso)] + ' ' + p.d + ' de ' + MESES[p.m - 1]; }
-  function fechaCorta(iso) { var p = partes(iso); return DIAS_CORTOS[diaSemana(iso)].toLowerCase() + ' ' + p.d + ' ' + MESES_CORTOS[p.m - 1]; }
+  function fechaCorta(iso) { if (!/^\d{4}-\d{2}-\d{2}$/.test(String(iso))) return String(iso || ''); var p = partes(iso); return DIAS_CORTOS[diaSemana(iso)].toLowerCase() + ' ' + p.d + ' ' + MESES_CORTOS[p.m - 1]; }
   function cuando(iso, hoy) {
     if (iso === hoy) return 'Hoy';
     var p = partes(hoy), man = new Date(Date.UTC(p.a, p.m - 1, p.d + 1));
@@ -188,6 +188,7 @@
       return;
     }
     var ruta = location.hash.replace(/^#\/?/, '');
+    if (ruta === 'territorios' && estado.datos.territorios && estado.datos.territorios.puedeVer) { renderTerritorios(); return; }
     var m = /^p\/([\w-]+)/.exec(ruta);
     var prog = m && estado.datos.programas.filter(function (p) { return p.id === m[1]; })[0];
     if (prog) renderPrograma(prog); else renderInicio();
@@ -205,6 +206,21 @@
       '<section class="saludo"><div class="saludo-fecha">' + esc(mayuscula(fechaLarga(hoy))) + '</div>' +
       '<h1>Hola, ' + esc(primerNombre(u.nombre)) + '</h1><p>Tu semana de un vistazo</p></section>';
     if (estado.sinConexion) h += '<div class="estado-red">Sin conexión. Estás viendo los últimos datos guardados.</div>';
+
+    // Requiere tu atención (responsables): asignaciones rechazadas
+    (d.alertas || []).length && (h += '<section class="atencion" aria-label="Requiere tu atención"><h2>Requiere tu atención</h2>' +
+      d.alertas.map(function (a) {
+        return '<div class="atencion-item"><div><div class="atencion-t">' + esc(a.nombre) + ' no puede</div>' +
+          '<div class="atencion-d">' + esc(a.programaNombre) + ' · ' + esc(cuando(a.fecha, hoy)) + (a.hora ? ' · ' + esc(a.hora) : '') + ' · ' + esc(a.rol) + '</div></div>' +
+          '<button type="button" class="btn" data-reasignar="' + esc(a.clave) + '" data-prog="' + esc(a.programa) + '">Reasignar</button></div>';
+      }).join('') + '</section>');
+
+    // Registro de predicación pendiente (capitanes)
+    (d.registrosPendientes || []).forEach(function (g) {
+      h += '<button type="button" class="registrar-aviso" data-registrar="' + esc(g.clave) + '">' +
+        '<span class="circulo beige">' + svg('mapa') + '</span><span><span class="registrar-t">Registra lo trabajado</span>' +
+        '<span class="registrar-d">Territorio ' + esc(g.territorios.join(' y ')) + ' · ' + esc(cuando(g.fecha, hoy)) + (g.lugar ? ' · ' + esc(g.lugar) : '') + '</span></span>' + SVG_CHEVRON + '</button>';
+    });
 
     // Avisos (solo informativos, no se pueden tocar)
     var avisos = d.inicio.avisos || [];
@@ -261,6 +277,11 @@
         (prox && detalleBaldosa(p, prox) ? '<span class="baldosa-det">' + esc(detalleBaldosa(p, prox)) + '</span>' : '') +
         '<span class="baldosa-fecha">' + svg('calendario') + esc(sub) + '</span></a>';
     });
+    if (d.territorios && d.territorios.puedeVer) {
+      h += '<a class="baldosa" href="#territorios"><span class="baldosa-top"><span class="circulo">' + svg('mapa') + '</span>' + SVG_CHEVRON + '</span>' +
+        '<span class="baldosa-nombre">Territorios</span><span class="baldosa-det">Resumen de lo trabajado</span>' +
+        '<span class="baldosa-fecha">' + svg('calendario') + 'Registrar y revisar</span></a>';
+    }
     h += '</nav></section>';
 
     if (d.inicio.mensaje || d.inicio.direccion) {
@@ -280,6 +301,15 @@
 
     app.querySelectorAll('[data-responder]').forEach(function (b) {
       b.addEventListener('click', function () { responder(b.getAttribute('data-clave'), b.getAttribute('data-responder')); });
+    });
+    app.querySelectorAll('[data-reasignar]').forEach(function (b) {
+      b.addEventListener('click', function () { estado.abrirClave = b.getAttribute('data-reasignar'); location.hash = 'p/' + b.getAttribute('data-prog'); });
+    });
+    app.querySelectorAll('[data-registrar]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var g = (d.registrosPendientes || []).filter(function (x) { return x.clave === b.getAttribute('data-registrar'); })[0];
+        abrirRegistro(g);
+      });
     });
     app.querySelectorAll('[data-cambiar]').forEach(function (b) {
       b.addEventListener('click', function () { estado.cambiando = b.getAttribute('data-cambiar'); render(); });
@@ -482,6 +512,13 @@
     app.querySelectorAll('[data-editar]').forEach(function (b) {
       b.addEventListener('click', function () { abrirEditor(prog, b.getAttribute('data-editar')); });
     });
+    if (estado.abrirClave) {
+      var c = estado.abrirClave;
+      estado.abrirClave = '';
+      var el = app.querySelector('[data-editar="' + c.replace(/"/g, '') + '"]');
+      if (el) el.scrollIntoView({ block: 'center' });
+      abrirEditor(prog, c);
+    }
   }
 
   function reunionTiene(r, q) {
@@ -609,6 +646,129 @@
     document.getElementById('ed-nombre').focus();
   }
 
+  /* ---------- registro de predicación (capitanes) ---------- */
+  function abrirRegistro(pend) {
+    var d = estado.datos, mz = (d.territorios && d.territorios.manzanas) || {};
+    var terrs = Object.keys(mz).sort(function (a, b) { return +a - +b; });
+    var terr = pend && pend.territorios[0] ? pend.territorios[0] : terrs[0];
+    var cont = document.createElement('div');
+    cont.className = 'editor-fondo';
+    cont.innerHTML =
+      '<form class="editor" role="dialog" aria-modal="true" aria-labelledby="rg-t">' +
+      '<div class="editor-cab"><div id="rg-t" class="editor-t">Registrar predicación</div>' +
+      '<div class="editor-d">' + (pend ? esc(pend.lugar || '') : 'Lo que se trabajó del territorio') + '</div></div>' +
+      '<div class="rg-fila"><div><label for="rg-fecha">Fecha</label><input id="rg-fecha" type="date" value="' + esc(pend ? pend.fecha : hoyISO()) + '" max="' + hoyISO() + '" required></div>' +
+      '<div><label for="rg-terr">Territorio</label><select id="rg-terr">' + terrs.map(function (t) { return '<option' + (t === terr ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></div></div>' +
+      '<label>Manzanas trabajadas</label><div class="manzanas" id="rg-mz"></div>' +
+      '<label class="rg-check"><input type="checkbox" id="rg-no"> No se predicó</label>' +
+      '<label for="rg-notas">Notas</label><textarea id="rg-notas" rows="3" placeholder="Opcional"></textarea>' +
+      '<p class="editor-msg" id="rg-msg" role="status"></p>' +
+      '<div class="editor-acc"><button type="button" class="btn btn-sec" id="rg-cancelar">Cancelar</button><button type="submit" class="btn" id="rg-guardar">Guardar</button></div></form>';
+    document.body.appendChild(cont);
+    var pintar = function () {
+      var t = document.getElementById('rg-terr').value;
+      document.getElementById('rg-mz').innerHTML = (mz[t] || []).map(function (m) {
+        return '<label class="mz"><input type="checkbox" value="' + esc(m) + '"><span>' + esc(m) + '</span></label>';
+      }).join('') || '<span class="sin-nombre">Sin manzanas registradas</span>';
+    };
+    pintar();
+    document.getElementById('rg-terr').addEventListener('change', pintar);
+    document.getElementById('rg-no').addEventListener('change', function (e) { document.getElementById('rg-mz').classList.toggle('apagado', e.target.checked); });
+    var cerrar = function () { cont.remove(); };
+    cont.addEventListener('click', function (e) { if (e.target === cont) cerrar(); });
+    document.getElementById('rg-cancelar').addEventListener('click', cerrar);
+    cont.querySelector('form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var msg = document.getElementById('rg-msg');
+      var datos = {
+        fecha: document.getElementById('rg-fecha').value,
+        territorio: document.getElementById('rg-terr').value,
+        manzanas: Array.prototype.map.call(cont.querySelectorAll('#rg-mz input:checked'), function (i) { return i.value; }),
+        noSePredico: document.getElementById('rg-no').checked,
+        notas: document.getElementById('rg-notas').value
+      };
+      if (!datos.noSePredico && !datos.manzanas.length) { msg.textContent = 'Marca las manzanas trabajadas, o indica que no se predicó.'; return; }
+      document.getElementById('rg-guardar').disabled = true;
+      msg.textContent = 'Guardando…';
+      api('registrar', datos).then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        cerrar();
+        aviso('Registro guardado. ¡Gracias!');
+        estado.territoriosDatos = null;
+        cargar();
+      }).catch(function (err) {
+        if (err.message === 'sesion') { cerrar(); return; }
+        msg.textContent = err.message && err.message !== 'red' ? err.message : 'No se pudo guardar. Revisa tu conexión.';
+        document.getElementById('rg-guardar').disabled = false;
+      });
+    });
+  }
+
+  /* ---------- resumen de territorios ---------- */
+  function renderTerritorios() {
+    document.title = 'Territorios · Programas';
+    var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Inicio</button>' +
+      '<h1>Territorios</h1></div>' +
+      '<label class="buscar">' + SVG_LUPA + '<input id="buscar-t" type="search" inputmode="numeric" placeholder="Buscar territorio" autocomplete="off" value="' + esc(estado.buscarTerr || '') + '" aria-label="Buscar territorio"></label></div>';
+    h += '<div class="filtros" role="group" aria-label="Filtrar">' + [['todos', 'Todos'], ['pendientes', 'Con pendientes del mes'], ['antiguos', 'Sin trabajar +30 días']].map(function (f) {
+      return '<button type="button" class="filtro' + ((estado.filtroTerr || 'todos') === f[0] ? ' activo' : '') + '" data-filtro="' + f[0] + '">' + f[1] + '</button>';
+    }).join('') + '</div>';
+    h += '<button type="button" class="btn" id="registrar-nuevo">Registrar predicación</button>';
+    var t = estado.territoriosDatos;
+    if (!t) {
+      h += '<p class="vacio">Cargando territorios…</p>';
+      app.innerHTML = h;
+      enlazarTerritorios();
+      api('territorios').then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        estado.territoriosDatos = r;
+        if (location.hash === '#territorios') renderTerritorios();
+      }).catch(function (e) { if (e.message !== 'sesion') aviso(e.message || 'No se pudo cargar.', true); });
+      return;
+    }
+    var hoy = t.hoy, q = String(estado.buscarTerr || '').replace(/\D/g, ''), f = estado.filtroTerr || 'todos';
+    var diasDesde = function (iso) { return iso ? Math.round((Date.parse(hoy) - Date.parse(iso)) / 864e5) : null; };
+    var lista = t.territorios.filter(function (x) {
+      if (q && x.territorio !== q) return false;
+      if (f === 'pendientes') return x.pendientesMes.length > 0;
+      if (f === 'antiguos') { var dd = diasDesde(x.ultima); return dd === null || dd > 30; }
+      return true;
+    });
+    var mesNombre = function (ym) { return MESES[+ym.slice(5, 7) - 1]; };
+    if (!lista.length) h += '<p class="vacio">No hay territorios con ese filtro.</p>';
+    lista.forEach(function (x) {
+      var dd = diasDesde(x.ultima);
+      var pct = x.manzanas.length ? Math.round(100 * x.trabajadasMes.length / x.manzanas.length) : 0;
+      h += '<article class="terr">' +
+        '<div class="terr-cab"><span class="terr-n">' + esc(x.territorio) + '</span><div><div class="terr-t">Territorio ' + esc(x.territorio) + '</div>' +
+        '<div class="terr-u' + (dd === null || dd > 30 ? ' viejo' : '') + '">' + (x.ultima ? 'Última vez: ' + esc(fechaCorta(x.ultima)) + ' · hace ' + dd + ' día' + (dd === 1 ? '' : 's') : 'Sin registros') + '</div></div></div>' +
+        '<div class="terr-barra" role="img" aria-label="' + x.trabajadasMes.length + ' de ' + x.manzanas.length + ' manzanas este mes"><span style="width:' + pct + '%"></span></div>' +
+        '<div class="terr-cifra">' + x.trabajadasMes.length + ' de ' + x.manzanas.length + ' manzanas en ' + esc(mesNombre(t.mesActual)) + '</div>' +
+        (x.pendientesMes.length ? '<div class="terr-l"><span>Pendientes del mes</span>' + esc(x.pendientesMes.join(', ')) + '</div>' : '<div class="terr-l ok">Completo este mes</div>') +
+        (x.noTrabajadasMesAnterior.length ? '<div class="terr-l"><span>No trabajadas en ' + esc(mesNombre(t.mesAnterior)) + '</span>' + esc(x.noTrabajadasMesAnterior.join(', ')) + '</div>' : '') +
+        (x.historial.length ? '<details class="terr-h"><summary>Historial (' + x.historial.length + ')</summary>' + x.historial.map(function (g) {
+          return '<div class="terr-hi"><span class="f">' + esc(fechaCorta(g.fecha)) + '</span><span>' + esc(g.manzanas || '—') + (g.notas ? '<small>' + esc(g.notas) + '</small>' : '') + '</span></div>';
+        }).join('') + '</details>' : '') +
+        '</article>';
+    });
+    app.innerHTML = h;
+    enlazarTerritorios();
+  }
+
+  function enlazarTerritorios() {
+    document.getElementById('volver').addEventListener('click', function () { location.hash = ''; });
+    app.querySelectorAll('[data-filtro]').forEach(function (b) {
+      b.addEventListener('click', function () { estado.filtroTerr = b.getAttribute('data-filtro'); renderTerritorios(); });
+    });
+    var bq = document.getElementById('buscar-t');
+    bq.addEventListener('input', function () {
+      estado.buscarTerr = bq.value;
+      renderTerritorios();
+      var n = document.getElementById('buscar-t'); n.focus();
+    });
+    document.getElementById('registrar-nuevo').addEventListener('click', function () { abrirRegistro(null); });
+  }
+
   /* ---------- avisos breves ---------- */
   function aviso(texto, esError) {
     var t = document.getElementById('toast');
@@ -622,6 +782,7 @@
   /* ---------- modo demo (solo local) ---------- */
   function demoApi(accion, p) {
     var d = estado.datos;
+    if (accion === 'territorios') return fetch('dev-territorios.json').then(function (r) { return r.json(); });
     if (accion === 'responder' || accion === 'estado') { if (d.estados) d.estados[p.clave] = p.respuesta || p.estado; }
     if (accion === 'aprobar') d.programas.forEach(function (x) {
       if (x.id === p.programa) { x.borradores = []; x.reuniones.forEach(function (r) { r.borrador = false; }); }
