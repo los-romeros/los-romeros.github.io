@@ -125,8 +125,20 @@ function prepararPlanilla() {
   lista_('programas', 'Visible', ['Sí', 'No']);
   lista_('programas', 'Lector', Object.keys(LECTORES));
   lista_('usuarios', 'Rol', ['admin', 'editor']);
-  lista_('enlaces', 'Visibilidad', ['público', 'privilegiado']);
   lista_('avisos', 'Ícono', ['megafono', 'grupo', 'calendario', 'libro']);
+  // Perfiles como casillas, y listas para "Visible para" (permiten escribir otras combinaciones)
+  PERFILES.forEach(function (p) {
+    var r = columna_('personas', p.columna);
+    if (r) { r.insertCheckboxes(); hoja_('personas').getRange(1, r.getColumn()).setNote(p.descripcion); }
+  });
+  migrarPerfiles_();
+  [['programas', 'Visible para'], ['programas', 'Estados visibles para'], ['avisos', 'Visible para'], ['visibilidad', 'Visible para']].forEach(function (x) {
+    var r = columna_(x[0], x[1]);
+    if (r) r.setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(OPCIONES_VISIBLE, true).setAllowInvalid(true)
+      .setHelpText('Elige de la lista, o escribe otra combinación separada por coma (también "grupo 3" o correos).').build());
+  });
+  var vis = columna_('enlaces', 'Visibilidad');
+  if (vis) vis.setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['público'].concat(OPCIONES_VISIBLE), true).setAllowInvalid(true).build());
   hoja_('avisos').getRange('D2:D200').setNumberFormat('d/m/yyyy');
   lista_('periodos', 'Estado', ['Borrador', 'Aprobado']);
   lista_('asignaciones', 'Estado', ESTADOS);
@@ -233,4 +245,19 @@ function llenarAnioAseo_(sh, anio, grupoInicial) {
   sh.getRange(2, 1, filas.length, 4).setValues(filas);
   sh.getRange(2, 1, filas.length, 1).setNumberFormat('dddd d "de" mmmm yyyy');
   sh.getRange('F1').setValue('Encargado y Auxiliar son opcionales: si quedan vacíos, el aviso va al superintendente del grupo (pestaña Grupos de la planilla central). Para el año siguiente, duplica la pestaña y cámbiale el nombre.');
+}
+
+/** Pasa los perfiles escritos como texto en la antigua columna "Perfil" a las casillas nuevas. */
+function migrarPerfiles_() {
+  var sh = hoja_('personas');
+  var titulos = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  var cPerfil = titulos.indexOf('Perfil');
+  if (cPerfil < 0) return;
+  leerTabla_('personas').forEach(function (p) {
+    var texto = norm_(p['Perfil']);
+    if (!texto) return;
+    var cambios = {};
+    PERFILES.forEach(function (f) { if (texto.indexOf(f.id) >= 0) cambios[f.columna] = true; });
+    actualizarFila_('personas', p, cambios);
+  });
 }

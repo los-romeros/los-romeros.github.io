@@ -74,7 +74,7 @@ function perfil_(correo) {
     registrado: !!(persona || usuario),
     nombre: persona ? persona['Nombre'] : usuario ? usuario['Nombre'] || correo : correo,
     grupo: persona ? +persona['Grupo'] || null : null,
-    perfiles: persona ? String(persona['Perfil'] || '').split(/[,;]+/).map(norm_).filter(Boolean) : [],
+    perfiles: persona ? perfilesDe_(persona) : [],
     rol: rol,
     privilegiado: !!rol,
     editables: editables
@@ -97,4 +97,11 @@ function enAudiencia_(texto, yo) {
     if (x.indexOf('@') > 0) return x === yo.correo;
     return yo.perfiles.indexOf(x) >= 0 || yo.perfiles.indexOf(x.replace(/s$/, '')) >= 0;
   });
+}
+
+/** Perfiles marcados con casilla en Personas (y la antigua columna de texto "Perfil", si existe). */
+function perfilesDe_(persona) {
+  var out = String(persona['Perfil'] || '').split(/[,;]+/).map(norm_).filter(Boolean);
+  PERFILES.forEach(function (p) { if (persona[p.columna] === true || si_(persona[p.columna])) out.push(p.id); });
+  return out.filter(function (x, i, a) { return a.indexOf(x) === i; });
 }

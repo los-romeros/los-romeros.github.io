@@ -17,8 +17,8 @@ var HOJAS = {
   },
   personas: {
     nombre: 'Personas',
-    titulos: ['Nombre', 'Otras formas de escribirlo (separadas por ;)', 'Nombre público', 'Correo', 'Teléfono (WhatsApp)', 'Grupo', 'Notas', 'Perfil'],
-    anchos: [220, 260, 160, 240, 150, 70, 240, 180]
+    titulos: ['Nombre', 'Otras formas de escribirlo (separadas por ;)', 'Nombre público', 'Correo', 'Teléfono (WhatsApp)', 'Grupo', 'Notas', 'Anciano', 'Participa', 'Capitán', 'Secretario'],
+    anchos: [220, 260, 160, 240, 150, 70, 240, 80, 80, 80, 90]
   },
   grupos: {
     nombre: 'Grupos',
@@ -75,6 +75,21 @@ var HOJAS = {
     sistema: true
   }
 };
+
+/**
+ * Perfiles de las personas: una casilla por perfil en la pestaña Personas.
+ * id = palabra que se usa en "Visible para".
+ */
+var PERFILES = [
+  { columna: 'Anciano', id: 'anciano', descripcion: 'Ancianos' },
+  { columna: 'Participa', id: 'participa', descripcion: 'Varones que participan en acomodación, micrófonos, plataforma, audio y video' },
+  { columna: 'Capitán', id: 'capitan', descripcion: 'Dirigen salidas de predicación (ven el resumen de territorios)' },
+  { columna: 'Secretario', id: 'secretario', descripcion: 'Ve todos los informes de predicación' }
+];
+
+/** Opciones de la lista "Visible para" (también se puede escribir grupo N o correos). */
+var OPCIONES_VISIBLE = ['todos', 'anciano', 'participa', 'capitan', 'secretario', 'privilegiados',
+  'anciano, participa', 'anciano, capitan', 'anciano, secretario'];
 
 var ESTADOS = ['Borrador', 'Pendiente', 'Confirmado', 'Rechazado', 'Sin confirmación', 'Avisar manualmente', 'Eliminada'];
 
