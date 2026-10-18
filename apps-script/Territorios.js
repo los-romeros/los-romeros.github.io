@@ -9,6 +9,7 @@
 
 var HOJA_RESPUESTAS_REGISTRO = 'Respuestas de formulario 1';
 var HOJA_MANZANAS = 'Territorios y Manzanas';
+var MINUTOS_AVISO_REGISTRO = 120; // el aviso de registrar aparece 2 horas después de la hora de la salida
 var DIAS_REGISTRO_PENDIENTE = 30; // salidas más antiguas que esto ya no generan aviso
 
 function planillaRegistro_(cfg) {
@@ -73,7 +74,8 @@ function registrosPendientes_(yo, info, cfg) {
     var x = info[clave], r = x.reunion;
     if (x.programa.id !== 'predicacion' || r.fecha < desde || r.fecha > hoy) return;
     if (norm_(x.asignado.nombre) !== norm_(yo.nombre)) return;
-    if (r.fecha === hoy && r.hora && sumarMinutos_(r.hora, 60) > ahora) return; // aún no termina
+    // El aviso aparece 2 horas después de la hora de la salida (o de la hora por defecto si no tiene)
+    if (r.fecha === hoy && sumarMinutos_(r.hora || cfg.horaPredicacionPorDefecto || '10:30', MINUTOS_AVISO_REGISTRO) > ahora) return;
     var terrs = territoriosDeDetalle_(x.fila.detalle);
     if (!terrs.length) return; // Zoom, cartas, etc.
     candidatas.push({ clave: clave, fecha: r.fecha, hora: r.hora || '', lugar: r.lugar || '', territorios: terrs });
