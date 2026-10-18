@@ -211,7 +211,7 @@
     if (np && docs.noPasar) { renderNoPasar(np[1] || ''); return; }
     if (ruta === 'mapa' && docs.mapa) { renderMapa(); return; }
     var m = /^p\/([\w-]+)/.exec(ruta);
-    if (ruta === 'registrar') { renderInicio(); return; }
+    if (ruta === 'registrar' || ruta === 'informe') { renderInicio(); return; }
     var prog = m && estado.datos.programas.filter(function (p) { return p.id === m[1]; })[0];
     if (prog) renderPrograma(prog); else renderInicio();
   }
@@ -373,6 +373,7 @@
     var especiales = (d.enlaces || []).filter(function (l) { return l.privilegiado; });
     h += enlacesHTML('Enlaces', publicos) + enlacesHTML('Contenido especial', especiales);
     h += instalarHTML();
+    h += '<p class="pie"><a href="guia.html">Cómo usar la app</a>' + ((u.editables || []).length || (d.informe && d.informe.verGrupos) ? ' · <a href="guia-responsables.html">Guía para responsables</a>' : '') + '</p>';
     h += '<p class="pie">Conectado como ' + esc(u.nombre || '') + (u.rol ? ' · ' + esc(u.rol) : '') +
       ' · <button type="button" class="enlace-boton" id="salir">Salir</button><br>Actualizado ' +
       esc(new Date(d.generado).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })) + '</p>';
@@ -424,6 +425,11 @@
     if (bi2) bi2.addEventListener('click', function () { abrirInforme(null); });
     var ba = document.getElementById('activar-avisos');
     if (ba) ba.addEventListener('click', function () { activarAvisos(true); });
+    // Desde una notificación de informe pendiente
+    if (location.hash === '#informe') {
+      history.replaceState(null, '', location.pathname + location.search);
+      if (d.informe && !d.informe.enviado) abrirInforme(null);
+    }
     // Desde una notificación de registro pendiente
     if (location.hash === '#registrar') {
       history.replaceState(null, '', location.pathname + location.search);

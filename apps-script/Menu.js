@@ -56,6 +56,8 @@ var INICIO_POR_DEFECTO = [
   ['registroPredicacion', '', 'URL de la planilla "Registro Predicación (Respuestas)" (la que recibe el formulario de los capitanes)'],
   ['horaPredicacionPorDefecto', '10:30', 'Hora que se asume para salidas sin hora (p. ej. arreglo por grupos), para el aviso de registro'],
   ['informesFormularios', '', 'URLs de planillas de respuestas de formularios de informe que aún se usan (separadas por coma), p. ej. la del grupo 4'],
+  ['diasRecordatorioInforme', '1,5,10', 'Días del mes en que se recuerda (notificación) a quien no ha enviado el informe'],
+  ['horaRecordatorioInforme', '10', 'Hora (0-23) de ese recordatorio'],
   ['informeEditableHasta', '20', 'Día del mes hasta el que se puede corregir el informe del mes anterior'],
   ['carpetaTerritorios', 'TERRITORIOS LOS ROMEROS', 'Carpeta de Drive donde están el listado No pasar y el mapa'],
   ['archivoNoPasar', 'Listado no pasar', 'Inicio del nombre del listado No pasar (se usa el del año más reciente)'],

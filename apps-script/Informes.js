@@ -196,3 +196,30 @@ function informesGrupos_(yo, p, cfg) {
   });
   return { ok: true, mes: mes, mesNombre: nombreMes_(mes), mesAnterior: (function () { var q = mes.split('-'); var d = new Date(+q[0], +q[1] - 2, 1); return d.getFullYear() + '-' + pad2_(d.getMonth() + 1); })(), grupos: lista, servicios: SERVICIOS };
 }
+
+/**
+ * Recordatorio en el teléfono para quien aún no envía el informe del mes anterior.
+ * Días y hora en Inicio: diasRecordatorioInforme (1,5,10) y horaRecordatorioInforme (10).
+ */
+function recordatoriosInforme_(cfg) {
+  var dia = +Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'd');
+  var hora = +Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'H');
+  var dias = String(cfg.diasRecordatorioInforme || '1,5,10').split(/[,;\s]+/).map(Number);
+  if (dias.indexOf(dia) < 0 || hora < +(cfg.horaRecordatorioInforme || 10)) return 0;
+  if (!si_(cfg.notificacionesActivas) || !unaVezAlDia_('RECORDATORIO_INFORME')) return 0;
+  var conTelefono = {};
+  leerTabla_('dispositivos', { opcional: true }).forEach(function (d) { if (d['Correo']) conTelefono[String(d['Correo']).toLowerCase()] = true; });
+  if (!Object.keys(conTelefono).length) return 0;
+  var mes = mesAInformar_();
+  var dir = directorio_();
+  var informes = leerInformes_(cfg, dir);
+  var mesNom = MESES_LARGOS[+mes.slice(5, 7) - 1].toLowerCase();
+  var n = 0;
+  dir.personas.forEach(function (p) {
+    var correo = String(p.correo || '').toLowerCase();
+    if (!correo || !conTelefono[correo] || informeDe_(informes, p.nombre, mes)) return;
+    n += notificar_(cfg, correo, 'Envía tu informe de ' + mesNom, 'Toca aquí para informar tu predicación del mes. ¡Gracias!', './#informe', 'informe-' + mes) ? 1 : 0;
+  });
+  if (n) registrar_('Recordatorio de informe', n + ' persona(s) avisadas · ' + nombreMes_(mes));
+  return n;
+}
