@@ -171,7 +171,7 @@ function directorio_() {
       id: p['Nombre'], nombre: p['Nombre'],
       alias: String(p['Otras formas de escribirlo (separadas por ;)'] || '').split(';').map(texto_).filter(Boolean),
       publico: p['Nombre público'] || nombrePublico_(p['Nombre']),
-      correo: String(p['Correo'] || '').trim(), telefono: p['Teléfono (WhatsApp)'], grupo: p['Grupo']
+      correo: String(p['Correo'] || '').trim(), telefono: p['Teléfono (WhatsApp)'], grupo: p['Grupo'], servicio: p['Servicio'] || ''
     };
   });
   var grupos = {};

@@ -190,6 +190,7 @@
     }
     var ruta = location.hash.replace(/^#\/?/, '');
     if (ruta === 'territorios' && estado.datos.territorios && estado.datos.territorios.puedeVer) { renderTerritorios(); return; }
+    if (ruta === 'informes' && estado.datos.informe && estado.datos.informe.verGrupos) { renderInformes(); return; }
     var m = /^p\/([\w-]+)/.exec(ruta);
     if (ruta === 'registrar') { renderInicio(); return; }
     var prog = m && estado.datos.programas.filter(function (p) { return p.id === m[1]; })[0];
@@ -216,6 +217,14 @@
           '<div class="atencion-d">' + esc(a.programaNombre) + ' · ' + esc(cuando(a.fecha, hoy)) + (a.hora ? ' · ' + esc(a.hora) : '') + ' · ' + esc(a.rol) + '</div></div>' +
           '<button type="button" class="btn" data-reasignar="' + esc(a.clave) + '" data-prog="' + esc(a.programa) + '">Reasignar</button></div>';
       }).join('') + '</section>');
+
+    // Informe mensual
+    var inf = d.informe;
+    if (inf && !inf.enviado) {
+      h += '<button type="button" class="informe-aviso" id="abrir-informe"><span class="circulo">' + svg('libro') + '</span>' +
+        '<span><span class="registrar-t">Envía tu informe de ' + esc(inf.mesNombre.split(' ')[0].toLowerCase()) + '</span>' +
+        '<span class="registrar-d">Toca aquí para informar tu predicación del mes</span></span>' + SVG_CHEVRON + '</button>';
+    }
 
     // Registro de predicación pendiente (capitanes)
     (d.registrosPendientes || []).forEach(function (g) {
@@ -249,6 +258,11 @@
       (items.length ? '' : '<p class="resumen-vacio">No tienes asignaciones en los próximos 7 días.</p>') + '</div></div>';
     items.forEach(function (x) { h += itemResumenHTML(x, hoy); });
     h += '</section>';
+
+    if (inf && inf.enviado) {
+      h += '<div class="informe-ok">' + svg('check') + '<span>Informe de ' + esc(inf.mesNombre.split(' ')[0].toLowerCase()) + ' enviado</span>' +
+        (inf.editable ? '<button type="button" class="enlace-boton" id="abrir-informe">Corregir</button>' : '') + '</div>';
+    }
 
     // Programas por aprobar
     var porAprobar = [];
@@ -285,6 +299,11 @@
         (prox && detalleBaldosa(p, prox) ? '<span class="baldosa-det">' + esc(detalleBaldosa(p, prox)) + '</span>' : '') +
         '<span class="baldosa-fecha">' + svg('calendario') + esc(sub) + '</span></a>';
     });
+    if (d.informe && d.informe.verGrupos) {
+      h += '<a class="baldosa" href="#informes"><span class="baldosa-top"><span class="circulo">' + svg('grupo') + '</span>' + SVG_CHEVRON + '</span>' +
+        '<span class="baldosa-nombre">Informes</span><span class="baldosa-det">De ' + esc(d.informe.mesNombre.split(' ')[0].toLowerCase()) + '</span>' +
+        '<span class="baldosa-fecha">' + svg('calendario') + 'Quién falta</span></a>';
+    }
     if (d.territorios && d.territorios.puedeVer) {
       h += '<a class="baldosa" href="#territorios"><span class="baldosa-top"><span class="circulo">' + svg('mapa') + '</span>' + SVG_CHEVRON + '</span>' +
         '<span class="baldosa-nombre">Territorios</span><span class="baldosa-det">Resumen de lo trabajado</span>' +
@@ -325,6 +344,8 @@
     app.querySelectorAll('[data-aprobar]').forEach(function (b) {
       b.addEventListener('click', function () { aprobar(b.getAttribute('data-aprobar')); });
     });
+    var bi2 = document.getElementById('abrir-informe');
+    if (bi2) bi2.addEventListener('click', function () { abrirInforme(null); });
     var ba = document.getElementById('activar-avisos');
     if (ba) ba.addEventListener('click', function () { activarAvisos(true); });
     // Desde una notificación de registro pendiente
@@ -784,6 +805,112 @@
     document.getElementById('registrar-nuevo').addEventListener('click', function () { abrirRegistro(null); });
   }
 
+  /* ---------- informe mensual ---------- */
+  // para = { nombre, informe } cuando un superintendente ingresa el de otra persona; null = el propio
+  function abrirInforme(para, mesOtro, alGuardar) {
+    var d = estado.datos, inf = d.informe || {};
+    var previo = para ? para.informe : inf.enviado;
+    var mes = mesOtro || inf.mes;
+    var mesNom = mesOtro ? (estado.informesDatos && estado.informesDatos.mesNombre) || mesOtro : inf.mesNombre;
+    var servicio = (previo && previo.servicio) || (para ? 'Publicador' : inf.servicio) || 'Publicador';
+    var participo = previo ? String(previo.participo || 'Sí') : 'Sí';
+    var cont = document.createElement('div');
+    cont.className = 'editor-fondo';
+    cont.innerHTML =
+      '<form class="editor" role="dialog" aria-modal="true" aria-labelledby="if-t">' +
+      '<div class="editor-cab"><div id="if-t" class="editor-t">Informe de ' + esc(mesNom) + '</div>' +
+      '<div class="editor-d">' + esc(para ? para.nombre : d.usuario.nombre) + '</div></div>' +
+      '<label for="if-serv">Servicio</label><select id="if-serv">' + ['Publicador', 'Precursor Auxiliar', 'Precursor Regular'].map(function (x) {
+        return '<option' + (x === servicio ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select>' +
+      '<label>¿Participó en el ministerio?</label><div class="si-no">' +
+      '<label class="mz"><input type="radio" name="if-part" value="Sí"' + (/^s/i.test(participo) ? ' checked' : '') + '><span>Sí</span></label>' +
+      '<label class="mz"><input type="radio" name="if-part" value="No"' + (/^n/i.test(participo) ? ' checked' : '') + '><span>No</span></label></div>' +
+      '<div class="rg-fila"><div><label for="if-est">Estudios bíblicos</label><input id="if-est" type="number" min="0" max="99" inputmode="numeric" value="' + esc(previo && previo.estudios !== '' && previo.estudios != null ? previo.estudios : 0) + '"></div>' +
+      '<div id="if-horas-c"><label for="if-horas">Horas</label><input id="if-horas" type="number" min="0" max="300" step="0.5" inputmode="decimal" value="' + esc(previo && previo.horas ? previo.horas : '') + '"></div></div>' +
+      '<label for="if-com">Comentarios</label><textarea id="if-com" rows="2" placeholder="Opcional">' + esc(previo ? previo.comentarios || '' : '') + '</textarea>' +
+      '<p class="editor-msg" id="if-msg" role="status"></p>' +
+      '<div class="editor-acc"><button type="button" class="btn btn-sec" id="if-cancelar">Cancelar</button><button type="submit" class="btn" id="if-guardar">Enviar informe</button></div></form>';
+    document.body.appendChild(cont);
+    var horasVisibles = function () { document.getElementById('if-horas-c').hidden = !/precursor/i.test(document.getElementById('if-serv').value); };
+    horasVisibles();
+    document.getElementById('if-serv').addEventListener('change', horasVisibles);
+    var cerrar = function () { cont.remove(); };
+    cont.addEventListener('click', function (e) { if (e.target === cont) cerrar(); });
+    document.getElementById('if-cancelar').addEventListener('click', cerrar);
+    cont.querySelector('form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var msg = document.getElementById('if-msg');
+      var datos = {
+        mes: mes, nombre: para ? para.nombre : '',
+        servicio: document.getElementById('if-serv').value,
+        participo: (cont.querySelector('input[name="if-part"]:checked') || {}).value || 'Sí',
+        estudios: document.getElementById('if-est').value,
+        horas: document.getElementById('if-horas').value,
+        comentarios: document.getElementById('if-com').value
+      };
+      if (/precursor/i.test(datos.servicio) && datos.participo === 'Sí' && !datos.horas) { msg.textContent = 'Indica las horas.'; return; }
+      document.getElementById('if-guardar').disabled = true;
+      msg.textContent = 'Enviando…';
+      api('informe', datos).then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        cerrar();
+        aviso('Informe enviado. ¡Gracias!');
+        if (alGuardar) alGuardar(); else cargar();
+      }).catch(function (err) {
+        if (err.message === 'sesion') { cerrar(); return; }
+        msg.textContent = err.message && err.message !== 'red' ? err.message : 'No se pudo enviar. Revisa tu conexión.';
+        document.getElementById('if-guardar').disabled = false;
+      });
+    });
+  }
+
+  function renderInformes() {
+    document.title = 'Informes · Programas';
+    var t = estado.informesDatos;
+    var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Inicio</button>' +
+      '<h1>Informes' + (t ? ' de ' + esc(t.mesNombre) : '') + '</h1></div></div>';
+    var mesPedido = estado.informesMes || estado.datos.informe.mes;
+    if (!t || t.mes !== mesPedido) {
+      app.innerHTML = h + '<p class="vacio">Cargando informes…</p>';
+      document.getElementById('volver').addEventListener('click', function () { location.hash = ''; });
+      api('informes', { mes: mesPedido }).then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        estado.informesDatos = r;
+        if (location.hash === '#informes') renderInformes();
+      }).catch(function (e) { if (e.message !== 'sesion') aviso(e.message || 'No se pudo cargar.', true); });
+      return;
+    }
+    var esActual = t.mes === estado.datos.informe.mes;
+    h += '<div class="meses-nav"><button type="button" class="filtro" data-mes="' + esc(t.mesAnterior) + '">‹ ' + esc(MESES[+t.mesAnterior.slice(5, 7) - 1]) + '</button>' +
+      (esActual ? '' : '<button type="button" class="filtro" data-mes="' + esc(estado.datos.informe.mes) + '">Volver al mes actual ›</button>') + '</div>';
+    t.grupos.forEach(function (g) {
+      var faltan = g.miembros.filter(function (m) { return !m.informe; });
+      h += '<article class="terr"><div class="terr-cab"><span class="terr-n">' + g.grupo + '</span><div><div class="terr-t">Grupo ' + g.grupo + '</div>' +
+        '<div class="terr-u' + (faltan.length ? ' viejo' : '') + '">' + g.enviados + ' de ' + g.miembros.length + ' enviaron' + (faltan.length ? ' · faltan ' + faltan.length : '') + '</div></div></div>' +
+        '<div class="terr-barra"><span style="width:' + (g.miembros.length ? Math.round(100 * g.enviados / g.miembros.length) : 0) + '%"></span></div>' +
+        '<div class="terr-cifra">Participaron ' + g.participaron + ' · Horas (precursores) ' + g.horas + ' · Estudios ' + g.estudios + '</div>' +
+        '<div class="miembros">' + g.miembros.map(function (m) {
+          var x = m.informe;
+          return '<button type="button" class="miembro' + (x ? ' ok' : '') + '" data-miembro="' + esc(m.nombre) + '">' +
+            '<span class="m-nombre">' + esc(m.nombre) + '</span>' +
+            '<span class="m-det">' + (x ? esc((/^n/i.test(String(x.participo)) ? 'No participó' : 'Participó') + (x.horas ? ' · ' + x.horas + ' h' : '') + (+x.estudios ? ' · ' + x.estudios + ' est.' : '') + (/precursor/i.test(x.servicio) ? ' · ' + x.servicio : '')) : 'Pendiente · tocar para ingresar') + '</span></button>';
+        }).join('') + '</div></article>';
+    });
+    if (!t.grupos.length) h += '<p class="vacio">No hay personas con grupo asignado en el directorio.</p>';
+    app.innerHTML = h;
+    document.getElementById('volver').addEventListener('click', function () { location.hash = ''; });
+    app.querySelectorAll('[data-mes]').forEach(function (b) {
+      b.addEventListener('click', function () { estado.informesMes = b.getAttribute('data-mes'); renderInformes(); });
+    });
+    app.querySelectorAll('[data-miembro]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var nombre = b.getAttribute('data-miembro'), m = null;
+        t.grupos.forEach(function (g) { g.miembros.forEach(function (x) { if (x.nombre === nombre) m = x; }); });
+        abrirInforme(m, t.mes, function () { estado.informesDatos = null; renderInformes(); if (norm(nombre) === norm(estado.datos.usuario.nombre)) cargar(); });
+      });
+    });
+  }
+
   /* ---------- notificaciones en el teléfono ---------- */
   var FIREBASE_SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
   function avisosDisponibles() {
@@ -842,6 +969,7 @@
   function demoApi(accion, p) {
     var d = estado.datos;
     if (accion === 'territorios') return fetch('dev-territorios.json').then(function (r) { return r.json(); });
+    if (accion === 'informes') return fetch('dev-informes.json').then(function (r) { return r.json(); });
     if (accion === 'responder' || accion === 'estado') { if (d.estados) d.estados[p.clave] = p.respuesta || p.estado; }
     if (accion === 'aprobar') d.programas.forEach(function (x) {
       if (x.id === p.programa) { x.borradores = []; x.reuniones.forEach(function (r) { r.borrador = false; }); }

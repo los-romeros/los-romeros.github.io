@@ -51,6 +51,8 @@ function doPost(e) {
       case 'registrar': return json_(registrarPredicacion_(yo, p, cfg));
       case 'dispositivo': return json_(conBloqueo_(function () { return registrarDispositivo_(yo, p); }));
       case 'territorios': return json_(resumenTerritorios_(yo, cfg));
+      case 'informe': return json_(conBloqueo_(function () { return guardarInforme_(yo, p, cfg); }));
+      case 'informes': return json_(informesGrupos_(yo, p, cfg));
       default: return json_({ ok: false, error: 'Acción desconocida' });
     }
   } catch (err) {
@@ -300,6 +302,9 @@ function datosUsuario_(yo, cfg) {
     return { clave: a['Clave'], programa: a['Programa'], programaNombre: nombresProg[a['Programa']] || a['Programa'],
       fecha: a['Fecha'], hora: a['Hora'], rol: a['Rol'], parte: a['Parte'], nombre: a['Nombre'] };
   }).sort(function (a, b) { return a.fecha.localeCompare(b.fecha); });
+
+  // Informe mensual de predicación
+  try { out.informe = estadoInforme_(yo, cfg); } catch (e) { console.warn(e); out.informe = null; }
 
   // Registro de predicación pendiente y acceso al resumen de territorios
   try {

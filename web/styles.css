@@ -520,3 +520,20 @@ a { color: var(--primary-ink); }
 .terr-hi small { display: block; color: var(--muted); }
 .activar-avisos { appearance: none; border: 0; width: 100%; text-align: left; display: grid; grid-template-columns: 52px 1fr auto; gap: 14px; align-items: center; background: var(--teal-soft); color: var(--ink); border-radius: var(--radius); padding: 14px 16px; cursor: pointer; }
 .activar-avisos .registrar-d { color: var(--muted); }
+
+/* ---------- Informe mensual ---------- */
+.informe-aviso { appearance: none; border: 0; width: 100%; text-align: left; display: grid; grid-template-columns: 52px 1fr auto; gap: 14px; align-items: center;
+  background: var(--primary); color: var(--on-primary); border-radius: var(--radius); padding: 16px; cursor: pointer; box-shadow: var(--sombra); }
+.informe-aviso .circulo { background: rgba(255, 255, 255, .85); color: #1f3442; }
+.informe-aviso .registrar-d { color: rgba(255, 255, 255, .85); }
+.informe-aviso .chevron { color: var(--on-primary); }
+.informe-ok { display: flex; align-items: center; gap: 8px; font-size: 15px; color: #2a6a3c; padding: 0 4px; }
+.informe-ok svg { width: 18px; height: 18px; }
+.si-no { display: flex; gap: 8px; }
+.si-no .mz span { min-width: 64px; }
+.meses-nav { display: flex; gap: 8px; flex-wrap: wrap; }
+.miembros { display: flex; flex-direction: column; }
+.miembro { appearance: none; border: 0; background: none; text-align: left; padding: 8px 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; cursor: pointer; color: var(--ink); }
+.miembro .m-nombre { font-weight: 600; }
+.miembro .m-det { font-size: 13px; color: #b8473a; }
+.miembro.ok .m-det { color: var(--muted); }

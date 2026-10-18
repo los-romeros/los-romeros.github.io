@@ -53,6 +53,8 @@ var INICIO_POR_DEFECTO = [
   ['comoLlegar', 'https://hub.jw.org/meetings/goto/entry-point/meetings?scope_kind=location&scope_id=bd526297-dfc2-5cc3-bc45-47ab953040c9&eventId=137ea843-c7f9-41b7-a363-25762f26f397', 'Enlace del botón "Cómo llegar" (vacío = Google Maps con la dirección)'],
   ['registroPredicacion', '', 'URL de la planilla "Registro Predicación (Respuestas)" (la que recibe el formulario de los capitanes)'],
   ['horaPredicacionPorDefecto', '10:30', 'Hora que se asume para salidas sin hora (p. ej. arreglo por grupos), para el aviso de registro'],
+  ['informesFormularios', '', 'URLs de planillas de respuestas de formularios de informe que aún se usan (separadas por coma), p. ej. la del grupo 4'],
+  ['informeEditableHasta', '20', 'Día del mes hasta el que se puede corregir el informe del mes anterior'],
   ['territoriosVisiblePara', 'anciano, capitan', 'Quiénes ven el resumen de territorios en la app'],
   ['zoomPredicacion', '', 'Enlace de Zoom de la predicación (se abre al tocar "Predicación por Zoom")'],
   ['zoomEntreSemana', '', 'Enlace de Zoom de la reunión de entre semana'],
@@ -137,6 +139,7 @@ function prepararPlanilla() {
     if (r) { r.insertCheckboxes(); hoja_('personas').getRange(1, r.getColumn()).setNote(p.descripcion); }
   });
   migrarPerfiles_();
+  lista_('personas', 'Servicio', ['Publicador', 'Precursor Auxiliar', 'Precursor Regular']);
   [['programas', 'Visible para'], ['programas', 'Estados visibles para'], ['avisos', 'Visible para'], ['visibilidad', 'Visible para']].forEach(function (x) {
     var r = columna_(x[0], x[1]);
     if (r) r.setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(OPCIONES_VISIBLE, true).setAllowInvalid(true)

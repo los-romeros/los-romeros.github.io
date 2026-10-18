@@ -17,8 +17,8 @@ var HOJAS = {
   },
   personas: {
     nombre: 'Personas',
-    titulos: ['Nombre', 'Otras formas de escribirlo (separadas por ;)', 'Nombre público', 'Correo', 'Teléfono (WhatsApp)', 'Grupo', 'Notas', 'Anciano', 'Participa', 'Capitán', 'Secretario'],
-    anchos: [220, 260, 160, 240, 150, 70, 240, 80, 80, 80, 90]
+    titulos: ['Nombre', 'Otras formas de escribirlo (separadas por ;)', 'Nombre público', 'Correo', 'Teléfono (WhatsApp)', 'Grupo', 'Notas', 'Anciano', 'Participa', 'Capitán', 'Secretario', 'Servicio'],
+    anchos: [220, 260, 160, 240, 150, 70, 240, 80, 80, 80, 90, 150]
   },
   grupos: {
     nombre: 'Grupos',
