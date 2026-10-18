@@ -1,8 +1,9 @@
 {
-  "name": "Programas Los Romeros",
-  "short_name": "Programas",
+  "name": "Cong. Los Romeros",
+  "short_name": "Cong. Los Romeros",
   "description": "Programas y asignaciones de la congregación Los Romeros, Concón.",
   "lang": "es",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

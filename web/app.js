@@ -154,10 +154,10 @@
 
   /* ---------- inicio de sesión ---------- */
   function renderLogin() {
-    document.title = 'Programas · Entrar';
+    document.title = 'Cong. Los Romeros · Entrar';
     app.innerHTML =
       '<section class="login">' +
-      '<div class="login-marca">' + svg('calendario', ' class="hero-logo"') + '<span>Programas</span></div>' +
+      '<div class="login-marca">' + svg('calendario', ' class="hero-logo"') + '<span>Cong. Los Romeros</span></div>' +
       '<h1>Programas y asignaciones de la congregación</h1>' +
       '<p>Entra con tu cuenta de Google para ver tus responsabilidades de la semana y todos los programas.</p>' +
       '<div id="google-btn" class="google-btn"></div>' +
@@ -222,7 +222,7 @@
 
   function renderInicio() {
     var d = estado.datos, hoy = d.hoy || hoyISO(), u = d.usuario || {};
-    document.title = 'Programas · ' + (d.inicio.congregacion || 'Congregación');
+    document.title = 'Cong. Los Romeros';
 
     var h = '<header class="cabecera-app">' + svg('calendario', ' class="cab-logo"') + '<span>' + esc(d.inicio.congregacion || 'Congregación') + '</span></header>' +
       '<section class="saludo"><div class="saludo-fecha">' + esc(mayuscula(fechaLarga(hoy))) + '</div>' +
@@ -560,7 +560,7 @@
   /* ---------- programa ---------- */
   function renderPrograma(prog) {
     var d = estado.datos, hoy = d.hoy || hoyISO();
-    document.title = prog.nombre + ' · Programas';
+    document.title = prog.nombre + ' · Cong. Los Romeros';
     var q = norm(estado.busqueda);
 
     var dias = [];
