@@ -216,13 +216,22 @@
       '<h1>Hola, ' + esc(primerNombre(u.nombre)) + '</h1><p>Tu semana de un vistazo</p></section>';
     if (estado.sinConexion) h += '<div class="estado-red">Sin conexión. Estás viendo los últimos datos guardados.</div>';
 
-    // Requiere tu atención (responsables): asignaciones rechazadas
-    (d.alertas || []).length && (h += '<section class="atencion" aria-label="Requiere tu atención"><h2>Requiere tu atención</h2>' +
-      d.alertas.map(function (a) {
-        return '<div class="atencion-item"><div><div class="atencion-t">' + esc(a.nombre) + ' no puede</div>' +
-          '<div class="atencion-d">' + esc(a.programaNombre) + ' · ' + esc(cuando(a.fecha, hoy)) + (a.hora ? ' · ' + esc(a.hora) : '') + ' · ' + esc(a.rol) + '</div></div>' +
-          '<button type="button" class="btn" data-reasignar="' + esc(a.clave) + '" data-prog="' + esc(a.programa) + '">Reasignar</button></div>';
-      }).join('') + '</section>');
+    // Requiere tu atención: asignaciones rechazadas y solicitudes de No pasar por aprobar
+    var solic = (d.solicitudesNoPasar && d.solicitudesNoPasar.porAprobar) || [];
+    if ((d.alertas || []).length || solic.length) {
+      h += '<section class="atencion" aria-label="Requiere tu atención"><h2>Requiere tu atención</h2>' +
+        (d.alertas || []).map(function (a) {
+          return '<div class="atencion-item"><div><div class="atencion-t">' + esc(a.nombre) + ' no puede</div>' +
+            '<div class="atencion-d">' + esc(a.programaNombre) + ' · ' + esc(cuando(a.fecha, hoy)) + (a.hora ? ' · ' + esc(a.hora) : '') + ' · ' + esc(a.rol) + '</div></div>' +
+            '<button type="button" class="btn" data-reasignar="' + esc(a.clave) + '" data-prog="' + esc(a.programa) + '">Reasignar</button></div>';
+        }).join('') +
+        solic.map(function (x) {
+          return '<div class="atencion-item sol"><div><div class="atencion-t">No pasar: ' + esc(x.direccion) + '</div>' +
+            '<div class="atencion-d">Territorio ' + esc(x.territorio) + (x.manzana ? ' · manzana ' + esc(x.manzana) : '') + ' · pedida por ' + esc(x.por) + (x.notas ? ' · ' + esc(x.notas) : '') + '</div></div>' +
+            '<div class="sol-acc"><button type="button" class="btn ok" data-resolver="aprobar" data-fila="' + x.fila + '">Aprobar</button>' +
+            '<button type="button" class="btn btn-sec" data-resolver="rechazar" data-fila="' + x.fila + '">Rechazar</button></div></div>';
+        }).join('') + '</section>';
+    }
 
     // Informe mensual
     var inf = d.informe;
@@ -344,6 +353,17 @@
 
     app.querySelectorAll('[data-responder]').forEach(function (b) {
       b.addEventListener('click', function () { responder(b.getAttribute('data-clave'), b.getAttribute('data-responder')); });
+    });
+    app.querySelectorAll('[data-resolver]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        b.disabled = true;
+        api('resolverNoPasar', { fila: +b.getAttribute('data-fila'), decision: b.getAttribute('data-resolver') }).then(function (r) {
+          if (!r.ok) throw new Error(r.error);
+          aviso(b.getAttribute('data-resolver') === 'aprobar' ? 'Aprobada: se agregó al listado No pasar.' : 'Solicitud rechazada.');
+          estado.noPasar = null;
+          cargar();
+        }).catch(function (e) { b.disabled = false; if (e.message !== 'sesion') aviso(e.message || 'No se pudo guardar.', true); });
+      });
     });
     app.querySelectorAll('[data-reasignar]').forEach(function (b) {
       b.addEventListener('click', function () { estado.abrirClave = b.getAttribute('data-reasignar'); location.hash = 'p/' + b.getAttribute('data-prog'); });
@@ -951,6 +971,14 @@
       return;
     }
     h += '<p class="ayuda-editar">Casas donde los dueños pidieron que no se les visite. Respeta su petición.</p>';
+    var sn = estado.datos.solicitudesNoPasar || {};
+    if (sn.puedeSolicitar) h += '<button type="button" class="btn" id="solicitar-np">Solicitar agregar una dirección</button>';
+    if ((sn.mias || []).length) {
+      h += '<div class="tarjeta"><strong>Tus solicitudes</strong>' + sn.mias.map(function (x) {
+        return '<div class="np-sol"><span>' + esc(x.direccion) + ' · territorio ' + esc(x.territorio) + '</span>' +
+          '<span class="estado ' + (x.estado === 'Aprobada' ? 'ok' : x.estado === 'Rechazada' ? 'rech' : 'pend') + '">' + esc(x.estado) + '</span></div>';
+      }).join('') + '</div>';
+    }
     h += '<div class="filtros terr-chips" role="group" aria-label="Territorio"><a class="filtro' + (!sel ? ' activo' : '') + '" href="#nopasar">Todos</a>' +
       t.territorios.map(function (x) { return '<a class="filtro' + (sel === x.territorio ? ' activo' : '') + '" href="#nopasar/' + esc(x.territorio) + '">' + esc(x.territorio) + '</a>'; }).join('') + '</div>';
     var lista = t.territorios.filter(function (x) { return !sel || x.territorio === sel; });
@@ -966,6 +994,54 @@
     h += '<p class="pie">Fuente: ' + esc(t.archivo) + '</p>';
     app.innerHTML = h;
     document.getElementById('volver').addEventListener('click', volverAtras);
+    var bs = document.getElementById('solicitar-np');
+    if (bs) bs.addEventListener('click', function () { abrirSolicitudNoPasar(sel); });
+  }
+
+  function abrirSolicitudNoPasar(terrInicial) {
+    var mz = (estado.datos.territorios && estado.datos.territorios.manzanas) || {};
+    var terrs = Object.keys(mz).length ? Object.keys(mz).sort(function (a, b) { return +a - +b; }) : Array.apply(null, Array(21)).map(function (_, i) { return String(i + 1); });
+    var cont = document.createElement('div');
+    cont.className = 'editor-fondo';
+    cont.innerHTML =
+      '<form class="editor" role="dialog" aria-modal="true" aria-labelledby="sn-t">' +
+      '<div class="editor-cab"><div id="sn-t" class="editor-t">Solicitar agregar a "No pasar"</div>' +
+      '<div class="editor-d">La solicitud la revisa el administrador antes de agregarla al listado.</div></div>' +
+      '<div class="rg-fila"><div><label for="sn-terr">Territorio</label><select id="sn-terr">' + terrs.map(function (t) { return '<option' + (t === terrInicial ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></div>' +
+      '<div><label for="sn-mz">Manzana</label><select id="sn-mz"></select></div></div>' +
+      '<label for="sn-dir">Dirección</label><input id="sn-dir" autocomplete="off" placeholder="Calle y número" required>' +
+      '<label for="sn-notas">Notas</label><textarea id="sn-notas" rows="2" placeholder="Opcional: qué dijo el dueño de casa, referencias"></textarea>' +
+      '<p class="editor-msg" id="sn-msg" role="status"></p>' +
+      '<div class="editor-acc"><button type="button" class="btn btn-sec" id="sn-cancelar">Cancelar</button><button type="submit" class="btn" id="sn-enviar">Enviar solicitud</button></div></form>';
+    document.body.appendChild(cont);
+    var pintar = function () {
+      var t = document.getElementById('sn-terr').value;
+      document.getElementById('sn-mz').innerHTML = '<option value="">No sé</option>' + (mz[t] || []).map(function (m) { return '<option>' + esc(m) + '</option>'; }).join('');
+    };
+    pintar();
+    document.getElementById('sn-terr').addEventListener('change', pintar);
+    var cerrar = function () { cont.remove(); };
+    cont.addEventListener('click', function (e) { if (e.target === cont) cerrar(); });
+    document.getElementById('sn-cancelar').addEventListener('click', cerrar);
+    cont.querySelector('form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var msg = document.getElementById('sn-msg');
+      document.getElementById('sn-enviar').disabled = true;
+      msg.textContent = 'Enviando…';
+      api('solicitarNoPasar', {
+        territorio: document.getElementById('sn-terr').value, manzana: document.getElementById('sn-mz').value,
+        direccion: document.getElementById('sn-dir').value, notas: document.getElementById('sn-notas').value
+      }).then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        cerrar();
+        aviso('Solicitud enviada. Te avisaremos cuando se revise.');
+        cargar();
+      }).catch(function (err) {
+        if (err.message === 'sesion') { cerrar(); return; }
+        msg.textContent = err.message && err.message !== 'red' ? err.message : 'No se pudo enviar. Revisa tu conexión.';
+        document.getElementById('sn-enviar').disabled = false;
+      });
+    });
   }
 
   function volverAtras() {

@@ -55,6 +55,8 @@ function doPost(e) {
       case 'informes': return json_(informesGrupos_(yo, p, cfg));
       case 'nopasar': return json_(listadoNoPasar_(yo, cfg));
       case 'mapa': return json_(mapaTerritorio_(yo, cfg, p));
+      case 'solicitarNoPasar': return json_(conBloqueo_(function () { return solicitarNoPasar_(yo, p, cfg); }));
+      case 'resolverNoPasar': return json_(conBloqueo_(function () { return resolverNoPasar_(yo, p, cfg); }));
       default: return json_({ ok: false, error: 'Acción desconocida' });
     }
   } catch (err) {
@@ -307,6 +309,7 @@ function datosUsuario_(yo, cfg) {
 
   // Documentos del territorio
   out.documentos = { noPasar: enAudiencia_(cfg.noPasarVisiblePara || 'todos', yo), mapa: enAudiencia_(cfg.mapaVisiblePara || 'todos', yo) };
+  try { out.solicitudesNoPasar = solicitudesParaUsuario_(yo, cfg); } catch (e) { out.solicitudesNoPasar = { puedeSolicitar: false, porAprobar: [], mias: [] }; }
 
   // Informe mensual de predicación
   try { out.informe = estadoInforme_(yo, cfg); } catch (e) { console.warn(e); out.informe = null; }
@@ -315,7 +318,7 @@ function datosUsuario_(yo, cfg) {
   try {
     out.registrosPendientes = registrosPendientes_(yo, info, cfg);
     out.territorios = { puedeVer: puedeVerTerritorios_(yo, cfg) && !!cfg.registroPredicacion };
-    if (out.registrosPendientes.length || out.territorios.puedeVer) out.territorios.manzanas = manzanasPorTerritorio_(planillaRegistro_(cfg));
+    if (out.registrosPendientes.length || out.territorios.puedeVer || (out.solicitudesNoPasar && out.solicitudesNoPasar.puedeSolicitar)) out.territorios.manzanas = manzanasPorTerritorio_(planillaRegistro_(cfg));
   } catch (e) {
     console.warn(e);
     out.registrosPendientes = [];

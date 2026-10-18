@@ -61,6 +61,8 @@ var INICIO_POR_DEFECTO = [
   ['archivoNoPasar', 'Listado no pasar', 'Inicio del nombre del listado No pasar (se usa el del año más reciente)'],
   ['archivoMapa', 'Territorio Los Romeros', 'Inicio del nombre del PDF del mapa (se usa el más reciente)'],
   ['noPasarVisiblePara', 'todos', 'Quiénes ven el listado No pasar'],
+  ['noPasarSolicitan', 'capitan, anciano', 'Quiénes pueden solicitar agregar una dirección al listado No pasar'],
+  ['noPasarAprueban', 'admin', 'Quiénes aprueban las solicitudes de No pasar (reciben el aviso)'],
   ['mapaVisiblePara', 'todos', 'Quiénes ven el mapa del territorio'],
   ['territoriosVisiblePara', 'anciano, capitan', 'Quiénes ven el resumen de territorios en la app'],
   ['zoomPredicacion', '', 'Enlace de Zoom de la predicación (se abre al tocar "Predicación por Zoom")'],

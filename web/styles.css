@@ -546,3 +546,9 @@ a { color: var(--primary-ink); }
 .np-mz { font-weight: 800; color: var(--primary-ink); text-align: center; background: var(--primary-soft); border-radius: 8px; padding: 2px 0; align-self: start; }
 .np-item small { display: block; color: var(--muted); font-size: 12px; }
 #mapa-estado .btn { text-align: center; }
+.atencion-item.sol { grid-template-columns: 1fr; }
+.sol-acc { display: flex; gap: 8px; }
+.atencion .btn.ok { background: #4f8d63; }
+.atencion .btn-sec { background: transparent; color: #94291b; border-color: rgba(148, 41, 27, .3); }
+.np-sol { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 15px; }
+#solicitar-np { align-self: flex-start; }

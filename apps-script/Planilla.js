@@ -68,6 +68,11 @@ var HOJAS = {
     anchos: [110, 200, 600],
     sistema: true
   },
+  solicitudesNoPasar: {
+    nombre: 'Solicitudes No pasar',
+    titulos: ['Fecha', 'Solicitado por', 'Correo', 'Territorio', 'Manzana', 'Dirección', 'Notas', 'Estado', 'Revisado por', 'Revisado el'],
+    anchos: [140, 180, 200, 80, 80, 260, 260, 100, 180, 140]
+  },
   dispositivos: {
     nombre: 'Dispositivos',
     titulos: ['Correo', 'Nombre', 'Token', 'Plataforma', 'Registrado', 'Último uso'],
