@@ -236,6 +236,7 @@
     // Requiere tu atención: asignaciones rechazadas y solicitudes de No pasar por aprobar
     var solic = (d.solicitudesNoPasar && d.solicitudesNoPasar.porAprobar) || [];
     var datosPend = d.datosPendientes || [];
+    var choques = d.choques || [];
     if ((d.alertas || []).length || solic.length || datosPend.length) {
       h += '<section class="atencion" aria-label="Requiere tu atención"><h2>Requiere tu atención</h2>' +
         (d.alertas || []).map(function (a) {
@@ -256,6 +257,22 @@
             '<div class="sol-acc"><button type="button" class="btn ok" data-datos="aprobar" data-fila="' + x.fila + '">Aprobar</button>' +
             '<button type="button" class="btn btn-sec" data-datos="rechazar" data-fila="' + x.fila + '">Rechazar</button></div></div>';
         }).join('') + '</section>';
+    }
+
+    // Posibles choques (responsables): la misma persona con dos asignaciones a la misma hora
+    if (choques.length) {
+      h += '<details class="whatsapp choques-det"' + (estado.abrirChoques ? ' open' : '') + ' id="ch-det"><summary><span class="circulo ambar">!</span>' +
+        '<span><span class="registrar-t">Posibles choques (' + choques.length + ')</span><span class="registrar-d">Misma persona con dos asignaciones a la misma hora</span></span></summary>' +
+        choques.map(function (c) {
+          var mias = c.items.filter(function (x) { return (u.editables || []).indexOf(x.programa) >= 0; });
+          var mio = mias.filter(function (x) { return x.programa !== 'vmc' && x.programa !== 'finsemana'; })[0] || mias[0] || c.items[0];
+          return '<div class="wa-item"><div class="atencion-t">' + esc(c.nombre) + '</div>' +
+            '<div class="atencion-d">' + esc(mayuscula(cuando(c.fecha, hoy))) + ' · ' + c.items.map(function (x) {
+              return esc(x.asignacion) + ' (' + esc(x.programaNombre) + (x.hora ? ', ' + esc(x.hora) : '') + ')';
+            }).join(' y ') + '</div>' +
+            '<div class="sol-acc"><button type="button" class="btn" data-reasignar="' + esc(mio.clave) + '" data-prog="' + esc(mio.programa) + '">Cambiar ' + esc(mio.asignacion) + '</button>' +
+            '<button type="button" class="btn btn-sec" data-choque="' + esc(c.id) + '">Está bien así</button></div></div>';
+        }).join('') + '</details>';
     }
 
     // Avisar por WhatsApp (responsables): asignaciones de personas sin correo
@@ -397,6 +414,8 @@
     });
     var waDet = document.getElementById('wa-det');
     if (waDet) waDet.addEventListener('toggle', function () { estado.abrirWhatsapp = waDet.open; });
+    var chDet = document.getElementById('ch-det');
+    if (chDet) chDet.addEventListener('toggle', function () { estado.abrirChoques = chDet.open; });
     app.querySelectorAll('[data-marcar]').forEach(function (b) {
       b.addEventListener('click', function () {
         b.disabled = true;
@@ -414,6 +433,16 @@
           if (!r.ok) throw new Error(r.error);
           aviso(b.getAttribute('data-datos') === 'aprobar' ? 'Datos aprobados.' : 'Actualización rechazada.');
           cargar();
+        }).catch(function (e) { b.disabled = false; if (e.message !== 'sesion') aviso(e.message || 'No se pudo guardar.', true); });
+      });
+    });
+    app.querySelectorAll('[data-choque]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        b.disabled = true;
+        api('aceptarChoque', { id: b.getAttribute('data-choque') }).then(function (r) {
+          if (!r.ok) throw new Error(r.error);
+          d.choques = (d.choques || []).filter(function (c) { return c.id !== b.getAttribute('data-choque'); });
+          render();
         }).catch(function (e) { b.disabled = false; if (e.message !== 'sesion') aviso(e.message || 'No se pudo guardar.', true); });
       });
     });
@@ -725,13 +754,32 @@
     if (a.rol === 'Ayudante') extra.push('ayudante');
     var clase = 'persona' + ((q && norm(a.nombre).indexOf(q) >= 0) || (yo && norm(a.nombre) === norm(yo)) ? ' resaltado' : '');
     var est = d.estados && a.clave ? d.estados[a.clave] : '';
-    var contenido = esc(a.nombre) + (extra.length ? '<small>' + esc(extra.join(' · ')) + '</small>' : '') +
+    var choque = prog.editable && a.clave ? choqueDe(a.clave) : null;
+    if (choque) clase += ' con-choque';
+    var contenido = (choque ? '<span class="aviso-choque" title="' + esc('También tiene ' + choque) + '">!</span>' : '') +
+      esc(a.nombre) + (extra.length ? '<small>' + esc(extra.join(' · ')) + '</small>' : '') +
       (est && est !== 'Sin confirmación' && est !== 'Borrador' ? ' <i class="punto ' + (CLASE_ESTADO[est] || 'neutro') + '" title="' + esc(est) + '"></i>' : '');
     var enc = a.sub ? '<span class="encargados">' + esc(a.sub) + '</span>' : '';
     if (prog.editable && a.clave) {
       return '<span class="persona-bloque"><button type="button" class="' + clase + ' editable" data-editar="' + esc(a.clave) + '">' + contenido + '</button>' + enc + '</span>';
     }
     return '<span class="persona-bloque"><span class="' + clase + '">' + contenido + '</span>' + enc + '</span>';
+  }
+
+  /** Si la asignación está en un choque, describe la otra: "Video (Acomodación, 19:30)". */
+  function choqueDe(clave) {
+    var c = (estado.datos.choques || []).filter(function (c) { return c.items.some(function (x) { return x.clave === clave; }); })[0];
+    if (!c) return null;
+    return c.items.filter(function (x) { return x.clave !== clave; }).map(function (x) { return x.asignacion + ' (' + x.programaNombre + ')'; }).join(' y ');
+  }
+
+  function haceCuanto(iso, hoy) {
+    if (!iso) return 'aún no la ha hecho';
+    var dias = Math.round((Date.UTC(partes(hoy).a, partes(hoy).m - 1, partes(hoy).d) - Date.UTC(partes(iso).a, partes(iso).m - 1, partes(iso).d)) / 86400000);
+    if (dias < 0) return 'la tiene el ' + fechaCorta(iso);
+    if (dias < 7) return 'la hizo hace ' + dias + (dias === 1 ? ' día' : ' días');
+    var sem = Math.round(dias / 7);
+    return 'la hizo hace ' + sem + (sem === 1 ? ' semana' : ' semanas');
   }
 
   /* ---------- edición (con privilegios) ---------- */
@@ -759,6 +807,8 @@
       '<label for="ed-nombre">Asignado</label>' +
       '<input id="ed-nombre" list="ed-personas" value="' + esc(x.a.nombre) + '" autocomplete="off">' +
       '<datalist id="ed-personas">' + (d.personas || []).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>' +
+      (choqueDe(clave) ? '<p class="editor-choque">⚠ ' + esc(primerNombre(x.a.nombre)) + ' también tiene ' + esc(choqueDe(clave)) + ' a esa hora.</p>' : '') +
+      (x.a.grupo ? '' : '<div class="sugerencias" id="ed-sug"><span class="sug-t">Buscando a quién sugerir…</span></div>') +
       (est && est !== 'Borrador' ? '<label for="ed-estado">Estado</label><select id="ed-estado">' + opciones + '</select>' : '') +
       ((d.telefonos || {})[x.a.nombre] ? '<a class="btn wa" target="_blank" rel="noopener" href="' + esc(whatsappURL(d.telefonos[x.a.nombre],
         mensajeAsignacion(x.a.nombre, x.f.texto && !/^(asignado|titular|ayudante)$/i.test(x.a.rol) ? x.a.rol : (x.f.texto || x.a.rol).replace(/^\d+\.\s*/, '').replace(/\s*\(\d+ ?mins?\.?\)/i, ''), x.r.fecha, x.r.hora, prog.nombre))) + '">' + svg('chat') + 'Escribir por WhatsApp a ' + esc(primerNombre(x.a.nombre)) + '</a>' : '') +
@@ -793,6 +843,25 @@
         document.getElementById('ed-guardar').disabled = false;
       });
     });
+    if (!x.a.grupo) {
+      var cajaSug = document.getElementById('ed-sug');
+      api('sugerencias', { clave: clave }).then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        if (!r.sugerencias.length) { cajaSug.innerHTML = '<span class="sug-t">Sin sugerencias: nadie más ha tenido esta asignación todavía, o todos tienen algo a esa hora.</span>'; return; }
+        var hoy = d.hoy || hoyISO();
+        cajaSug.innerHTML = '<span class="sug-t">Sugerencias (lleva más tiempo sin ' + esc(r.tipo ? r.tipo.toLowerCase() : 'esta asignación') + ')</span>' +
+          r.sugerencias.map(function (sg) {
+            return '<button type="button" class="sug" data-sug="' + esc(sg.nombre) + '"><span class="sug-n">' + esc(sg.nombre) + '</span>' +
+              '<span class="sug-d">' + esc(haceCuanto(sg.ultima, hoy)) + (sg.proxima ? ' · próxima: ' + esc(fechaCorta(sg.proxima)) : '') + '</span></button>';
+          }).join('');
+        cajaSug.querySelectorAll('[data-sug]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            document.getElementById('ed-nombre').value = b.getAttribute('data-sug');
+            cajaSug.querySelectorAll('.sug').forEach(function (o) { o.classList.toggle('elegida', o === b); });
+          });
+        });
+      }).catch(function (e) { if (cajaSug) cajaSug.innerHTML = e.message === 'sesion' ? '' : '<span class="sug-t">No se pudieron cargar sugerencias.</span>'; });
+    }
     document.getElementById('ed-nombre').focus();
   }
 
@@ -1300,6 +1369,9 @@
     if (accion === 'territorios') return fetch('dev-territorios.json').then(function (r) { return r.json(); });
     if (accion === 'nopasar') return fetch('dev-nopasar.json').then(function (r) { return r.json(); });
     if (accion === 'informes') return fetch('dev-informes.json').then(function (r) { return r.json(); });
+    if (accion === 'sugerencias') return Promise.resolve({ ok: true, tipo: 'Micrófono', sugerencias: (d.personas || []).slice(3, 7).map(function (n, i) {
+      return { nombre: n, ultima: i === 0 ? '' : '2026-0' + (9 - i) + '-1' + i, proxima: i === 3 ? '2026-11-20' : '' };
+    }) });
     if (accion === 'responder' || accion === 'estado') { if (d.estados) d.estados[p.clave] = p.respuesta || p.estado; }
     if (accion === 'aprobar') d.programas.forEach(function (x) {
       if (x.id === p.programa) { x.borradores = []; x.reuniones.forEach(function (r) { r.borrador = false; }); }

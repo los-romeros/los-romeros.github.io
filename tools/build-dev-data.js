@@ -3,7 +3,7 @@
 // Uso: node tools/build-dev-data.js [AAAA-MM-DD] ["Nombre del usuario de prueba"]
 const fs = require('fs'), path = require('path'), vm = require('vm'), cp = require('child_process');
 const ctx = {}; vm.createContext(ctx);
-for (const f of ['Parsers.js', 'Nombres.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../apps-script', f), 'utf8'), ctx);
+for (const f of ['Parsers.js', 'Nombres.js', 'Calendario.js', 'Choques.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../apps-script', f), 'utf8'), ctx);
 cp.execSync('node "' + path.join(__dirname, 'run-parsers.js') + '" --json');
 const data = JSON.parse(fs.readFileSync(path.join(__dirname, 'out', 'parsed.json'), 'utf8'));
 const hoy = process.argv[2] || new Date().toISOString().slice(0, 10);
@@ -60,5 +60,16 @@ const out = {
   enlaces: [{ titulo: 'Ejemplo: formulario de informe', url: 'https://forms.google.com', descripcion: 'Enlace de ejemplo', privilegiado: false },
             { titulo: 'Ejemplo: contenido para ancianos', url: 'https://drive.google.com', descripcion: 'Solo con privilegios', privilegiado: true }]
 };
+// Choques, con la misma lógica del servidor
+const filas = [];
+programas.forEach(p => p.reuniones.forEach(r => r.secciones.forEach(s => s.filas.forEach(f => f.asignados.forEach(a => {
+  if (!a.clave) return;
+  filas.push({ Clave: a.clave, Programa: p.id, Fecha: r.fecha, Hora: r.hora || (p.id === 'acomodacion' ? (ctx.diaSemana_(r.fecha) === 6 ? '18:30' : '19:30') : ''),
+    Reunión: r.fecha, Parte: f.texto, Rol: a.rol, Nombre: a.nombre, Reconocido: a.grupo ? 'Grupo' : 'Sí', Estado: 'Pendiente' });
+})))));
+ctx.leerTabla_ = () => PROGS.map(p => ({ ID: p[0], Nombre: p[1] }));
+ctx.hoyISO_ = () => hoy;
+ctx.PropertiesService = { getScriptProperties: () => ({ getProperty: () => null }) };
+out.choques = ctx.choques_(filas, { duracionMin: 105 });
 fs.writeFileSync(path.join(__dirname, '../web/dev-data.json'), JSON.stringify(out));
-console.log('web/dev-data.json · resumen de', yo + ':', resumen.length, '·', programas.map(p => p.id + ':' + p.reuniones.length).join(' '));
+console.log('web/dev-data.json · resumen de', yo + ':', resumen.length, '· choques:', out.choques.length, '·', programas.map(p => p.id + ':' + p.reuniones.length).join(' '));

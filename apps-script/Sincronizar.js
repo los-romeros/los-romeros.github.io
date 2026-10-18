@@ -143,6 +143,9 @@ function sincronizar_() {
       x.programa['Nombre'] + ' · ' + x.periodo['Periodo'] + ' · ' + x.cambios.nuevas + ' nuevas, ' + x.cambios.cambiadas + ' cambiadas, ' + x.cambios.eliminadas + ' eliminadas');
     avisarResponsable_(x.programa, x.periodo, x.cambios, cfg);
   });
+  if (hubo) {
+    try { avisarChoquesNuevos_(asignaciones, cfg); } catch (e) { registrar_('Error al revisar choques', e.message); }
+  }
   return resumen.length;
 }
 

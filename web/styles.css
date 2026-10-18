@@ -574,3 +574,18 @@ a { color: var(--primary-ink); }
 .datos-form .dt-fijo { background: rgba(255, 255, 255, .85); color: #1f3442; border-radius: 10px; padding: 12px; font-weight: 700; }
 .datos-form .btn { background: #fff; color: #1f3442; align-self: stretch; text-align: center; margin-top: 10px; font-size: 17px; }
 .datos-form .enlace-boton { color: #fff; align-self: center; }
+
+/* Choques y sugerencias de reemplazo */
+.atencion-item.choque .atencion-t { color: #6b4300; }
+.aviso-choque { display: inline-grid; place-items: center; width: 17px; height: 17px; margin-right: 5px; border-radius: 50%; background: #e0a100; color: #2b1d00; font-size: 12px; font-weight: 800; vertical-align: 1px; }
+.persona.con-choque { box-shadow: inset 0 0 0 2px #e0a100; }
+.editor-choque { margin: 0; padding: 8px 10px; border-radius: 10px; background: #fbefd0; color: #5a3d00; font-size: 14px; }
+.sugerencias { display: flex; flex-direction: column; gap: 6px; }
+.sug-t { font-size: 13px; color: var(--muted); }
+.sug { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; padding: 8px 12px; border: 1px solid var(--line, rgba(0,0,0,.12)); border-radius: 10px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.sug.elegida { border-color: var(--hero, #5e8499); box-shadow: inset 0 0 0 1px var(--hero, #5e8499); }
+.sug-n { font-weight: 700; }
+.sug-d { font-size: 13px; color: var(--muted); }
+@media (prefers-color-scheme: dark) { .editor-choque { background: #3d3115; color: #f3dfaa; } }
+.circulo.ambar { background: #fbefd0; color: #8a5a00; font-size: 22px; font-weight: 800; }
+.choques-det .btn:not(.btn-sec) { background: #b07a12; color: #fff; }

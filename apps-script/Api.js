@@ -51,6 +51,8 @@ function doPost(e) {
       case 'responder': return json_(conBloqueo_(function () { return responder_(yo, p, cfg); }));
       case 'estado': return json_(conBloqueo_(function () { return cambiarEstado_(yo, p); }));
       case 'asignar': return json_(conBloqueo_(function () { return reasignar_(yo, p); }));
+      case 'sugerencias': return json_(sugerencias_(yo, p, cfg));
+      case 'aceptarChoque': return json_(conBloqueo_(function () { return aceptarChoque_(yo, p, cfg); }));
       case 'aprobar': return json_(conBloqueo_(function () { return aprobar_(yo, p); }));
       case 'registrar': return json_(registrarPredicacion_(yo, p, cfg));
       case 'dispositivo': return json_(conBloqueo_(function () { return registrarDispositivo_(yo, p); }));
@@ -312,6 +314,11 @@ function datosUsuario_(yo, cfg) {
       fecha: a['Fecha'], hora: a['Hora'], rol: a['Rol'], parte: a['Parte'], nombre: a['Nombre'] };
   }).sort(function (a, b) { return a.fecha.localeCompare(b.fecha); });
 
+  // Posibles choques (misma persona con dos asignaciones a la misma hora) en los programas que el usuario edita
+  if (yo.editables.length) {
+    try { out.choques = choques_(asign, cfg, function (a) { return yo.editables.indexOf(a['Programa']) >= 0; }, true); } catch (e) { console.warn(e); out.choques = []; }
+  }
+
   // Avisar por WhatsApp: asignaciones de personas sin correo en los programas que el usuario edita
   if (yo.editables.length) {
     var dirW = directorio_();
@@ -428,7 +435,12 @@ function reasignar_(yo, p) {
   a['Estado'] = estadoInicial_(prog, { 'Reconocido': a['Reconocido'], 'Correo': a['Correo'] });
   actualizarFila_('asignaciones', fila, a);
   registrar_('Asignado cambiado', yo.nombre + ': ' + fila['Reunión'] + ' · ' + fila['Parte'] + ' → ' + nombreFinal + (escrito ? '' : ' (solo en la app)'));
-  return { ok: true, nombre: nombreFinal, estado: a['Estado'], aviso: aviso || (ident.reconocido === 'No' ? 'Ese nombre no está en el directorio; no recibirá invitaciones.' : '') };
+  if (!aviso && ident.reconocido === 'No') aviso = 'Ese nombre no está en el directorio; no recibirá invitaciones.';
+  if (!aviso && ident.reconocido === 'Sí') {
+    var otras = choquesDePersona_(nombreFinal, fila, leerTabla_('asignaciones'), config_());
+    if (otras.length) aviso = 'Guardado. Ojo: ' + nombreFinal + ' ya tiene ' + otras.map(nombreAsignacion_).join(' y ') + ' a esa hora.';
+  }
+  return { ok: true, nombre: nombreFinal, estado: a['Estado'], aviso: aviso };
 }
 
 /** Busca la celda de origen de la asignación y reemplaza el nombre anterior por el nuevo. */
