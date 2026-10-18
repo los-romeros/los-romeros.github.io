@@ -79,6 +79,16 @@
     if (iso === man.toISOString().slice(0, 10)) return 'Mañana';
     return fechaCorta(iso);
   }
+  // Para Maps solo sirve "Calle Número, Comuna": se quitan depto, block, casa, referencias entre paréntesis, etc.
+  function direccionMaps(texto) {
+    var t = String(texto || '').replace(/\u00a0/g, ' ');
+    var comuna = /re[nñ]aca/i.test(t) ? 'Reñaca' : /vi[nñ]a del mar/i.test(t) ? 'Viña del Mar' : 'Concón';
+    t = t.replace(/\(.*?\)/g, ' ').replace(/#\s*/g, ' ').replace(/\s+/g, ' ').trim();
+    var m = /^(.*?[A-Za-zÁÉÍÓÚÑáéíóúñ.]\s+\d+)/.exec(t);
+    var base = m ? m[1] : t.replace(/^(esquina|plaza)\s+/i, '').split(/\s+-\s+|,/)[0].replace(/\s+con\s+/i, ' & ');
+    base = base.replace(/^(pasaje|pje\.?|psje\.?)\s+/i, 'Pasaje ').replace(/\bpta\b\.?/i, 'Punta');
+    return base.trim() + ', ' + comuna + ', Chile';
+  }
   function mapsURL(q) { return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q); }
   function mayuscula(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
   function primerNombre(n) { return String(n || '').split(' ')[0]; }
@@ -271,6 +281,9 @@
     app.querySelectorAll('[data-responder]').forEach(function (b) {
       b.addEventListener('click', function () { responder(b.getAttribute('data-clave'), b.getAttribute('data-responder')); });
     });
+    app.querySelectorAll('[data-cambiar]').forEach(function (b) {
+      b.addEventListener('click', function () { estado.cambiando = b.getAttribute('data-cambiar'); render(); });
+    });
     app.querySelectorAll('[data-aprobar]').forEach(function (b) {
       b.addEventListener('click', function () { aprobar(b.getAttribute('data-aprobar')); });
     });
@@ -307,7 +320,12 @@
       '<div class="mia-prog">' + esc(x.programaNombre) + ' · ' + esc(cuando(x.fecha, hoy)) + (x.hora ? ' · ' + esc(x.hora) : '') + '</div>' +
       tituloResumen(x) +
       (x.lugar ? lugarResumen(x.lugar) : '');
-    if (x.puedeResponder) {
+    if (x.puedeResponder && (x.estado === 'Confirmado' || x.estado === 'Rechazado') && estado.cambiando !== x.clave) {
+      h += '<div class="mia-acc">' + (x.estado === 'Confirmado'
+        ? '<span class="estado ok">' + svg('check') + ' Confirmado</span>'
+        : '<span class="estado rech">Avisaste que no puedes · el responsable fue notificado</span>') +
+        '<button type="button" class="enlace-boton" data-cambiar="' + esc(x.clave) + '">Cambiar</button></div>';
+    } else if (x.puedeResponder) {
       h += '<div class="mia-acc">' +
         '<button type="button" class="btn-resp si' + (x.estado === 'Confirmado' ? ' marcado' : '') + '" data-responder="Confirmado" data-clave="' + esc(x.clave) + '">' + svg('check') + 'Confirmo</button>' +
         '<button type="button" class="btn-resp no' + (x.estado === 'Rechazado' ? ' marcado' : '') + '" data-responder="Rechazado" data-clave="' + esc(x.clave) + '">No puedo</button></div>';
@@ -318,7 +336,9 @@
   // Título del resumen: la parte del programa cuando el rol es genérico ("Asignado", "Titular"…)
   function tituloResumen(x) {
     var generico = /^(asignado|titular|ayudante)$/i.test(x.rol);
-    var principal = x.grupo ? 'Tu grupo (' + x.grupo + '): ' + x.rol : generico && x.parte ? x.parte : x.rol;
+    var corto = /^acomodaci[oó]n · /i.test(x.rol) ? 'Acomodación ' + x.rol.split(' · ')[1]
+      : x.rol.indexOf(' · ') >= 0 ? x.rol.split(' · ').pop() : /^micr[oó]fonos$/i.test(x.rol) ? 'Micrófono' : x.rol;
+    var principal = x.grupo ? 'Tu grupo (' + x.grupo + '): ' + x.rol : generico && x.parte ? x.parte : corto;
     var secundario = generico ? x.rol : x.parte && norm(x.rol).indexOf(norm(x.parte)) < 0 ? x.parte : '';
     if (x.sala) secundario = (secundario ? secundario + ' · ' : '') + x.sala;
     return '<div class="mia-rol">' + esc(principal) + '</div>' + (secundario ? '<div class="mia-parte">' + esc(secundario) + '</div>' : '');
@@ -328,7 +348,7 @@
     var z = estado.datos.inicio.zoom && estado.datos.inicio.zoom.predicacion;
     if (/zoom/i.test(lugar) && z) return '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(z) + '">' + svg('video') + '<span>Entrar a Zoom</span></a>';
     if (/tel[eé]fono|cartas/i.test(lugar)) return '<div class="lugar">' + SVG_PIN + '<span>' + esc(lugar) + '</span></div>';
-    return '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(mapsURL(lugar + (/conc[oó]n|vi[nñ]a|re[nñ]aca/i.test(lugar) ? '' : ', Concón'))) + '">' + SVG_PIN + '<span>' + esc(lugar) + '</span></a>';
+    return '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(mapsURL(direccionMaps(lugar))) + '">' + SVG_PIN + '<span>' + esc(lugar) + '</span></a>';
   }
 
   function pastilla(e) {
@@ -364,6 +384,7 @@
     var item = estado.datos.resumen.filter(function (x) { return x.clave === clave; })[0];
     var antes = item.estado;
     item.estado = respuesta;
+    estado.cambiando = '';
     render();
     api('responder', { clave: clave, respuesta: respuesta }).then(function (r) {
       if (!r.ok) throw new Error(r.error);
@@ -478,7 +499,7 @@
       var zoomPred = /zoom/i.test(r.lugar) && estado.datos.inicio.zoom && estado.datos.inicio.zoom.predicacion;
       if (zoomPred) h += '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(zoomPred) + '">' + svg('video') + '<span>' + esc(r.lugar) + ' · Entrar</span></a>';
       else h += esDireccion
-        ? '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(mapsURL(r.lugar + (/conc[oó]n|vi[nñ]a|re[nñ]aca|valpara/i.test(r.lugar) ? '' : ', Concón'))) + '">' + SVG_PIN + '<span>' + esc(r.lugar) + '</span></a>'
+        ? '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(mapsURL(direccionMaps(r.lugar))) + '">' + SVG_PIN + '<span>' + esc(r.lugar) + '</span></a>'
         : '<div class="lugar">' + SVG_PIN + '<span>' + esc(r.lugar) + '</span></div>';
     }
     if (r.nota) h += '<div class="nota">' + esc(r.nota) + '</div>';

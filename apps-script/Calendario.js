@@ -113,11 +113,25 @@ function procesarInvitaciones_(asignaciones, cfg) {
   return enviadas + completados; // cantidad de filas modificadas (para saber si hay que guardar)
 }
 
+/** Nombre corto y claro de la asignación: "Audio", "Micrófono", "Lectura de la Biblia", "Lector de La Atalaya"… */
+function nombreAsignacion_(a) {
+  var rol = String(a['Rol'] || ''), parte = String(a['Parte'] || '');
+  if (/^(asignado|titular|ayudante)$/i.test(rol)) {
+    var p = parte.split(' · ')[0].replace(/^\d+\.\s*/, '').replace(/\s*\(\d+ ?mins?\.?\)\s*/gi, ' ').trim();
+    var sala = /sala auxiliar/i.test(parte) ? ' · sala auxiliar' : '';
+    return p + (/ayudante/i.test(rol) ? ' (ayudante)' : '') + sala;
+  }
+  if (/^acomodaci[oó]n · /i.test(rol)) return 'Acomodación ' + rol.split(' · ')[1];
+  if (rol.indexOf(' · ') >= 0) return rol.split(' · ').pop();
+  if (/^micr[oó]fonos$/i.test(rol)) return 'Micrófono';
+  if (a['Reconocido'] === 'Grupo') return rol + ' · ' + a['Nombre'];
+  return rol;
+}
+
 function crearEvento_(cal, a, prog, x, cfg) {
   var tz = Session.getScriptTimeZone();
   var esAseo = a['Programa'] === 'aseo';
-  var titulo = (/^(asignado|titular|ayudante)$/i.test(a['Rol']) ? String(a['Parte']).replace(/\s*\(\d+ ?mins?\.?\)\s*/i, ' ').trim() + ' (' + a['Rol'] + ')' : a['Rol']) +
-    ' · ' + (prog['Nombre'] || a['Programa']);
+  var titulo = nombreAsignacion_(a);
   var lugar = x.lugar || cfg.direccion || '';
   var descripcion = [
     a['Reunión'],
@@ -287,4 +301,43 @@ function asegurarTareas_() {
   var existentes = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
   if (existentes.indexOf('sincronizar') < 0) ScriptApp.newTrigger('sincronizar').timeBased().everyMinutes(15).create();
   if (existentes.indexOf('tareasHorarias') < 0) ScriptApp.newTrigger('tareasHorarias').timeBased().everyHours(1).create();
+}
+
+/**
+ * Deja las asignaciones como antes de enviar invitaciones (para repetir una prueba).
+ * Borra los eventos creados, limpia respuestas y recordatorios, recalcula el estado
+ * y apaga invitacionesActivas para que no se reenvíe nada hasta que lo vuelvas a encender.
+ */
+function reiniciarPruebaInvitaciones() {
+  var ui = SpreadsheetApp.getUi();
+  var r = ui.alert('Reiniciar prueba de invitaciones',
+    'Se borrarán los eventos creados por la app (los invitados pueden recibir un aviso de cancelación), se limpiarán respuestas y recordatorios, y las asignaciones confirmadas o rechazadas volverán a su estado inicial.\n\nTambién se apagará "invitacionesActivas". ¿Continuar?',
+    ui.ButtonSet.YES_NO);
+  if (r !== ui.Button.YES) return;
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var programas = {};
+    leerTabla_('programas').forEach(function (p) { programas[p['ID']] = p; });
+    var asign = leerTabla_('asignaciones'), n = 0;
+    asign.forEach(function (a) {
+      if (['Borrador', 'Eliminada'].indexOf(a['Estado']) >= 0) return;
+      var tocada = a['ID evento'] || a['Invitado el'] || a['Respuesta calendario'] || ['Confirmado', 'Rechazado'].indexOf(a['Estado']) >= 0;
+      if (!tocada) return;
+      if (a['ID evento']) eliminarEvento_(a['ID evento']);
+      ['ID evento', 'Invitado el', 'Respuesta calendario', 'Recordatorio el', 'Rechazo avisado el'].forEach(function (k) { a[k] = ''; });
+      a['Estado'] = estadoInicial_(programas[a['Programa']], a);
+      a['Actualizado'] = new Date();
+      n++;
+    });
+    reescribirTabla_('asignaciones', asign);
+    var ini = leerTabla_('inicio').filter(function (f) { return f['Clave'] === 'invitacionesActivas'; })[0];
+    if (ini) actualizarFila_('inicio', ini, { 'Valor': 'No' });
+    PropertiesService.getScriptProperties().deleteProperty('AVISO_DIA_ANTES');
+    limpiarCache_();
+    registrar_('Prueba reiniciada', n + ' asignación(es) vueltas a su estado inicial');
+    ui.alert('Listo: ' + n + ' asignación(es) reiniciadas. Cuando quieras probar de nuevo, pon invitacionesActivas = Sí y usa "Sincronizar ahora".');
+  } finally {
+    lock.releaseLock();
+  }
 }

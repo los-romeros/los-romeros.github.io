@@ -451,3 +451,6 @@ a { color: var(--primary-ink); }
 .lugar-link { color: var(--primary-ink); text-decoration: underline; text-underline-offset: 3px; }
 .mia .lugar-link, .mia .lugar { font-size: 14px; }
 .lugar-link svg { width: 16px; height: 16px; }
+.mia-acc .estado { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; padding: 5px 12px; }
+.mia-acc .estado svg { width: 14px; height: 14px; }
+.mia-acc { align-items: center; }

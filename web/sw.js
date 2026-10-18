@@ -1,5 +1,5 @@
 // Guarda la app para abrirla sin conexión. Los datos se guardan aparte (localStorage).
-var VERSION = 'v7';
+var VERSION = 'v8';
 var ARCHIVOS = ['./', 'index.html', 'styles.css', 'app.js', 'config.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png'];
 
 self.addEventListener('install', function (e) {

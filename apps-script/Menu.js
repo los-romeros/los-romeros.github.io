@@ -9,6 +9,7 @@ function onOpen() {
     .addItem('Agregar al directorio los nombres de los programas', 'armarDirectorio')
     .addItem('Crear hoja de aseo (plantilla)', 'crearPlantillaAseo')
     .addSeparator()
+    .addItem('Reiniciar prueba de invitaciones', 'reiniciarPruebaInvitaciones')
     .addItem('Preparar planilla (pestañas y formatos)', 'prepararPlanilla')
     .addItem('Activar tareas automáticas', 'instalarTareas')
     .addItem('Ver dirección de la API', 'verUrlApi')
