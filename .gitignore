@@ -8,3 +8,4 @@ node_modules/
 .clasprc.json
 web/dev-territorios.json
 web/dev-informes.json
+web/dev-nopasar.json

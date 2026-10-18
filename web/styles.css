@@ -537,3 +537,12 @@ a { color: var(--primary-ink); }
 .miembro .m-nombre { font-weight: 600; }
 .miembro .m-det { font-size: 13px; color: #b8473a; }
 .miembro.ok .m-det { color: var(--muted); }
+
+/* ---------- No pasar ---------- */
+.nopasar-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 14px; font-weight: 600; color: #94291b; text-decoration: none; background: #f6e3df; border-radius: 999px; padding: 4px 10px; align-self: flex-start; }
+.nopasar-link svg { width: 15px; height: 15px; }
+.terr-chips .filtro { text-decoration: none; min-width: 42px; text-align: center; }
+.np-item { display: grid; grid-template-columns: 44px 1fr; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.np-mz { font-weight: 800; color: var(--primary-ink); text-align: center; background: var(--primary-soft); border-radius: 8px; padding: 2px 0; align-self: start; }
+.np-item small { display: block; color: var(--muted); font-size: 12px; }
+#mapa-estado .btn { text-align: center; }

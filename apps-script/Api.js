@@ -53,6 +53,8 @@ function doPost(e) {
       case 'territorios': return json_(resumenTerritorios_(yo, cfg));
       case 'informe': return json_(conBloqueo_(function () { return guardarInforme_(yo, p, cfg); }));
       case 'informes': return json_(informesGrupos_(yo, p, cfg));
+      case 'nopasar': return json_(listadoNoPasar_(yo, cfg));
+      case 'mapa': return json_(mapaTerritorio_(yo, cfg, p));
       default: return json_({ ok: false, error: 'Acción desconocida' });
     }
   } catch (err) {
@@ -302,6 +304,9 @@ function datosUsuario_(yo, cfg) {
     return { clave: a['Clave'], programa: a['Programa'], programaNombre: nombresProg[a['Programa']] || a['Programa'],
       fecha: a['Fecha'], hora: a['Hora'], rol: a['Rol'], parte: a['Parte'], nombre: a['Nombre'] };
   }).sort(function (a, b) { return a.fecha.localeCompare(b.fecha); });
+
+  // Documentos del territorio
+  out.documentos = { noPasar: enAudiencia_(cfg.noPasarVisiblePara || 'todos', yo), mapa: enAudiencia_(cfg.mapaVisiblePara || 'todos', yo) };
 
   // Informe mensual de predicación
   try { out.informe = estadoInforme_(yo, cfg); } catch (e) { console.warn(e); out.informe = null; }

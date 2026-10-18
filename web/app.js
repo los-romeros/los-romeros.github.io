@@ -28,6 +28,8 @@
     calendario: '<rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>',
     check: '<path d="M4 12.5 9.5 18 20 6.5"/>',
     megafono: '<path d="M3 10v4a1 1 0 0 0 1 1h2l5 4V5L6 9H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/>',
+    alto: '<path d="M8.5 2.5h7l5 5v7l-5 5h-7l-5-5v-7z"/><path d="M8 12h8"/>',
+    plano: '<path d="m3 6.5 6-3 6 3 6-3v14l-6 3-6-3-6 3z"/><path d="M9 3.5v14M15 6.5v14"/>',
     video: '<rect x="2.5" y="6" width="13" height="12" rx="2"/><path d="m15.5 10.5 6-3.5v10l-6-3.5"/>'
   };
 
@@ -191,6 +193,10 @@
     var ruta = location.hash.replace(/^#\/?/, '');
     if (ruta === 'territorios' && estado.datos.territorios && estado.datos.territorios.puedeVer) { renderTerritorios(); return; }
     if (ruta === 'informes' && estado.datos.informe && estado.datos.informe.verGrupos) { renderInformes(); return; }
+    var docs = estado.datos.documentos || {};
+    var np = /^nopasar(?:\/(\w+))?$/.exec(ruta);
+    if (np && docs.noPasar) { renderNoPasar(np[1] || ''); return; }
+    if (ruta === 'mapa' && docs.mapa) { renderMapa(); return; }
     var m = /^p\/([\w-]+)/.exec(ruta);
     if (ruta === 'registrar') { renderInicio(); return; }
     var prog = m && estado.datos.programas.filter(function (p) { return p.id === m[1]; })[0];
@@ -299,6 +305,16 @@
         (prox && detalleBaldosa(p, prox) ? '<span class="baldosa-det">' + esc(detalleBaldosa(p, prox)) + '</span>' : '') +
         '<span class="baldosa-fecha">' + svg('calendario') + esc(sub) + '</span></a>';
     });
+    if (d.documentos && d.documentos.noPasar) {
+      h += '<a class="baldosa" href="#nopasar"><span class="baldosa-top"><span class="circulo beige">' + svg('alto') + '</span>' + SVG_CHEVRON + '</span>' +
+        '<span class="baldosa-nombre">No pasar</span><span class="baldosa-det">Direcciones por territorio</span>' +
+        '<span class="baldosa-fecha">' + svg('mapa') + 'Ver listado</span></a>';
+    }
+    if (d.documentos && d.documentos.mapa) {
+      h += '<a class="baldosa" href="#mapa"><span class="baldosa-top"><span class="circulo">' + svg('plano') + '</span>' + SVG_CHEVRON + '</span>' +
+        '<span class="baldosa-nombre">Mapa del territorio</span><span class="baldosa-det">PDF con todos los territorios</span>' +
+        '<span class="baldosa-fecha">' + svg('mapa') + 'Abrir mapa</span></a>';
+    }
     if (d.informe && d.informe.verGrupos) {
       h += '<a class="baldosa" href="#informes"><span class="baldosa-top"><span class="circulo">' + svg('grupo') + '</span>' + SVG_CHEVRON + '</span>' +
         '<span class="baldosa-nombre">Informes</span><span class="baldosa-det">De ' + esc(d.informe.mesNombre.split(' ')[0].toLowerCase()) + '</span>' +
@@ -576,6 +592,14 @@
         : '<div class="lugar">' + SVG_PIN + '<span>' + esc(r.lugar) + '</span></div>';
     }
     if (r.nota) h += '<div class="nota">' + esc(r.nota) + '</div>';
+    if (prog.id === 'predicacion' && estado.datos.documentos && estado.datos.documentos.noPasar) {
+      var terrs = [];
+      r.secciones.forEach(function (s) { s.filas.forEach(function (f) {
+        var m = /Territorio ([^·]+)/.exec(f.detalle || '');
+        if (m) terrs = terrs.concat((m[1].match(/\d+/g) || []));
+      }); });
+      terrs.forEach(function (t) { h += '<a class="nopasar-link" href="#nopasar/' + esc(t) + '">' + svg('alto') + 'No pasar del territorio ' + esc(t) + '</a>'; });
+    }
     r.secciones.forEach(function (s) {
       var color = COLOR_SECCION[norm(s.titulo)];
       h += '<div class="seccion"' + (color ? ' style="--sec:' + color + '"' : '') + '>';
@@ -911,6 +935,84 @@
     });
   }
 
+  /* ---------- No pasar ---------- */
+  function renderNoPasar(sel) {
+    document.title = 'No pasar · Programas';
+    var t = estado.noPasar;
+    var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Volver</button><h1>No pasar</h1></div></div>';
+    if (!t) {
+      app.innerHTML = h + '<p class="vacio">Cargando listado…</p>';
+      document.getElementById('volver').addEventListener('click', volverAtras);
+      api('nopasar').then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        estado.noPasar = r;
+        if (/^#nopasar/.test(location.hash)) render();
+      }).catch(function (e) { if (e.message !== 'sesion') { app.innerHTML = h + '<p class="vacio">' + esc(e.message || 'No se pudo cargar.') + '</p>'; document.getElementById('volver').addEventListener('click', volverAtras); } });
+      return;
+    }
+    h += '<p class="ayuda-editar">Casas donde los dueños pidieron que no se les visite. Respeta su petición.</p>';
+    h += '<div class="filtros terr-chips" role="group" aria-label="Territorio"><a class="filtro' + (!sel ? ' activo' : '') + '" href="#nopasar">Todos</a>' +
+      t.territorios.map(function (x) { return '<a class="filtro' + (sel === x.territorio ? ' activo' : '') + '" href="#nopasar/' + esc(x.territorio) + '">' + esc(x.territorio) + '</a>'; }).join('') + '</div>';
+    var lista = t.territorios.filter(function (x) { return !sel || x.territorio === sel; });
+    if (sel && !lista.length) h += '<p class="vacio">El territorio ' + esc(sel) + ' no tiene direcciones en el listado.</p>';
+    lista.forEach(function (x) {
+      h += '<article class="terr"><div class="terr-cab"><span class="terr-n">' + esc(x.territorio) + '</span><div><div class="terr-t">Territorio ' + esc(x.territorio) + '</div>' +
+        '<div class="terr-u">' + x.direcciones.length + ' dirección' + (x.direcciones.length === 1 ? '' : 'es') + '</div></div></div>' +
+        x.direcciones.map(function (dd) {
+          return '<div class="np-item"><span class="np-mz">' + esc(dd.manzana || '—') + '</span><span>' + esc(dd.direccion) +
+            (dd.fecha ? '<small>Desde ' + esc(/^\d{4}-\d{2}-\d{2}$/.test(dd.fecha) ? fechaCorta(dd.fecha) + ' ' + dd.fecha.slice(0, 4) : dd.fecha) + '</small>' : '') + '</span></div>';
+        }).join('') + '</article>';
+    });
+    h += '<p class="pie">Fuente: ' + esc(t.archivo) + '</p>';
+    app.innerHTML = h;
+    document.getElementById('volver').addEventListener('click', volverAtras);
+  }
+
+  function volverAtras() {
+    if (history.length > 1) history.back(); else location.hash = '';
+  }
+
+  /* ---------- Mapa del territorio ---------- */
+  function renderMapa() {
+    document.title = 'Mapa del territorio · Programas';
+    app.innerHTML = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Volver</button><h1>Mapa del territorio</h1></div></div>' +
+      '<div class="tarjeta" id="mapa-estado"><p class="mensaje">Preparando el mapa…</p></div>';
+    document.getElementById('volver').addEventListener('click', volverAtras);
+    obtenerMapa().then(function (blob) {
+      var url = URL.createObjectURL(blob);
+      document.getElementById('mapa-estado').innerHTML =
+        '<p class="mensaje">El mapa está listo. Se guarda en este teléfono para que se abra rápido la próxima vez.</p>' +
+        '<a class="btn" href="' + url + '" target="_blank" rel="noopener">Abrir el mapa</a>' +
+        '<a class="btn btn-sec" href="' + url + '" download="Mapa del territorio.pdf">Descargar PDF</a>';
+    }).catch(function (e) {
+      if (e.message === 'sesion') return;
+      document.getElementById('mapa-estado').innerHTML = '<p class="mensaje">' + esc(e.message || 'No se pudo obtener el mapa.') + '</p>';
+    });
+  }
+
+  /** Devuelve el PDF del mapa, desde el teléfono si no cambió o descargándolo si es nuevo. */
+  function obtenerMapa() {
+    var CLAVE = 'programas-mapa-version', URL_CACHE = './__mapa-territorio.pdf';
+    var version = leer(CLAVE) || '';
+    var desdeCache = function () {
+      return ('caches' in window) ? caches.open('mapa').then(function (c) { return c.match(URL_CACHE); }).then(function (r) { return r ? r.blob() : null; }) : Promise.resolve(null);
+    };
+    return desdeCache().then(function (enCache) {
+      return api('mapa', { version: enCache ? version : '' }).then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        if (r.sinCambios && enCache) return enCache;
+        var bin = atob(r.pdf), bytes = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        var blob = new Blob([bytes], { type: 'application/pdf' });
+        if ('caches' in window) caches.open('mapa').then(function (c) { return c.put(URL_CACHE, new Response(blob)); }).then(function () { guardar(CLAVE, r.version); });
+        return blob;
+      }).catch(function (e) {
+        if (enCache && e.message !== 'sesion') return enCache; // sin conexión: usar el guardado
+        throw e;
+      });
+    });
+  }
+
   /* ---------- notificaciones en el teléfono ---------- */
   var FIREBASE_SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
   function avisosDisponibles() {
@@ -969,6 +1071,7 @@
   function demoApi(accion, p) {
     var d = estado.datos;
     if (accion === 'territorios') return fetch('dev-territorios.json').then(function (r) { return r.json(); });
+    if (accion === 'nopasar') return fetch('dev-nopasar.json').then(function (r) { return r.json(); });
     if (accion === 'informes') return fetch('dev-informes.json').then(function (r) { return r.json(); });
     if (accion === 'responder' || accion === 'estado') { if (d.estados) d.estados[p.clave] = p.respuesta || p.estado; }
     if (accion === 'aprobar') d.programas.forEach(function (x) {
