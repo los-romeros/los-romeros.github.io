@@ -307,6 +307,21 @@ function datosUsuario_(yo, cfg) {
       fecha: a['Fecha'], hora: a['Hora'], rol: a['Rol'], parte: a['Parte'], nombre: a['Nombre'] };
   }).sort(function (a, b) { return a.fecha.localeCompare(b.fecha); });
 
+  // Avisar por WhatsApp: asignaciones de personas sin correo en los programas que el usuario edita
+  if (yo.editables.length) {
+    var dirW = directorio_();
+    var tel = {};
+    dirW.personas.forEach(function (x) { if (x.telefono) tel[x.nombre] = String(x.telefono); });
+    out.telefonos = tel;
+    var hasta30 = sumarDias_(hoy, 30);
+    out.avisarManual = asign.filter(function (a) {
+      return a['Estado'] === 'Avisar manualmente' && a['Fecha'] >= hoy && a['Fecha'] <= hasta30 && yo.editables.indexOf(a['Programa']) >= 0;
+    }).map(function (a) {
+      return { clave: a['Clave'], programa: a['Programa'], programaNombre: nombresProg[a['Programa']] || a['Programa'], fecha: a['Fecha'], hora: a['Hora'],
+        rol: a['Rol'], parte: a['Parte'], nombre: a['Nombre'], telefono: tel[a['Nombre']] || '', asignacion: nombreAsignacion_(a), reunion: a['Reunión'] };
+    }).sort(function (a, b) { return (a.fecha + a.hora).localeCompare(b.fecha + b.hora); });
+  }
+
   // Documentos del territorio
   out.documentos = { noPasar: enAudiencia_(cfg.noPasarVisiblePara || 'todos', yo), mapa: enAudiencia_(cfg.mapaVisiblePara || 'todos', yo) };
   try { out.solicitudesNoPasar = solicitudesParaUsuario_(yo, cfg); } catch (e) { out.solicitudesNoPasar = { puedeSolicitar: false, porAprobar: [], mias: [] }; }

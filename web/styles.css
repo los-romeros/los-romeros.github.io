@@ -552,3 +552,15 @@ a { color: var(--primary-ink); }
 .atencion .btn-sec { background: transparent; color: #94291b; border-color: rgba(148, 41, 27, .3); }
 .np-sol { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 15px; }
 #solicitar-np { align-self: flex-start; }
+
+/* ---------- WhatsApp ---------- */
+.whatsapp { background: var(--surface); border-radius: var(--radius); box-shadow: var(--sombra); padding: 12px 16px; }
+.whatsapp summary { list-style: none; display: grid; grid-template-columns: 52px 1fr; gap: 14px; align-items: center; cursor: pointer; }
+.whatsapp summary::-webkit-details-marker { display: none; }
+.whatsapp .registrar-d { color: var(--muted); }
+.circulo.wa { background: #d6f0dc; color: #1f7a3d; }
+.wa-item { padding: 10px 0; border-top: 1px solid var(--line); margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+.wa-item .sol-acc { flex-wrap: wrap; margin-top: 4px; }
+.btn.wa { background: #25a35a; color: #fff; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+.btn.wa svg { width: 18px; height: 18px; }
+.editor .btn.wa { align-self: flex-start; margin-top: 8px; }

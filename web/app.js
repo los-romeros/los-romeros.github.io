@@ -28,6 +28,7 @@
     calendario: '<rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>',
     check: '<path d="M4 12.5 9.5 18 20 6.5"/>',
     megafono: '<path d="M3 10v4a1 1 0 0 0 1 1h2l5 4V5L6 9H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/>',
+    chat: '<path d="M4 20l1.3-3.9A8 8 0 1 1 8 19.3z"/><path d="M9 10.5h6M9 13.5h4"/>',
     alto: '<path d="M8.5 2.5h7l5 5v7l-5 5h-7l-5-5v-7z"/><path d="M8 12h8"/>',
     plano: '<path d="m3 6.5 6-3 6 3 6-3v14l-6 3-6-3-6 3z"/><path d="M9 3.5v14M15 6.5v14"/>',
     video: '<rect x="2.5" y="6" width="13" height="12" rx="2"/><path d="m15.5 10.5 6-3.5v10l-6-3.5"/>'
@@ -90,6 +91,18 @@
     var base = m ? m[1] : t.replace(/^(esquina|plaza)\s+/i, '').split(/\s+-\s+|,/)[0].replace(/\s+con\s+/i, ' & ');
     base = base.replace(/^(pasaje|pje\.?|psje\.?)\s+/i, 'Pasaje ').replace(/\bpta\b\.?/i, 'Punta');
     return base.trim() + ', ' + comuna + ', Chile';
+  }
+  /** Enlace de WhatsApp con el mensaje ya escrito. Números chilenos: 9 1234 5678 -> 56912345678. */
+  function whatsappURL(telefono, texto) {
+    var n = String(telefono || '').replace(/\D/g, '');
+    if (n.length === 8) n = '569' + n;
+    else if (n.length === 9 && n.charAt(0) === '9') n = '56' + n;
+    return 'https://wa.me/' + n + '?text=' + encodeURIComponent(texto);
+  }
+  function mensajeAsignacion(nombre, asignacion, fecha, hora, programa) {
+    return 'Hola ' + primerNombre(nombre) + ', te escribo por el programa de la congregación (' + programa + '). ' +
+      'Tienes la asignación: ' + asignacion + ', el ' + fechaLarga(fecha) + (hora ? ' a las ' + hora : '') + '. ' +
+      '¿Me confirmas si puedes cumplirla? ¡Gracias!';
   }
   function mapsURL(q) { return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q); }
   function mayuscula(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
@@ -233,6 +246,21 @@
         }).join('') + '</section>';
     }
 
+    // Avisar por WhatsApp (responsables): asignaciones de personas sin correo
+    var manual = d.avisarManual || [];
+    if (manual.length) {
+      h += '<details class="whatsapp"' + (estado.abrirWhatsapp ? ' open' : '') + ' id="wa-det"><summary><span class="circulo wa">' + svg('chat') + '</span>' +
+        '<span><span class="registrar-t">Avisar por WhatsApp (' + manual.length + ')</span><span class="registrar-d">Asignaciones de hermanos sin correo</span></span></summary>' +
+        manual.map(function (x) {
+          var msj = mensajeAsignacion(x.nombre, x.asignacion, x.fecha, x.hora, x.programaNombre);
+          return '<div class="wa-item"><div class="atencion-t">' + esc(x.nombre) + '</div>' +
+            '<div class="atencion-d">' + esc(x.asignacion) + ' · ' + esc(cuando(x.fecha, hoy)) + (x.hora ? ' · ' + esc(x.hora) : '') + ' · ' + esc(x.programaNombre) + '</div>' +
+            '<div class="sol-acc"><a class="btn wa" target="_blank" rel="noopener" href="' + esc(whatsappURL(x.telefono, msj)) + '">' + svg('chat') + (x.telefono ? 'WhatsApp' : 'WhatsApp (sin número)') + '</a>' +
+            '<button type="button" class="btn btn-sec" data-marcar="Confirmado" data-clave="' + esc(x.clave) + '">Confirmó</button>' +
+            '<button type="button" class="btn btn-sec" data-marcar="Rechazado" data-clave="' + esc(x.clave) + '">No puede</button></div></div>';
+        }).join('') + '</details>';
+    }
+
     // Informe mensual
     var inf = d.informe;
     if (inf && !inf.enviado) {
@@ -353,6 +381,18 @@
 
     app.querySelectorAll('[data-responder]').forEach(function (b) {
       b.addEventListener('click', function () { responder(b.getAttribute('data-clave'), b.getAttribute('data-responder')); });
+    });
+    var waDet = document.getElementById('wa-det');
+    if (waDet) waDet.addEventListener('toggle', function () { estado.abrirWhatsapp = waDet.open; });
+    app.querySelectorAll('[data-marcar]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        b.disabled = true;
+        api('estado', { clave: b.getAttribute('data-clave'), estado: b.getAttribute('data-marcar') }).then(function (r) {
+          if (!r.ok) throw new Error(r.error);
+          aviso(b.getAttribute('data-marcar') === 'Confirmado' ? 'Marcado como confirmado.' : 'Marcado como rechazado: queda para reasignar.');
+          cargar();
+        }).catch(function (e) { b.disabled = false; if (e.message !== 'sesion') aviso(e.message || 'No se pudo guardar.', true); });
+      });
     });
     app.querySelectorAll('[data-resolver]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -692,6 +732,8 @@
       '<input id="ed-nombre" list="ed-personas" value="' + esc(x.a.nombre) + '" autocomplete="off">' +
       '<datalist id="ed-personas">' + (d.personas || []).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>' +
       (est && est !== 'Borrador' ? '<label for="ed-estado">Estado</label><select id="ed-estado">' + opciones + '</select>' : '') +
+      ((d.telefonos || {})[x.a.nombre] ? '<a class="btn wa" target="_blank" rel="noopener" href="' + esc(whatsappURL(d.telefonos[x.a.nombre],
+        mensajeAsignacion(x.a.nombre, x.f.texto && !/^(asignado|titular|ayudante)$/i.test(x.a.rol) ? x.a.rol : (x.f.texto || x.a.rol).replace(/^\d+\.\s*/, '').replace(/\s*\(\d+ ?mins?\.?\)/i, ''), x.r.fecha, x.r.hora, prog.nombre))) + '">' + svg('chat') + 'Escribir por WhatsApp a ' + esc(primerNombre(x.a.nombre)) + '</a>' : '') +
       '<p class="editor-nota">Si cambias el nombre, también se cambia en la hoja oficial del programa y la asignación vuelve a quedar pendiente.</p>' +
       '<p class="editor-msg" id="ed-msg" role="status"></p>' +
       '<div class="editor-acc"><button type="button" class="btn btn-sec" id="ed-cancelar">Cancelar</button><button type="submit" class="btn" id="ed-guardar">Guardar</button></div>' +
