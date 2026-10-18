@@ -201,7 +201,7 @@ function construirBase_() {
     inicio: {
       congregacion: cfg.congregacion || '', mensaje: cfg.mensaje || '', direccion: cfg.direccion || '', comoLlegar: cfg.comoLlegar || '',
       avisos: avisos,
-      zoom: { vmc: cfg.zoomEntreSemana || '', finsemana: cfg.zoomFinSemana || cfg.zoomEntreSemana || '' }
+      zoom: { vmc: cfg.zoomEntreSemana || '', finsemana: cfg.zoomFinSemana || cfg.zoomEntreSemana || '', predicacion: cfg.zoomPredicacion || '' }
     },
     programas: programas,
     enlaces: enlaces

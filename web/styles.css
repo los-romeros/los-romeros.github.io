@@ -450,3 +450,4 @@ a { color: var(--primary-ink); }
 }
 .lugar-link { color: var(--primary-ink); text-decoration: underline; text-underline-offset: 3px; }
 .mia .lugar-link, .mia .lugar { font-size: 14px; }
+.lugar-link svg { width: 16px; height: 16px; }

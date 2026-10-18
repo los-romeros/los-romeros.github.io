@@ -306,7 +306,7 @@
       '<span class="ms">' + MESES_CORTOS[p.m - 1] + '</span></div><div class="mia-cuerpo">' +
       '<div class="mia-prog">' + esc(x.programaNombre) + ' · ' + esc(cuando(x.fecha, hoy)) + (x.hora ? ' · ' + esc(x.hora) : '') + '</div>' +
       tituloResumen(x) +
-      (x.lugar ? '<div class="lugar">' + SVG_PIN + '<span>' + esc(x.lugar) + '</span></div>' : '');
+      (x.lugar ? lugarResumen(x.lugar) : '');
     if (x.puedeResponder) {
       h += '<div class="mia-acc">' +
         '<button type="button" class="btn-resp si' + (x.estado === 'Confirmado' ? ' marcado' : '') + '" data-responder="Confirmado" data-clave="' + esc(x.clave) + '">' + svg('check') + 'Confirmo</button>' +
@@ -322,6 +322,13 @@
     var secundario = generico ? x.rol : x.parte && norm(x.rol).indexOf(norm(x.parte)) < 0 ? x.parte : '';
     if (x.sala) secundario = (secundario ? secundario + ' · ' : '') + x.sala;
     return '<div class="mia-rol">' + esc(principal) + '</div>' + (secundario ? '<div class="mia-parte">' + esc(secundario) + '</div>' : '');
+  }
+
+  function lugarResumen(lugar) {
+    var z = estado.datos.inicio.zoom && estado.datos.inicio.zoom.predicacion;
+    if (/zoom/i.test(lugar) && z) return '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(z) + '">' + svg('video') + '<span>Entrar a Zoom</span></a>';
+    if (/tel[eé]fono|cartas/i.test(lugar)) return '<div class="lugar">' + SVG_PIN + '<span>' + esc(lugar) + '</span></div>';
+    return '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(mapsURL(lugar + (/conc[oó]n|vi[nñ]a|re[nñ]aca/i.test(lugar) ? '' : ', Concón'))) + '">' + SVG_PIN + '<span>' + esc(lugar) + '</span></a>';
   }
 
   function pastilla(e) {
@@ -468,7 +475,9 @@
       (r.borrador ? '<span class="estado neutro">Borrador · ' + esc(r.periodo) + '</span>' : '') + '</div>';
     if (r.lugar) {
       var esDireccion = !/zoom|tel[eé]fono|cartas/i.test(r.lugar);
-      h += esDireccion
+      var zoomPred = /zoom/i.test(r.lugar) && estado.datos.inicio.zoom && estado.datos.inicio.zoom.predicacion;
+      if (zoomPred) h += '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(zoomPred) + '">' + svg('video') + '<span>' + esc(r.lugar) + ' · Entrar</span></a>';
+      else h += esDireccion
         ? '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(mapsURL(r.lugar + (/conc[oó]n|vi[nñ]a|re[nñ]aca|valpara/i.test(r.lugar) ? '' : ', Concón'))) + '">' + SVG_PIN + '<span>' + esc(r.lugar) + '</span></a>'
         : '<div class="lugar">' + SVG_PIN + '<span>' + esc(r.lugar) + '</span></div>';
     }
