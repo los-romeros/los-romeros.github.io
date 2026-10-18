@@ -13,6 +13,6 @@ self.APP_CONFIG = {
     messagingSenderId: '444480674247',
     appId: '1:444480674247:web:62e1957595d2b7c14321e2'
   },
-  avisos: false, // se activa cuando el servidor de notificaciones esté publicado
+  avisos: true,
   vapidKey: 'BElay6wljR3tvXhO4RXP3Qvfx1YZugW_Y63TiG9biAAWT1Hu5OlsfVw_M2JgJUeXelckoWcMWnULVe4SmEhnFYA'
 };
