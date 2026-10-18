@@ -137,6 +137,7 @@ function prepararPlanilla() {
   textoPlano_('asignaciones', ['Clave', 'Periodo', 'Fecha', 'Hora']);
   textoPlano_('datos', ['Periodo', 'JSON']);
   textoPlano_('especiales', ['Hora']);
+  textoPlano_('personas', ['Teléfono (WhatsApp)']);
 
   // Listas desplegables
   lista_('programas', 'Requiere confirmación', ['Sí', 'No']);
@@ -292,7 +293,8 @@ function importarPersonas() {
   var origen = SpreadsheetApp.openByUrl(r.getResponseText().trim()).getSheets()[0].getDataRange().getValues();
   var tit = origen.shift().map(norm_);
   var c = function (t) { return tit.indexOf(norm_(t)); };
-  var cNom = c('Nombre'), cOrig = c('Formato original'), cGrupo = c('Grupo'), cServ = c('Servicio'), cNombrado = c('Nombrado'), cMes = c('Último mes informado');
+  var cNom = c('Nombre'), cOrig = c('Formato original'), cGrupo = c('Grupo'), cServ = c('Servicio'), cNombrado = c('Nombrado'), cMes = c('Último mes informado'),
+    cTel = c('Teléfono'), cSec = c('Secretario');
 
   var dir = directorio_();
   var filas = leerTabla_('personas');
@@ -313,10 +315,13 @@ function importarPersonas() {
       if (servicio && (!f['Servicio'] || (/regular/i.test(servicio) && f['Servicio'] !== servicio))) { f['Servicio'] = servicio; cambio = true; }
       if (anciano && f['Anciano'] !== true) { f['Anciano'] = true; cambio = true; }
       if (siervo && !/siervo/i.test(f['Notas'])) { f['Notas'] = (f['Notas'] ? f['Notas'] + ' · ' : '') + 'Siervo ministerial'; cambio = true; }
+      if (cTel >= 0 && o[cTel] && !f['Teléfono (WhatsApp)']) { f['Teléfono (WhatsApp)'] = String(o[cTel]); cambio = true; }
+      if (cSec >= 0 && si_(o[cSec]) && f['Secretario'] !== true) { f['Secretario'] = true; cambio = true; }
       if (cambio) completados++;
     } else {
       var nuevo = {
         'Nombre': nombre, 'Nombre público': nombrePublico_(nombre), 'Grupo': grupo || '', 'Servicio': servicio,
+        'Teléfono (WhatsApp)': cTel >= 0 && o[cTel] ? String(o[cTel]) : '',
         'Anciano': anciano, 'Participa': false, 'Capitán': false, 'Secretario': false,
         'Notas': (siervo ? 'Siervo ministerial · ' : '') + 'Agregado desde el registro de informes' + (cMes >= 0 && o[cMes] ? ' (último: ' + o[cMes] + ')' : '')
       };
@@ -328,6 +333,7 @@ function importarPersonas() {
     }
   });
   var sh = hoja_('personas');
+  textoPlano_('personas', ['Teléfono (WhatsApp)']);
   var titulos = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
   filas = filas.filter(function (f) { return texto_(f['Nombre']); })
     .sort(function (a, b) { return String(a['Nombre']).localeCompare(String(b['Nombre']), 'es'); });

@@ -564,3 +564,13 @@ a { color: var(--primary-ink); }
 .btn.wa { background: #25a35a; color: #fff; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 .btn.wa svg { width: 18px; height: 18px; }
 .editor .btn.wa { align-self: flex-start; margin-top: 8px; }
+
+/* ---------- Mis datos ---------- */
+.datos-pantalla { justify-content: flex-start; padding-top: 40px; }
+.datos-form { display: flex; flex-direction: column; gap: 8px; background: rgba(255, 255, 255, .1); border-radius: 16px; padding: 16px; max-width: 460px; }
+.datos-form label { font-size: 14px; font-weight: 700; margin-top: 6px; }
+.datos-form input:not([type="checkbox"]) { width: 100%; border: 0; border-radius: 10px; padding: 12px; font-size: 17px; color: #1f3442; background: #fff; }
+.datos-form .dt-check { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+.datos-form .dt-fijo { background: rgba(255, 255, 255, .85); color: #1f3442; border-radius: 10px; padding: 12px; font-weight: 700; }
+.datos-form .btn { background: #fff; color: #1f3442; align-self: stretch; text-align: center; margin-top: 10px; font-size: 17px; }
+.datos-form .enlace-boton { color: #fff; align-self: center; }

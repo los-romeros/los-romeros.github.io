@@ -32,7 +32,9 @@ function doPost(e) {
       var correo = verificarGoogle_(p.credential, cfg);
       var perfil = perfil_(correo);
       if (!perfil.registrado) {
-        return json_({ ok: false, codigo: 'no-registrado', error: 'Tu correo (' + correo + ') no está en el directorio de la congregación. Pídele al administrador que lo agregue.' });
+        // Puede completar sus datos para quedar registrado
+        return json_({ ok: false, codigo: 'no-registrado', token: crearSesion_(correo), correo: correo,
+          error: 'Tu correo (' + correo + ') aún no está en el directorio de la congregación.' });
       }
       return json_({ ok: true, token: crearSesion_(correo), usuario: perfil });
     }
@@ -40,6 +42,8 @@ function doPost(e) {
     var correoSesion = leerSesion_(p.token);
     if (!correoSesion) return json_({ ok: false, codigo: 'sesion', error: 'Tu sesión terminó. Vuelve a entrar.' });
     var yo = perfil_(correoSesion);
+    if (p.accion === 'misDatos') return json_(misDatos_(correoSesion, yo));
+    if (p.accion === 'actualizarDatos') return json_(conBloqueo_(function () { return actualizarDatos_(correoSesion, yo, p, cfg); }));
     if (!yo.registrado) return json_({ ok: false, codigo: 'sesion', error: 'Tu correo ya no está en el directorio.' });
 
     switch (p.accion) {
@@ -56,6 +60,7 @@ function doPost(e) {
       case 'nopasar': return json_(listadoNoPasar_(yo, cfg));
       case 'mapa': return json_(mapaTerritorio_(yo, cfg, p));
       case 'solicitarNoPasar': return json_(conBloqueo_(function () { return solicitarNoPasar_(yo, p, cfg); }));
+      case 'resolverDatos': return json_(conBloqueo_(function () { return resolverDatos_(yo, p, cfg); }));
       case 'resolverNoPasar': return json_(conBloqueo_(function () { return resolverNoPasar_(yo, p, cfg); }));
       default: return json_({ ok: false, error: 'Acción desconocida' });
     }
@@ -287,7 +292,7 @@ function datosUsuario_(yo, cfg) {
     ok: true,
     generado: base.generado,
     hoy: hoy,
-    usuario: { nombre: yo.nombre, correo: yo.correo, rol: yo.rol, privilegiado: yo.privilegiado, editables: yo.editables, grupo: yo.grupo },
+    usuario: { nombre: yo.nombre, apodo: yo.apodo || '', correo: yo.correo, rol: yo.rol, privilegiado: yo.privilegiado, editables: yo.editables, grupo: yo.grupo },
     inicio: (function () {
       var ini = JSON.parse(JSON.stringify(base.inicio));
       ini.avisos = (ini.avisos || []).filter(function (a) { return enAudiencia_(a.visiblePara, yo); });
@@ -320,6 +325,11 @@ function datosUsuario_(yo, cfg) {
       return { clave: a['Clave'], programa: a['Programa'], programaNombre: nombresProg[a['Programa']] || a['Programa'], fecha: a['Fecha'], hora: a['Hora'],
         rol: a['Rol'], parte: a['Parte'], nombre: a['Nombre'], telefono: tel[a['Nombre']] || '', asignacion: nombreAsignacion_(a), reunion: a['Reunión'] };
     }).sort(function (a, b) { return (a.fecha + a.hora).localeCompare(b.fecha + b.hora); });
+  }
+
+  // Datos personales por revisar (admin)
+  if (yo.privilegiado && enAudiencia_(cfg.datosAprueban || 'admin', yo)) {
+    try { out.datosPendientes = actualizacionesPendientes_(); } catch (e) { out.datosPendientes = []; }
   }
 
   // Documentos del territorio

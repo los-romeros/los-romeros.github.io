@@ -159,7 +159,9 @@
       '<section class="login">' +
       '<div class="login-marca">' + svg('calendario', ' class="hero-logo"') + '<span>Cong. Los Romeros</span></div>' +
       '<h1>Programas y asignaciones de la congregación</h1>' +
-      '<p>Entra con tu cuenta de Google para ver tus responsabilidades de la semana y todos los programas.</p>' +
+      (location.hash === '#datos'
+        ? '<p>Para completar o actualizar tus datos, entra con la cuenta de Google que usas en tu teléfono.</p>'
+        : '<p>Entra con tu cuenta de Google para ver tus responsabilidades de la semana y todos los programas.</p>') +
       '<div id="google-btn" class="google-btn"></div>' +
       (estado.error ? '<p class="login-error" role="alert">' + esc(estado.error) + '</p>' : '') +
       '<p class="login-nota">Usa el mismo correo que entregaste a la congregación. Solo se entra una vez en cada teléfono.</p>' +
@@ -188,6 +190,7 @@
     estado.error = '';
     app.innerHTML = '<p class="cargando">Entrando…</p>';
     api('entrar', { credential: resp.credential }).then(function (r) {
+      if (!r.ok && r.codigo === 'no-registrado' && r.token) { estado.token = r.token; renderDatos(true); return; }
       if (!r.ok) { estado.error = r.error; renderLogin(); return; }
       estado.token = r.token;
       guardar(CLAVE_SESION, r.token);
@@ -212,6 +215,7 @@
     if (ruta === 'mapa' && docs.mapa) { renderMapa(); return; }
     var m = /^p\/([\w-]+)/.exec(ruta);
     if (ruta === 'registrar' || ruta === 'informe') { renderInicio(); return; }
+    if (ruta === 'datos') { renderDatos(false); return; }
     var prog = m && estado.datos.programas.filter(function (p) { return p.id === m[1]; })[0];
     if (prog) renderPrograma(prog); else renderInicio();
   }
@@ -226,12 +230,13 @@
 
     var h = '<header class="cabecera-app">' + svg('calendario', ' class="cab-logo"') + '<span>' + esc(d.inicio.congregacion || 'Congregación') + '</span></header>' +
       '<section class="saludo"><div class="saludo-fecha">' + esc(mayuscula(fechaLarga(hoy))) + '</div>' +
-      '<h1>Hola, ' + esc(primerNombre(u.nombre)) + '</h1><p>Tu semana de un vistazo</p></section>';
+      '<h1>Hola, ' + esc(u.apodo || primerNombre(u.nombre)) + '</h1><p>Tu semana de un vistazo</p></section>';
     if (estado.sinConexion) h += '<div class="estado-red">Sin conexión. Estás viendo los últimos datos guardados.</div>';
 
     // Requiere tu atención: asignaciones rechazadas y solicitudes de No pasar por aprobar
     var solic = (d.solicitudesNoPasar && d.solicitudesNoPasar.porAprobar) || [];
-    if ((d.alertas || []).length || solic.length) {
+    var datosPend = d.datosPendientes || [];
+    if ((d.alertas || []).length || solic.length || datosPend.length) {
       h += '<section class="atencion" aria-label="Requiere tu atención"><h2>Requiere tu atención</h2>' +
         (d.alertas || []).map(function (a) {
           return '<div class="atencion-item"><div><div class="atencion-t">' + esc(a.nombre) + ' no puede</div>' +
@@ -243,6 +248,13 @@
             '<div class="atencion-d">Territorio ' + esc(x.territorio) + (x.manzana ? ' · manzana ' + esc(x.manzana) : '') + ' · pedida por ' + esc(x.por) + (x.notas ? ' · ' + esc(x.notas) : '') + '</div></div>' +
             '<div class="sol-acc"><button type="button" class="btn ok" data-resolver="aprobar" data-fila="' + x.fila + '">Aprobar</button>' +
             '<button type="button" class="btn btn-sec" data-resolver="rechazar" data-fila="' + x.fila + '">Rechazar</button></div></div>';
+        }).join('') +
+        datosPend.map(function (x) {
+          return '<div class="atencion-item sol"><div><div class="atencion-t">Datos de ' + esc(x.persona) + '</div>' +
+            '<div class="atencion-d">' + esc(x.correo) + ' · tel. ' + esc(x.telefono) + (x.apodo ? ' · le dicen ' + esc(x.apodo) : '') +
+            (x.nombreCorrecto ? ' · nombre correcto: ' + esc(x.nombreCorrecto) : '') + '<br>' + esc(x.motivo) + '</div></div>' +
+            '<div class="sol-acc"><button type="button" class="btn ok" data-datos="aprobar" data-fila="' + x.fila + '">Aprobar</button>' +
+            '<button type="button" class="btn btn-sec" data-datos="rechazar" data-fila="' + x.fila + '">Rechazar</button></div></div>';
         }).join('') + '</section>';
     }
 
@@ -373,7 +385,7 @@
     var especiales = (d.enlaces || []).filter(function (l) { return l.privilegiado; });
     h += enlacesHTML('Enlaces', publicos) + enlacesHTML('Contenido especial', especiales);
     h += instalarHTML();
-    h += '<p class="pie"><a href="guia.html">Cómo usar la app</a>' + ((u.editables || []).length || (d.informe && d.informe.verGrupos) ? ' · <a href="guia-responsables.html">Guía para responsables</a>' : '') + '</p>';
+    h += '<p class="pie"><a href="#datos">Mis datos</a> · <a href="guia.html">Cómo usar la app</a>' + ((u.editables || []).length || (d.informe && d.informe.verGrupos) ? ' · <a href="guia-responsables.html">Guía para responsables</a>' : '') + '</p>';
     h += '<p class="pie">Conectado como ' + esc(u.nombre || '') + (u.rol ? ' · ' + esc(u.rol) : '') +
       ' · <button type="button" class="enlace-boton" id="salir">Salir</button><br>Actualizado ' +
       esc(new Date(d.generado).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })) + '</p>';
@@ -391,6 +403,16 @@
         api('estado', { clave: b.getAttribute('data-clave'), estado: b.getAttribute('data-marcar') }).then(function (r) {
           if (!r.ok) throw new Error(r.error);
           aviso(b.getAttribute('data-marcar') === 'Confirmado' ? 'Marcado como confirmado.' : 'Marcado como rechazado: queda para reasignar.');
+          cargar();
+        }).catch(function (e) { b.disabled = false; if (e.message !== 'sesion') aviso(e.message || 'No se pudo guardar.', true); });
+      });
+    });
+    app.querySelectorAll('[data-datos]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        b.disabled = true;
+        api('resolverDatos', { fila: +b.getAttribute('data-fila'), decision: b.getAttribute('data-datos') }).then(function (r) {
+          if (!r.ok) throw new Error(r.error);
+          aviso(b.getAttribute('data-datos') === 'aprobar' ? 'Datos aprobados.' : 'Actualización rechazada.');
           cargar();
         }).catch(function (e) { b.disabled = false; if (e.message !== 'sesion') aviso(e.message || 'No se pudo guardar.', true); });
       });
@@ -895,6 +917,76 @@
       var n = document.getElementById('buscar-t'); n.focus();
     });
     document.getElementById('registrar-nuevo').addEventListener('click', function () { abrirRegistro(null); });
+  }
+
+  /* ---------- Mis datos / registro ---------- */
+  function renderDatos(primeraVez) {
+    document.title = 'Mis datos · Cong. Los Romeros';
+    app.innerHTML = '<section class="login datos-pantalla"><div class="login-marca">' + svg('calendario', ' class="hero-logo"') + '<span>Cong. Los Romeros</span></div>' +
+      '<p class="cargando-datos">Cargando…</p></section>';
+    api('misDatos').then(function (r) {
+      if (!r.ok) throw new Error(r.error);
+      var nuevo = !r.registrado;
+      var h = '<section class="login datos-pantalla"><div class="login-marca">' + svg('calendario', ' class="hero-logo"') + '<span>Cong. Los Romeros</span></div>' +
+        '<h1>' + (nuevo ? 'Completa tus datos' : 'Mis datos') + '</h1>' +
+        '<p>' + (nuevo ? 'Es la primera vez que entras con <strong>' + esc(r.correo) + '</strong>. Confirma quién eres para quedar registrado.' : 'Revisa que tus datos estén bien. Entras con ' + esc(r.correo) + '.') + '</p>' +
+        '<form class="datos-form" id="datos-form">' +
+        (nuevo
+          ? '<label for="dt-nombre">Busca y elige tu nombre</label><input id="dt-nombre" list="dt-lista" autocomplete="off" placeholder="Escribe tu nombre o apellido" required>' +
+            '<datalist id="dt-lista">' + r.nombres.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>'
+          : '<label>Tu nombre en los programas</label><div class="dt-fijo">' + esc(r.nombre) + '</div>') +
+        '<label class="dt-check"><input type="checkbox" id="dt-corregir"> Mi nombre se escribe distinto</label>' +
+        '<div id="dt-correcto-c" hidden><label for="dt-correcto">Nombre completo correcto</label><input id="dt-correcto" autocomplete="name" placeholder="Nombre y apellido, como quieres que aparezca"></div>' +
+        '<label for="dt-apodo">¿Cómo te gusta que te llamen?</label><input id="dt-apodo" autocomplete="nickname" placeholder="Opcional, por ejemplo: Pepe" value="' + esc(r.apodo || '') + '">' +
+        '<label for="dt-tel">Teléfono con WhatsApp</label><input id="dt-tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="+56 9 1234 5678" value="' + esc(r.telefono || '') + '" required>' +
+        '<p class="login-error" id="dt-msg" role="alert" hidden></p>' +
+        '<button type="submit" class="btn" id="dt-enviar">' + (nuevo ? 'Confirmar y entrar' : 'Guardar') + '</button>' +
+        (nuevo ? '<button type="button" class="enlace-boton" id="dt-salir">Entrar con otra cuenta</button>' : '<a class="enlace-boton" href="#">Volver</a>') +
+        '</form></section>';
+      app.innerHTML = h;
+      document.getElementById('dt-corregir').addEventListener('change', function (e) { document.getElementById('dt-correcto-c').hidden = !e.target.checked; });
+      var bs = document.getElementById('dt-salir');
+      if (bs) bs.addEventListener('click', function () { salir(); });
+      document.getElementById('datos-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var msg = document.getElementById('dt-msg');
+        var nombre = nuevo ? document.getElementById('dt-nombre').value.trim() : r.nombre;
+        if (nuevo && r.nombres.indexOf(nombre) < 0) { msg.hidden = false; msg.textContent = 'Elige tu nombre tal como aparece en la lista. Si no estás, habla con un anciano.'; return; }
+        var datos = {
+          nombre: nombre,
+          nombreCorrecto: document.getElementById('dt-corregir').checked ? document.getElementById('dt-correcto').value.trim() : '',
+          apodo: document.getElementById('dt-apodo').value.trim(),
+          telefono: document.getElementById('dt-tel').value.trim()
+        };
+        document.getElementById('dt-enviar').disabled = true;
+        msg.hidden = true;
+        api('actualizarDatos', datos).then(function (res) {
+          if (!res.ok) throw new Error(res.error);
+          if (nuevo && res.registrado) {
+            guardar(CLAVE_SESION, estado.token);
+            aviso('¡Listo! Ya estás registrado.');
+            location.hash = '';
+            cargar();
+          } else if (nuevo) {
+            app.innerHTML = '<section class="login"><h1>¡Gracias!</h1><p>Recibimos tus datos. Un anciano los confirmará pronto y te avisaremos para que puedas entrar.</p>' +
+              '<button type="button" class="btn" id="dt-ok">Entendido</button></section>';
+            document.getElementById('dt-ok').addEventListener('click', function () { salir(); });
+          } else {
+            aviso(res.estado === 'Pendiente' ? 'Guardado. El cambio de nombre lo revisará un anciano.' : 'Tus datos quedaron guardados.');
+            location.hash = '';
+            cargar();
+          }
+        }).catch(function (err) {
+          if (err.message === 'sesion') return;
+          msg.hidden = false;
+          msg.textContent = err.message && err.message !== 'red' ? err.message : 'No se pudo guardar. Revisa tu conexión.';
+          document.getElementById('dt-enviar').disabled = false;
+        });
+      });
+    }).catch(function (e) {
+      if (e.message === 'sesion') return;
+      app.innerHTML = '<section class="login"><p class="login-error">' + esc(e.message || 'No se pudo cargar.') + '</p></section>';
+    });
   }
 
   /* ---------- informe mensual ---------- */

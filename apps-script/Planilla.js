@@ -17,8 +17,8 @@ var HOJAS = {
   },
   personas: {
     nombre: 'Personas',
-    titulos: ['Nombre', 'Otras formas de escribirlo (separadas por ;)', 'Nombre público', 'Correo', 'Teléfono (WhatsApp)', 'Grupo', 'Notas', 'Anciano', 'Participa', 'Capitán', 'Secretario', 'Servicio'],
-    anchos: [220, 260, 160, 240, 150, 70, 240, 80, 80, 80, 90, 150]
+    titulos: ['Nombre', 'Otras formas de escribirlo (separadas por ;)', 'Nombre público', 'Correo', 'Teléfono (WhatsApp)', 'Grupo', 'Notas', 'Anciano', 'Participa', 'Capitán', 'Secretario', 'Servicio', 'Cómo le dicen'],
+    anchos: [220, 260, 160, 240, 150, 70, 240, 80, 80, 80, 90, 150, 140]
   },
   grupos: {
     nombre: 'Grupos',
@@ -72,6 +72,12 @@ var HOJAS = {
     nombre: 'Solicitudes No pasar',
     titulos: ['Fecha', 'Solicitado por', 'Correo', 'Territorio', 'Manzana', 'Dirección', 'Notas', 'Estado', 'Revisado por', 'Revisado el'],
     anchos: [140, 180, 200, 80, 80, 260, 260, 100, 180, 140]
+  },
+  actualizacionesDatos: {
+    nombre: 'Actualizaciones de datos',
+    titulos: ['Fecha', 'Correo', 'Persona', 'Nombre correcto', 'Cómo le dicen', 'Teléfono', 'Estado', 'Motivo', 'Revisado por', 'Revisado el'],
+    anchos: [140, 220, 200, 200, 140, 140, 100, 300, 180, 140],
+    sistema: true
   },
   dispositivos: {
     nombre: 'Dispositivos',

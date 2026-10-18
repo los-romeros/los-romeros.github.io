@@ -75,6 +75,7 @@ function perfil_(correo) {
     nombre: persona ? persona['Nombre'] : usuario ? usuario['Nombre'] || correo : correo,
     grupo: persona ? +persona['Grupo'] || null : null,
     perfiles: persona ? perfilesDe_(persona) : [],
+    apodo: persona ? String(persona['Cómo le dicen'] || '') : '',
     rol: rol,
     privilegiado: !!rol,
     editables: editables
