@@ -5,6 +5,7 @@
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Programas')
     .addItem('Sincronizar ahora', 'menuSincronizar')
+    .addItem('Revisar respuestas y recordatorios ahora', 'menuTareasHorarias')
     .addItem('Agregar al directorio los nombres de los programas', 'armarDirectorio')
     .addItem('Crear hoja de aseo (plantilla)', 'crearPlantillaAseo')
     .addSeparator()
@@ -12,6 +13,11 @@ function onOpen() {
     .addItem('Activar tareas automáticas', 'instalarTareas')
     .addItem('Ver dirección de la API', 'verUrlApi')
     .addToUi();
+}
+
+function menuTareasHorarias() {
+  tareasHorarias();
+  SpreadsheetApp.getActive().toast('Respuestas y recordatorios revisados. Mira la pestaña Registro.', 'Programas', 6);
 }
 
 function menuSincronizar() {
