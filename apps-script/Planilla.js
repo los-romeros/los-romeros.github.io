@@ -121,7 +121,8 @@ function leerTabla_(clave, opciones) {
   if (mostrados) mostrados.shift();
   var filas = [];
   valores.forEach(function (fila, i) {
-    if (fila.every(function (v) { return v === '' || v === null; })) return;
+    // Fila vacía: sin valores, o solo casillas desmarcadas (las casillas ponen FALSE en filas sin datos)
+    if (fila.every(function (v) { return v === '' || v === null || v === false; })) return;
     var o = { _fila: i + 2 };
     titulos.forEach(function (t, c) {
       if (t) o[t] = mostrados ? mostrados[i][c] : fila[c];
@@ -156,10 +157,11 @@ function actualizarFila_(clave, obj, cambios) {
 function reescribirTabla_(clave, objetos) {
   var sh = hoja_(clave);
   var titulos = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
-  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, titulos.length).clearContent();
-  if (!objetos.length) return;
+  var ultima = sh.getLastRow();
   var filas = objetos.map(function (o) { return titulos.map(function (t) { return o[t] === undefined ? '' : o[t]; }); });
-  sh.getRange(2, 1, filas.length, titulos.length).setValues(filas);
+  // Se escribe primero y luego se limpia lo que sobra: si algo falla, no se pierden datos
+  if (filas.length) sh.getRange(2, 1, filas.length, titulos.length).setValues(filas);
+  if (ultima > filas.length + 1) sh.getRange(filas.length + 2, 1, ultima - filas.length - 1, titulos.length).clearContent();
 }
 
 /** Agrega al final las columnas nuevas que aún no existan (para actualizar planillas antiguas sin pasos manuales). */

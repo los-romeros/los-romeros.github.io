@@ -106,3 +106,25 @@ function agruparNombres_(nombres) {
     return { nombre: lista[0], alias: lista.slice(1), dudoso: g.dudoso };
   }).sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
 }
+
+/** Distancia de edición entre dos textos (para detectar "Jaqueline" / "Jacqueline"). */
+function distancia_(a, b) {
+  var m = a.length, n = b.length, d = [];
+  for (var i = 0; i <= m; i++) { d[i] = [i]; }
+  for (var j = 0; j <= n; j++) d[0][j] = j;
+  for (i = 1; i <= m; i++) for (j = 1; j <= n; j++) {
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1));
+  }
+  return d[m][n];
+}
+
+/** ¿Son probablemente la misma persona? Mismo nombre salvo tildes, iniciales, un segundo nombre o 1-2 letras distintas. */
+function mismaPersona_(a, b) {
+  var ta = tokens_(a).filter(function (t) { return !PARTICULAS_[t]; });
+  var tb = tokens_(b).filter(function (t) { return !PARTICULAS_[t]; });
+  if (!ta.length || !tb.length) return false;
+  if (ta.join(' ') === tb.join(' ')) return true;
+  if (ta[ta.length - 1].charAt(0) !== tb[tb.length - 1].charAt(0)) return false;
+  if ((ta.length >= 2 && coincide_(ta, tb)) || (tb.length >= 2 && coincide_(tb, ta))) return true;
+  return ta.length === tb.length && distancia_(ta.join(' '), tb.join(' ')) <= 2;
+}

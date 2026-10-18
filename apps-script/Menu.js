@@ -9,6 +9,7 @@ function onOpen() {
     .addItem('Agregar al directorio los nombres de los programas', 'armarDirectorio')
     .addItem('Crear hoja de aseo (plantilla)', 'crearPlantillaAseo')
     .addItem('Importar personas (grupo y servicio) desde una planilla', 'importarPersonas')
+    .addItem('Reparar pestaña Personas (ordenar y unir duplicados)', 'repararPersonas')
     .addSeparator()
     .addItem('Reiniciar prueba de invitaciones', 'reiniciarPruebaInvitaciones')
     .addItem('Preparar planilla (pestañas y formatos)', 'prepararPlanilla')
@@ -292,7 +293,8 @@ function importarPersonas() {
   origen.forEach(function (o) {
     var nombre = texto_(o[cNom]);
     if (!nombre) return;
-    var p = reconocer_(nombre, dir) || (cOrig >= 0 ? reconocer_(nombreFormulario_(o[cOrig]), dir) : null);
+    var p = reconocer_(nombre, dir) || (cOrig >= 0 ? reconocer_(nombreFormulario_(o[cOrig]), dir) : null) ||
+      dir.personas.filter(function (x) { return mismaPersona_(x.nombre, nombre); })[0] || null;
     var grupo = o[cGrupo], servicio = texto_(o[cServ]), anciano = /anciano/i.test(o[cNombrado]), siervo = /siervo/i.test(o[cNombrado]);
     if (p && porNombre[p.nombre]) {
       var f = porNombre[p.nombre], cambio = false;
@@ -316,11 +318,61 @@ function importarPersonas() {
       nuevos++;
     }
   });
-  filas.sort(function (a, b) { return String(a['Nombre']).localeCompare(String(b['Nombre']), 'es'); });
-  reescribirTabla_('personas', filas);
-  PERFILES.forEach(function (pf) { var rg = columna_('personas', pf.columna); if (rg) rg.insertCheckboxes(); });
+  var sh = hoja_('personas');
+  var titulos = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  filas = filas.filter(function (f) { return texto_(f['Nombre']); })
+    .sort(function (a, b) { return String(a['Nombre']).localeCompare(String(b['Nombre']), 'es'); });
+  var datos = filas.map(function (o) { return titulos.map(function (t) { return o[t] === undefined ? '' : o[t]; }); });
+  sh.getRange(2, 1, datos.length, titulos.length).setValues(datos);
+  if (sh.getMaxRows() > datos.length + 1) sh.getRange(datos.length + 2, 1, sh.getMaxRows() - datos.length - 1, titulos.length).clearContent();
   limpiarCache_();
   registrar_('Personas importadas', nuevos + ' nuevas, ' + completados + ' completadas');
   ui.alert('Listo', nuevos + ' persona(s) agregadas y ' + completados + ' completadas (grupo, servicio o anciano).' +
     (distintos.length ? '\n\nEstas tienen un grupo distinto al del registro y NO se cambiaron:\n' + distintos.join('\n') : ''), ui.ButtonSet.OK);
+}
+
+/**
+ * Deja la pestaña Personas ordenada y sin filas vacías, y une los duplicados que dejó la importación
+ * (se conserva el nombre que ya existía y la otra forma de escribirlo pasa a "Otras formas").
+ */
+function repararPersonas() {
+  var ui = SpreadsheetApp.getUi();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var filas = leerTabla_('personas').filter(function (f) { return texto_(f['Nombre']); });
+    var esNueva = function (f) { return /agregado desde el registro de informes/i.test(f['Notas']); };
+    var unidos = [];
+    var quedan = filas.filter(function (f) {
+      if (!esNueva(f)) return true;
+      var original = filas.filter(function (o) { return o !== f && !esNueva(o) && mismaPersona_(o['Nombre'], f['Nombre']); })[0];
+      if (!original) return true;
+      var alias = String(original['Otras formas de escribirlo (separadas por ;)'] || '');
+      if (norm_(alias).indexOf(norm_(f['Nombre'])) < 0) original['Otras formas de escribirlo (separadas por ;)'] = (alias ? alias + '; ' : '') + f['Nombre'];
+      ['Grupo', 'Servicio', 'Correo', 'Teléfono (WhatsApp)'].forEach(function (k) { if (!original[k] && f[k]) original[k] = f[k]; });
+      PERFILES.forEach(function (pf) { if (f[pf.columna] === true) original[pf.columna] = true; });
+      unidos.push(f['Nombre'] + ' → ' + original['Nombre']);
+      return false;
+    });
+    quedan.sort(function (a, b) { return String(a['Nombre']).localeCompare(String(b['Nombre']), 'es'); });
+    var sh = hoja_('personas');
+    var titulos = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+    var datos = quedan.map(function (o) { return titulos.map(function (t) { return o[t] === undefined ? '' : o[t]; }); });
+    // Primero se escriben los datos y después se limpian las filas sobrantes (nunca al revés)
+    sh.getRange(2, 1, datos.length, titulos.length).setValues(datos);
+    if (sh.getMaxRows() > datos.length + 1) sh.getRange(datos.length + 2, 1, sh.getMaxRows() - datos.length - 1, titulos.length).clearContent();
+    PERFILES.forEach(function (pf) {
+      var c = titulos.indexOf(pf.columna);
+      if (c >= 0) sh.getRange(2, c + 1, datos.length, 1).insertCheckboxes();
+    });
+    // Restaurar las marcas (insertCheckboxes deja todo en FALSE)
+    sh.getRange(2, 1, datos.length, titulos.length).setValues(datos);
+    if (sh.getMaxRows() > datos.length + 50) sh.deleteRows(datos.length + 50, sh.getMaxRows() - datos.length - 49);
+    limpiarCache_();
+    registrar_('Personas reparadas', quedan.length + ' personas · unidos: ' + (unidos.join(', ') || 'ninguno'));
+    ui.alert('Listo', 'Quedaron ' + quedan.length + ' personas, ordenadas desde la fila 2.' +
+      (unidos.length ? '\n\nDuplicados unidos (se conservó el nombre existente):\n' + unidos.join('\n') : ''), ui.ButtonSet.OK);
+  } finally {
+    lock.releaseLock();
+  }
 }
