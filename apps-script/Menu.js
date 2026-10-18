@@ -298,7 +298,8 @@ function importarPersonas() {
       var f = porNombre[p.nombre], cambio = false;
       if (!f['Grupo'] && grupo) { f['Grupo'] = grupo; cambio = true; }
       else if (f['Grupo'] && grupo && +f['Grupo'] !== +grupo) distintos.push(p.nombre + ' (planilla: ' + f['Grupo'] + ', registro: ' + grupo + ')');
-      if (!f['Servicio'] && servicio) { f['Servicio'] = servicio; cambio = true; }
+      // Precursor regular es una condición estable: se marca aunque la celda ya tenga otro servicio
+      if (servicio && (!f['Servicio'] || (/regular/i.test(servicio) && f['Servicio'] !== servicio))) { f['Servicio'] = servicio; cambio = true; }
       if (anciano && f['Anciano'] !== true) { f['Anciano'] = true; cambio = true; }
       if (siervo && !/siervo/i.test(f['Notas'])) { f['Notas'] = (f['Notas'] ? f['Notas'] + ' · ' : '') + 'Siervo ministerial'; cambio = true; }
       if (cambio) completados++;
