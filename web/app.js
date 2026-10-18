@@ -787,7 +787,7 @@
   /* ---------- notificaciones en el teléfono ---------- */
   var FIREBASE_SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
   function avisosDisponibles() {
-    return !!(cfg.firebase && cfg.vapidKey && 'Notification' in window && 'serviceWorker' in navigator && location.protocol === 'https:' && !DEMO);
+    return !!(cfg.avisos !== false && cfg.firebase && cfg.vapidKey && 'Notification' in window && 'serviceWorker' in navigator && location.protocol === 'https:' && !DEMO);
   }
   function avisosActivos() {
     return Notification.permission === 'granted' && !!leer('programas-push');
