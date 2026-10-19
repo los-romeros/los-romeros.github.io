@@ -601,3 +601,11 @@ a.resumen-cab.enlace .chevron { width: 20px; height: 20px; color: var(--muted); 
 .miembro-fila { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); }
 .miembro-fila .miembro { flex: 1; border-top: 0; }
 .wa-mini { align-self: center; padding: 6px 12px; font-size: 14px; min-height: 0; white-space: nowrap; }
+
+/* Mapa dentro de la app */
+.mapa-acc { display: flex; flex-wrap: wrap; gap: 8px; }
+.mapa-acc:empty { display: none; }
+.mapa-msg { margin: 10px 0 6px; color: var(--muted); font-size: 14px; }
+.mapa-msg:empty { display: none; }
+.mapa-paginas { display: flex; flex-direction: column; gap: 10px; margin: 0 -16px; }
+.mapa-pagina { width: 100%; height: auto; display: block; background: #fff; }

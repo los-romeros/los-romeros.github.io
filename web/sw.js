@@ -1,6 +1,6 @@
 // Guarda la app para abrirla sin conexión (los datos se guardan aparte, en localStorage)
 // y muestra las notificaciones que llegan por Firebase Cloud Messaging.
-var VERSION = 'v20';
+var VERSION = 'v21';
 var FIREBASE_SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
 importScripts('config.js');
 if (self.APP_CONFIG && self.APP_CONFIG.firebase) {
@@ -43,7 +43,7 @@ self.addEventListener('fetch', function (e) {
   var url = new URL(e.request.url);
   if (e.request.method !== 'GET') return;
   var propio = url.origin === location.origin;
-  var fuente = /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname);
+  var fuente = /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname) || (url.hostname === 'cdnjs.cloudflare.com' && url.pathname.indexOf('/pdf.js/') >= 0);
   if (!propio && !fuente) return; // la API siempre va a la red
   // Red primero (para recibir actualizaciones), caché si no hay conexión.
   e.respondWith(fetch(e.request).then(function (r) {

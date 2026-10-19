@@ -138,6 +138,8 @@
       estado.sinConexion = false;
       if (!DEMO) guardar(CLAVE_DATOS, d);
       render();
+      // Mapa: mantenerlo guardado y al día para quien lo usa (y capitanes/ancianos desde el inicio)
+      if (d.documentos && d.documentos.mapa && (leer(MAPA_VERSION) || (d.territorios && d.territorios.puedeVer))) setTimeout(precargarMapa, 3000);
       if (avisosDisponibles() && Notification.permission === 'granted' && !estado.avisoRefrescado) { estado.avisoRefrescado = true; activarAvisos(false); }
     }).catch(function (e) {
       if (e.message === 'sesion') return;
@@ -1316,40 +1318,102 @@
   function renderMapa() {
     document.title = 'Mapa del territorio · Cong. Los Romeros';
     app.innerHTML = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Volver</button><h1>Mapa del territorio</h1></div></div>' +
-      '<div class="tarjeta" id="mapa-estado"><p class="mensaje">Preparando el mapa…</p></div>';
+      '<div class="mapa-acc" id="mapa-acc"></div><p class="mensaje mapa-msg" id="mapa-estado">Abriendo el mapa…</p><div class="mapa-paginas" id="mapa-paginas"></div>';
     document.getElementById('volver').addEventListener('click', volverAtras);
-    obtenerMapa().then(function (blob) {
+    var mostrar = function (blob, nota) {
+      if (location.hash !== '#mapa') return;
       var url = URL.createObjectURL(blob);
-      document.getElementById('mapa-estado').innerHTML =
-        '<p class="mensaje">El mapa está listo. Se guarda en este teléfono para que se abra rápido la próxima vez.</p>' +
-        '<a class="btn" href="' + url + '" target="_blank" rel="noopener">Abrir el mapa</a>' +
-        '<a class="btn btn-sec" href="' + url + '" download="Mapa del territorio.pdf">Descargar PDF</a>';
-    }).catch(function (e) {
-      if (e.message === 'sesion') return;
-      document.getElementById('mapa-estado').innerHTML = '<p class="mensaje">' + esc(e.message || 'No se pudo obtener el mapa.') + '</p>';
+      var acc = document.getElementById('mapa-acc');
+      acc.innerHTML = '<a class="btn btn-sec" href="' + url + '" target="_blank" rel="noopener">Abrir en pantalla completa</a>' +
+        '<button type="button" class="btn btn-sec" id="mapa-guardar">Guardar en el teléfono</button>';
+      document.getElementById('mapa-guardar').addEventListener('click', function () { guardarMapa(blob, url); });
+      dibujarMapa(blob, document.getElementById('mapa-paginas'), document.getElementById('mapa-estado'), nota);
+    };
+    mapaGuardado().then(function (g) {
+      if (g) mostrar(g.blob, 'Usa dos dedos para acercar.');
+      else document.getElementById('mapa-estado').textContent = 'Descargando el mapa… (solo la primera vez, puede tardar unos segundos)';
+      // Revisar si hay una versión nueva (sin hacer esperar si ya hay uno guardado)
+      return actualizarMapa(g).then(function (nuevo) {
+        if (nuevo) mostrar(nuevo, g ? 'Se actualizó el mapa a la versión más reciente.' : 'Usa dos dedos para acercar. Quedó guardado en este teléfono.');
+      }).catch(function (e) {
+        if (e.message === 'sesion') return;
+        if (!g) document.getElementById('mapa-estado').textContent = e.message && e.message !== 'red' ? e.message : 'No se pudo obtener el mapa. Revisa tu conexión.';
+      });
     });
   }
 
-  /** Devuelve el PDF del mapa, desde el teléfono si no cambió o descargándolo si es nuevo. */
-  function obtenerMapa() {
-    var CLAVE = 'programas-mapa-version', URL_CACHE = './__mapa-territorio.pdf';
-    var version = leer(CLAVE) || '';
-    var desdeCache = function () {
-      return ('caches' in window) ? caches.open('mapa').then(function (c) { return c.match(URL_CACHE); }).then(function (r) { return r ? r.blob() : null; }) : Promise.resolve(null);
-    };
-    return desdeCache().then(function (enCache) {
-      return api('mapa', { version: enCache ? version : '' }).then(function (r) {
-        if (!r.ok) throw new Error(r.error);
-        if (r.sinCambios && enCache) return enCache;
-        var bin = atob(r.pdf), bytes = new Uint8Array(bin.length);
-        for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        var blob = new Blob([bytes], { type: 'application/pdf' });
-        if ('caches' in window) caches.open('mapa').then(function (c) { return c.put(URL_CACHE, new Response(blob)); }).then(function () { guardar(CLAVE, r.version); });
-        return blob;
-      }).catch(function (e) {
-        if (enCache && e.message !== 'sesion') return enCache; // sin conexión: usar el guardado
-        throw e;
-      });
+  var MAPA_VERSION = 'programas-mapa-version', MAPA_URL = './__mapa-territorio.pdf';
+  function mapaGuardado() {
+    if (!('caches' in window)) return Promise.resolve(null);
+    return caches.open('mapa').then(function (c) { return c.match(MAPA_URL); })
+      .then(function (r) { return r ? r.blob() : null; })
+      .then(function (b) { return b && b.size ? { blob: b, version: leer(MAPA_VERSION) || '' } : null; })
+      .catch(function () { return null; });
+  }
+  /** Pide el mapa solo si cambió. Devuelve el PDF nuevo o null si el guardado sigue vigente. */
+  function actualizarMapa(g) {
+    return api('mapa', { version: g ? g.version : '' }).then(function (r) {
+      if (!r.ok) throw new Error(r.error);
+      if (r.sinCambios && g) return null;
+      var bin = atob(r.pdf), bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      var blob = new Blob([bytes], { type: 'application/pdf' });
+      if ('caches' in window) {
+        caches.open('mapa').then(function (c) { return c.put(MAPA_URL, new Response(blob, { headers: { 'Content-Type': 'application/pdf' } })); })
+          .then(function () { guardar(MAPA_VERSION, r.version); }).catch(function () {});
+      }
+      return blob;
+    });
+  }
+  /** Descarga el mapa en segundo plano (una vez al día) para que se abra al instante. */
+  function precargarMapa() {
+    if (DEMO || !navigator.onLine || leer('programas-mapa-revisado') === hoyISO()) return;
+    guardar('programas-mapa-revisado', hoyISO());
+    mapaGuardado().then(actualizarMapa).catch(function () {});
+  }
+  function guardarMapa(blob, url) {
+    var archivo = null;
+    try { archivo = new File([blob], 'Mapa del territorio.pdf', { type: 'application/pdf' }); } catch (e) { /* navegador antiguo */ }
+    if (archivo && navigator.canShare && navigator.canShare({ files: [archivo] })) {
+      navigator.share({ files: [archivo], title: 'Mapa del territorio' }).catch(function () {});
+      return;
+    }
+    var a = document.createElement('a');
+    a.href = url; a.download = 'Mapa del territorio.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  /** Dibuja el PDF dentro de la app con PDF.js (en iPhone un PDF suelto no se ve bien dentro de la app). */
+  var PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  function dibujarMapa(blob, cont, msg, nota) {
+    var listo = window.pdfjsLib ? Promise.resolve() : cargarScript(PDFJS + 'pdf.min.js');
+    listo.then(function () {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js';
+      return blob.arrayBuffer();
+    }).then(function (buf) {
+      return window.pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+    }).then(function (pdf) {
+      cont.innerHTML = '';
+      var ancho = cont.clientWidth || window.innerWidth;
+      var dibujar = function (n) {
+        if (n > pdf.numPages) return null;
+        return pdf.getPage(n).then(function (page) {
+          var base = page.getViewport({ scale: 1 });
+          // Resolución alta para poder acercar, sin pasar el límite de memoria de los teléfonos (~16 MP por imagen)
+          var escala = Math.min(ancho * 3 / base.width, Math.sqrt(16e6 / (base.width * base.height)));
+          var vp = page.getViewport({ scale: escala });
+          var canvas = document.createElement('canvas');
+          canvas.width = Math.floor(vp.width); canvas.height = Math.floor(vp.height);
+          canvas.className = 'mapa-pagina';
+          cont.appendChild(canvas);
+          return page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise.then(function () { return dibujar(n + 1); });
+        });
+      };
+      return dibujar(1);
+    }).then(function () {
+      msg.textContent = nota || '';
+    }).catch(function () {
+      // Si no se pudo dibujar, queda el botón para abrirlo en pantalla completa
+      msg.textContent = 'Toca “Abrir en pantalla completa” para ver el mapa.';
     });
   }
 
@@ -1413,6 +1477,11 @@
     if (accion === 'territorios') return fetch('dev-territorios.json').then(function (r) { return r.json(); });
     if (accion === 'nopasar') return fetch('dev-nopasar.json').then(function (r) { return r.json(); });
     if (accion === 'informes') return fetch('dev-informes.json').then(function (r) { return r.json(); });
+    if (accion === 'mapa') return fetch('dev-mapa.pdf').then(function (r) { return r.arrayBuffer(); }).then(function (b) {
+      var u = new Uint8Array(b), t = '';
+      for (var i = 0; i < u.length; i++) t += String.fromCharCode(u[i]);
+      return { ok: true, version: 'demo-' + u.length, sinCambios: p.version === 'demo-' + u.length, pdf: btoa(t) };
+    });
     if (accion === 'sugerencias') return Promise.resolve({ ok: true, tipo: 'Micrófono', sugerencias: (d.personas || []).slice(3, 7).map(function (n, i) {
       return { nombre: n, ultima: i === 0 ? '' : '2026-0' + (9 - i) + '-1' + i, proxima: i === 3 ? '2026-11-20' : '' };
     }) });

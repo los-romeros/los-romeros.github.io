@@ -9,3 +9,4 @@ node_modules/
 web/dev-territorios.json
 web/dev-informes.json
 web/dev-nopasar.json
+web/dev-mapa.pdf
