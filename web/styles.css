@@ -589,3 +589,15 @@ a { color: var(--primary-ink); }
 @media (prefers-color-scheme: dark) { .editor-choque { background: #3d3115; color: #f3dfaa; } }
 .circulo.ambar { background: #fbefd0; color: #8a5a00; font-size: 22px; font-weight: 800; }
 .choques-det .btn:not(.btn-sec) { background: #b07a12; color: #fff; }
+
+/* Mis asignaciones */
+a.resumen-cab.enlace { grid-template-columns: 52px 1fr auto; color: inherit; text-decoration: none; }
+a.resumen-cab.enlace .chevron { width: 20px; height: 20px; color: var(--muted); }
+.resumen-todas { font-size: 14px; color: var(--muted); margin-top: 2px; text-decoration: underline; text-underline-offset: 2px; }
+.mias-mes { margin-top: 14px; }
+.mias-t { padding: 2px 0 8px; }
+
+/* Informes: recordar por WhatsApp */
+.miembro-fila { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); }
+.miembro-fila .miembro { flex: 1; border-top: 0; }
+.wa-mini { align-self: center; padding: 6px 12px; font-size: 14px; min-height: 0; white-space: nowrap; }

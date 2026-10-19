@@ -178,6 +178,7 @@ function informesGrupos_(yo, p, cfg) {
     var inf = informeDe_(informes, x.nombre, mes);
     (porGrupo[+x.grupo] = porGrupo[+x.grupo] || []).push({
       nombre: x.nombre,
+      telefono: inf ? '' : String(x.telefono || ''),
       informe: inf ? { servicio: inf.servicio, participo: inf.participo, estudios: inf.estudios, horas: inf.horas, otros: inf.otros || '', comentarios: inf.comentarios, origen: inf.origen, ingresadoPor: inf.ingresadoPor || '' } : null
     });
   });

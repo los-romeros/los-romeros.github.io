@@ -104,6 +104,11 @@
       'Tienes la asignación: ' + asignacion + ', el ' + fechaLarga(fecha) + (hora ? ' a las ' + hora : '') + '. ' +
       '¿Me confirmas si puedes cumplirla? ¡Gracias!';
   }
+  function mensajeInforme(nombre, mesNombre) {
+    return 'Hola ' + primerNombre(nombre) + ', ¿cómo estás? Te escribo para recordarte que aún no hemos recibido tu informe de predicación de ' +
+      String(mesNombre || '').split(' ')[0].toLowerCase() + '. Por favor envíalo desde la app: ' + location.origin + location.pathname +
+      ' (o respóndeme por aquí si te resulta más fácil). ¡Muchas gracias!';
+  }
   function mapsURL(q) { return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q); }
   function mayuscula(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
   function primerNombre(n) { return String(n || '').split(' ')[0]; }
@@ -216,6 +221,7 @@
     var m = /^p\/([\w-]+)/.exec(ruta);
     if (ruta === 'registrar' || ruta === 'informe') { renderInicio(); return; }
     if (ruta === 'datos') { renderDatos(false); return; }
+    if (ruta === 'mias') { renderMias(); return; }
     var prog = m && estado.datos.programas.filter(function (p) { return p.id === m[1]; })[0];
     if (prog) renderPrograma(prog); else renderInicio();
   }
@@ -324,10 +330,12 @@
 
     // Resumen personal
     var items = d.resumen || [];
+    var todas = d.misAsignaciones || items;
     h += '<section class="resumen' + (items.length ? '' : ' vacio-r') + '" aria-labelledby="t-resumen">' +
-      '<div class="resumen-cab"><span class="circulo teal">' + svg('calendario') + '</span>' +
+      '<a class="resumen-cab enlace" href="#mias"><span class="circulo teal">' + svg('calendario') + '</span>' +
       '<div><h2 id="t-resumen">Tus próximos 7 días</h2>' +
-      (items.length ? '' : '<p class="resumen-vacio">No tienes asignaciones en los próximos 7 días.</p>') + '</div></div>';
+      (items.length ? '' : '<p class="resumen-vacio">No tienes asignaciones en los próximos 7 días.</p>') +
+      '<span class="resumen-todas">Ver todas mis asignaciones' + (todas.length ? ' (' + todas.length + ')' : '') + '</span></div>' + SVG_CHEVRON + '</a>';
     items.forEach(function (x) { h += itemResumenHTML(x, hoy); });
     h += '</section>';
 
@@ -532,6 +540,38 @@
     return h + '</div></article>';
   }
 
+  /** Todas mis asignaciones futuras, por mes, con Confirmo / No puedo. */
+  function renderMias() {
+    var d = estado.datos, hoy = d.hoy || hoyISO();
+    document.title = 'Mis asignaciones · Cong. Los Romeros';
+    var lista = d.misAsignaciones || d.resumen || [];
+    var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Inicio</button>' +
+      '<h1>Mis asignaciones</h1></div></div>';
+    var porResponder = lista.filter(function (x) { return x.puedeResponder && x.estado === 'Pendiente'; }).length;
+    h += '<p class="ayuda-editar">' + (porResponder ? 'Tienes ' + porResponder + (porResponder === 1 ? ' asignación' : ' asignaciones') + ' por confirmar.' : 'Todas tus asignaciones publicadas, de hoy en adelante.') + '</p>';
+    if (!lista.length) h += '<p class="vacio">No tienes asignaciones publicadas por ahora.</p>';
+    var mes = '';
+    lista.forEach(function (x) {
+      var m = x.fecha.slice(0, 7);
+      if (m !== mes) {
+        if (mes) h += '</section>';
+        mes = m;
+        h += '<section class="resumen mias-mes"><h2 class="mias-t">' + esc(mayuscula(MESES[+m.slice(5, 7) - 1])) + ' ' + m.slice(0, 4) + '</h2>';
+      }
+      h += itemResumenHTML(x, hoy);
+    });
+    if (mes) h += '</section>';
+    app.innerHTML = h;
+    window.scrollTo(0, 0);
+    document.getElementById('volver').addEventListener('click', function () { location.hash = ''; });
+    app.querySelectorAll('[data-responder]').forEach(function (b) {
+      b.addEventListener('click', function () { responder(b.getAttribute('data-clave'), b.getAttribute('data-responder')); });
+    });
+    app.querySelectorAll('[data-cambiar]').forEach(function (b) {
+      b.addEventListener('click', function () { estado.cambiando = b.getAttribute('data-cambiar'); render(); });
+    });
+  }
+
   // Título del resumen: la parte del programa cuando el rol es genérico ("Asignado", "Titular"…)
   function tituloResumen(x) {
     var generico = /^(asignado|titular|ayudante)$/i.test(x.rol);
@@ -580,9 +620,12 @@
   }
 
   function responder(clave, respuesta) {
-    var item = estado.datos.resumen.filter(function (x) { return x.clave === clave; })[0];
+    var d = estado.datos;
+    var copias = (d.resumen || []).concat(d.misAsignaciones || []).filter(function (x) { return x.clave === clave; });
+    var item = copias[0];
     var antes = item.estado;
-    item.estado = respuesta;
+    var poner = function (v) { copias.forEach(function (x) { x.estado = v; }); };
+    poner(respuesta);
     estado.cambiando = '';
     render();
     api('responder', { clave: clave, respuesta: respuesta }).then(function (r) {
@@ -590,7 +633,7 @@
       aviso(respuesta === 'Confirmado' ? 'Gracias, quedó confirmado.' : 'Listo. Se avisó al responsable del programa.');
     }).catch(function (e) {
       if (e.message === 'sesion') return;
-      item.estado = antes;
+      poner(antes);
       render();
       aviso(e.message && e.message !== 'red' ? e.message : 'No se pudo guardar. Revisa tu conexión.', true);
     });
@@ -1155,9 +1198,10 @@
         '<div class="terr-cifra">Participaron ' + g.participaron + ' · Horas (precursores) ' + g.horas + (g.otros ? ' + ' + g.otros + ' otros servicios' : '') + ' · Estudios ' + g.estudios + '</div>' +
         '<div class="miembros">' + g.miembros.map(function (m) {
           var x = m.informe;
-          return '<button type="button" class="miembro' + (x ? ' ok' : '') + '" data-miembro="' + esc(m.nombre) + '">' +
+          var wa = !x && esActual ? '<a class="btn wa wa-mini" target="_blank" rel="noopener" href="' + esc(whatsappURL(m.telefono, mensajeInforme(m.nombre, t.mesNombre))) + '" aria-label="Recordar por WhatsApp a ' + esc(m.nombre) + '">' + svg('chat') + 'Recordar</a>' : '';
+          return '<div class="miembro-fila">' + '<button type="button" class="miembro' + (x ? ' ok' : '') + '" data-miembro="' + esc(m.nombre) + '">' +
             '<span class="m-nombre">' + esc(m.nombre) + '</span>' +
-            '<span class="m-det">' + (x ? esc((/^n/i.test(String(x.participo)) ? 'No participó' : 'Participó') + (x.horas ? ' · ' + x.horas + ' h' : '') + (+x.otros ? ' + ' + x.otros + ' h otros' : '') + (+x.estudios ? ' · ' + x.estudios + ' est.' : '') + (/precursor/i.test(x.servicio) ? ' · ' + x.servicio : '')) : 'Pendiente · tocar para ingresar') + '</span></button>';
+            '<span class="m-det">' + (x ? esc((/^n/i.test(String(x.participo)) ? 'No participó' : 'Participó') + (x.horas ? ' · ' + x.horas + ' h' : '') + (+x.otros ? ' + ' + x.otros + ' h otros' : '') + (+x.estudios ? ' · ' + x.estudios + ' est.' : '') + (/precursor/i.test(x.servicio) ? ' · ' + x.servicio : '')) : 'Pendiente · tocar para ingresar') + '</span></button>' + wa + '</div>';
         }).join('') + '</div></article>';
     });
     if (!t.grupos.length) h += '<p class="vacio">No hay personas con grupo asignado en el directorio.</p>';

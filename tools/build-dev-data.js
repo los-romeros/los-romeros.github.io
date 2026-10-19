@@ -17,7 +17,7 @@ const PROGS = [
   ['aseo', 'Aseo', 'escoba', false],
 ];
 const ESTADOS = ['Confirmado', 'Pendiente', 'Confirmado', 'Rechazado', 'Confirmado'];
-const estados = {}, resumen = [], nombres = new Set();
+const estados = {}, resumen = [], misAsignaciones = [], nombres = new Set();
 let n = 0;
 const programas = PROGS.map(([id, nombre, icono, confirmacion]) => {
   const reuniones = [];
@@ -33,10 +33,10 @@ const programas = PROGS.map(([id, nombre, icono, confirmacion]) => {
           if (!a.externo && !a.grupo) nombres.add(a.nombre);
           const x = { clave, rol: a.rol, sala: a.sala || '', grupo: a.grupo || null, sub: a.grupo ? 'Pablo Morales · Daniel Reyes' : a.externo ? a.origen || '' : '',
             nombre: a.nombre };
-          if (clave && r.fecha >= hoy && r.fecha <= fin && ctx.norm_(a.nombre) === ctx.norm_(yo)) {
-            resumen.push({ clave, programa: id, programaNombre: nombre, fecha: r.fecha, hora: r.hora, titulo: r.titulo, lugar: r.lugar,
+          if (clave && r.fecha >= hoy && ctx.norm_(a.nombre) === ctx.norm_(yo)) {
+            (r.fecha <= fin ? [resumen, misAsignaciones] : [misAsignaciones]).forEach(l => l.push({ clave, programa: id, programaNombre: nombre, fecha: r.fecha, hora: r.hora, titulo: r.titulo, lugar: r.lugar,
               parte: f.texto, detalle: f.detalle, rol: a.rol, sala: a.sala || '', grupo: null, estado: estados[clave],
-              puedeResponder: confirmacion });
+              puedeResponder: confirmacion }));
           }
           return x;
         }) })) }))
@@ -48,14 +48,14 @@ const programas = PROGS.map(([id, nombre, icono, confirmacion]) => {
 });
 // Ejemplo de periodo por aprobar
 programas[0].borradores = [{ periodo: 'NOVIEMBRE (ejemplo)', desde: ctx.sumarDias_(hoy, 20), hasta: ctx.sumarDias_(hoy, 41), avisos: 'No reconocidos: Hector Riqelme' }];
-resumen.sort((a, b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')));
+[resumen, misAsignaciones].forEach(l => l.sort((a, b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || ''))));
 const out = {
   ok: true, generado: new Date().toISOString(), hoy,
   usuario: { nombre: yo, correo: 'demo@example.com', rol: 'admin', privilegiado: true, editables: PROGS.map(p => p[0]), grupo: 4 },
   inicio: { congregacion: 'Congregación Los Romeros · Concón', mensaje: 'Bienvenidos. Aquí encontrarás los programas y asignaciones de la congregación.', direccion: 'Jardín Poniente 795, Concón',
     avisos: [{ titulo: 'Asamblea Regional', detalle: '9 al 11 de octubre', icono: 'megafono' }, { titulo: 'Visita del superintendente de circuito', detalle: '3 al 8 de noviembre', icono: 'grupo' }],
     zoom: { vmc: 'https://zoom.us/j/0000000000', finsemana: 'https://zoom.us/j/0000000000' } },
-  resumen, programas, estados,
+  resumen, misAsignaciones, programas, estados,
   personas: [...nombres].sort((a, b) => a.localeCompare(b, 'es')),
   enlaces: [{ titulo: 'Ejemplo: formulario de informe', url: 'https://forms.google.com', descripcion: 'Enlace de ejemplo', privilegiado: false },
             { titulo: 'Ejemplo: contenido para ancianos', url: 'https://drive.google.com', descripcion: 'Solo con privilegios', privilegiado: true }]

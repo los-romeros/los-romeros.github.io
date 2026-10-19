@@ -249,7 +249,7 @@ function datosUsuario_(yo, cfg) {
   var resumen = [];
   Object.keys(info).forEach(function (clave) {
     var x = info[clave], r = x.reunion, a = x.asignado;
-    if (r.fecha < hoy || r.fecha > fin) return;
+    if (r.fecha < hoy) return;
     var mio = a.grupo ? (yo.grupo && a.grupo === yo.grupo) : norm_(a.nombre) === norm_(yo.nombre);
     if (!mio) return;
     var estado = estados[clave] || '';
@@ -262,6 +262,9 @@ function datosUsuario_(yo, cfg) {
     });
   });
   resumen.sort(function (a, b) { return (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')); });
+  // Todas mis asignaciones futuras (ver todas) y las de los próximos 7 días (inicio)
+  var misAsignaciones = resumen;
+  resumen = resumen.filter(function (x) { return x.fecha <= fin; });
 
   var programas = base.programas.filter(function (p) {
     return yo.editables.indexOf(p.id) >= 0 || enAudiencia_(p.visiblePara, yo);
@@ -301,6 +304,7 @@ function datosUsuario_(yo, cfg) {
       return ini;
     })(),
     resumen: resumen,
+    misAsignaciones: misAsignaciones,
     programas: programas,
     enlaces: base.enlaces.filter(function (l) { return enAudiencia_(l.visiblePara, yo); })
   };
