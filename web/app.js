@@ -1164,6 +1164,13 @@
         if (!r.ok) throw new Error(r.error);
         cerrar();
         aviso('Informe enviado. ¡Gracias!');
+        // Marcarlo enviado de inmediato (la recarga lo confirma)
+        var inf = estado.datos.informe;
+        if (!para && inf && mes === inf.mes) {
+          inf.enviado = { servicio: datos.servicio, participo: datos.participo, estudios: datos.estudios, horas: datos.horas, otros: datos.otros, comentarios: datos.comentarios, origen: 'app' };
+          inf.servicio = datos.servicio;
+          render();
+        }
         if (alGuardar) alGuardar(); else cargar();
       }).catch(function (err) {
         if (err.message === 'sesion') { cerrar(); return; }

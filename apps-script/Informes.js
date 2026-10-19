@@ -19,6 +19,8 @@ function planillaInformes_() {
     try {
       var existente = SpreadsheetApp.openById(id);
       var hoja = existente.getSheetByName('Informes');
+      // El mes se guarda como texto ('2026-09'); si no, Sheets lo convierte en fecha
+      if (hoja && hoja.getRange('E2').getNumberFormat() !== '@') hoja.getRange('E:E').setNumberFormat('@');
       if (hoja && hoja.getLastColumn() < TITULOS_INFORMES.length) {
         hoja.getRange(1, 1, 1, TITULOS_INFORMES.length).setValues([TITULOS_INFORMES]).setFontWeight('bold').setBackground('#5e8499').setFontColor('#ffffff');
       }
@@ -53,7 +55,7 @@ function leerInformes_(cfg, dir) {
   v.shift();
   v.forEach(function (r, i) {
     if (!r[2] || !r[4]) return;
-    out.push({ ts: r[0], correo: String(r[1] || '').toLowerCase(), nombre: r[2], grupo: +r[3] || null, mes: String(r[4]), servicio: r[5], participo: r[6],
+    out.push({ ts: r[0], correo: String(r[1] || '').toLowerCase(), nombre: r[2], grupo: +r[3] || null, mes: mesTexto_(r[4]), servicio: r[5], participo: r[6],
       estudios: r[7], horas: r[8], comentarios: r[9], ingresadoPor: r[10], otros: r[11] || '', origen: 'app', fila: i + 2 });
   });
   String(cfg.informesFormularios || '').split(/[,\s]+/).filter(function (u) { return u.indexOf('http') === 0; }).forEach(function (url) {
@@ -78,6 +80,13 @@ function leerInformes_(cfg, dir) {
     }
   });
   return out;
+}
+
+/** 'AAAA-MM' aunque la celda haya quedado como fecha. */
+function mesTexto_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM');
+  var m = /^(\d{4})-(\d{1,2})/.exec(String(v).trim());
+  return m ? m[1] + '-' + pad2_(+m[2]) : String(v);
 }
 
 /** "Valderrama, Déborah de" -> "Déborah de Valderrama" */
@@ -156,10 +165,15 @@ function guardarInforme_(yo, p, cfg) {
   if (otros > 0 && !comentarios) throw new Error('Indica en comentarios a qué corresponden las horas de otros servicios (por ejemplo, LDC).');
   var fila = [new Date(), correo, nombre, grupo || '', mes, servicio, participo, estudios, horas, comentarios, ingresadoPor, otros || ''];
   var sh = planillaInformes_().getSheetByName('Informes');
-  if (previo && previo.origen === 'app') sh.getRange(previo.fila, 1, 1, fila.length).setValues([fila]);
-  else sh.appendRow(fila);
+  var nFila = previo && previo.origen === 'app' ? previo.fila : sh.getLastRow() + 1;
+  sh.getRange(nFila, 5).setNumberFormat('@');
+  sh.getRange(nFila, 1, 1, fila.length).setValues([fila]);
+  SpreadsheetApp.flush();
+  // Comprobar que quedó registrado tal como se leerá después
+  var guardado = informeDe_(leerInformes_(cfg, dir), nombre, mes);
+  if (!guardado) throw new Error('El informe se escribió, pero no pude leerlo de vuelta. Avísale al administrador.');
   registrar_('Informe de predicación', (ingresadoPor ? ingresadoPor + ' por ' : '') + nombre + ' · ' + nombreMes_(mes));
-  return { ok: true };
+  return { ok: true, mes: mes, propio: !ingresadoPor };
 }
 
 /** Acción "informes": estado de los informes de un mes para los grupos que el usuario puede ver. */
