@@ -24,7 +24,7 @@ function menuTareasHorarias() {
 }
 
 function menuSincronizar() {
-  var n = sincronizar();
+  var n = sincronizar(true);
   SpreadsheetApp.getActive().toast(n ? n + ' periodo(s) nuevos o modificados.' : 'Sin cambios.', 'Sincronización', 5);
 }
 

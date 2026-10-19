@@ -6,11 +6,11 @@
 
 var DIAS_HISTORIA = 45; // periodos cuya última fecha es más antigua que esto se ignoran
 
-function sincronizar() {
+function sincronizar(forzar) {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return;
   try {
-    return sincronizar_();
+    return sincronizar_(forzar === true); // la tarea automática recibe un evento, no true
   } finally {
     lock.releaseLock();
   }
@@ -18,7 +18,7 @@ function sincronizar() {
 
 var MINUTOS_ESPERA_CAMBIOS = 25; // un periodo aprobado debe quedar quieto este tiempo antes de aplicar cambios
 
-function sincronizar_() {
+function sincronizar_(forzar) {
   asegurarColumnas_('periodos');
   var cfg = config_();
   var programas = leerTabla_('programas').filter(function (p) {
@@ -70,7 +70,8 @@ function sincronizar_() {
 
       var ahora = new Date();
       // En un programa ya aprobado, esperar a que la hoja quede quieta antes de aplicar (evita invitar a un nombre a medio escribir)
-      if (per && per['Estado'] === 'Aprobado') {
+      // (Desde el menú "Sincronizar ahora" se aplica de inmediato: quien lo usa ya terminó de editar.)
+      if (per && per['Estado'] === 'Aprobado' && !forzar) {
         if (per['Huella pendiente'] !== huella) {
           per['Huella pendiente'] = huella;
           per['Cambio visto'] = ahora;
