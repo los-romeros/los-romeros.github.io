@@ -398,7 +398,7 @@
     }
     if (d.territorios && d.territorios.puedeVer) {
       h += '<a class="baldosa" href="#territorios"><span class="baldosa-top"><span class="circulo">' + svg('mapa') + '</span>' + SVG_CHEVRON + '</span>' +
-        '<span class="baldosa-nombre">Territorios</span><span class="baldosa-det">Resumen de lo trabajado</span>' +
+        '<span class="baldosa-nombre">Registro de territorios</span><span class="baldosa-det">Resumen de lo trabajado</span>' +
         '<span class="baldosa-fecha">' + svg('calendario') + 'Registrar y revisar</span></a>';
     }
     h += '</nav></section>';
@@ -970,9 +970,9 @@
 
   /* ---------- resumen de territorios ---------- */
   function renderTerritorios() {
-    document.title = 'Territorios · Cong. Los Romeros';
+    document.title = 'Registro de territorios · Cong. Los Romeros';
     var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Inicio</button>' +
-      '<h1>Territorios</h1></div>' +
+      '<h1>Registro de territorios</h1></div>' +
       '<label class="buscar">' + SVG_LUPA + '<input id="buscar-t" type="search" inputmode="numeric" placeholder="Buscar territorio" autocomplete="off" value="' + esc(estado.buscarTerr || '') + '" aria-label="Buscar territorio"></label></div>';
     h += '<div class="filtros" role="group" aria-label="Filtrar">' + [['todos', 'Todos'], ['pendientes', 'Con pendientes del mes'], ['antiguos', 'Sin trabajar +30 días']].map(function (f) {
       return '<button type="button" class="filtro' + ((estado.filtroTerr || 'todos') === f[0] ? ' activo' : '') + '" data-filtro="' + f[0] + '">' + f[1] + '</button>';
