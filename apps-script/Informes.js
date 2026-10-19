@@ -45,6 +45,12 @@ function mesAInformar_() {
   return d.getFullYear() + '-' + pad2_(d.getMonth() + 1);
 }
 
+/** ¿Se pide en la app el informe de este mes? (Inicio ▸ informesDesde, p. ej. 2026-10) */
+function informePedido_(cfg, mes) {
+  var desde = mesTexto_(cfg.informesDesde || '2026-10');
+  return !/^\d{4}-\d{2}$/.test(desde) || mes >= desde;
+}
+
 function nombreMes_(ym) { return MESES_LARGOS[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4); }
 
 /** Todos los informes conocidos: los de la app y los de formularios antiguos. [{ nombre, mes, servicio, participo, estudios, horas, comentarios, origen, fila }] */
@@ -135,7 +141,8 @@ function estadoInforme_(yo, cfg) {
     enviado: mio ? { servicio: mio.servicio, participo: mio.participo, estudios: mio.estudios, horas: mio.horas, otros: mio.otros || '', comentarios: mio.comentarios, origen: mio.origen } : null,
     editable: hoyISO_() <= hasta, editableHasta: hasta,
     servicio: (mio && mio.servicio) || (ultimo && ultimo.servicio) || (persona && persona.servicio) || 'Publicador',
-    verGrupos: grupos === 'todos' || grupos.length > 0
+    verGrupos: grupos === 'todos' || grupos.length > 0,
+    pedir: informePedido_(cfg, mes)
   };
 }
 
@@ -226,6 +233,7 @@ function recordatoriosInforme_(cfg) {
   leerTabla_('dispositivos', { opcional: true }).forEach(function (d) { if (d['Correo']) conTelefono[String(d['Correo']).toLowerCase()] = true; });
   if (!Object.keys(conTelefono).length) return 0;
   var mes = mesAInformar_();
+  if (!informePedido_(cfg, mes)) return 0;
   var dir = directorio_();
   var informes = leerInformes_(cfg, dir);
   var mesNom = MESES_LARGOS[+mes.slice(5, 7) - 1].toLowerCase();

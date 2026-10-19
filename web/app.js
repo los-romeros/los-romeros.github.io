@@ -300,7 +300,7 @@
 
     // Informe mensual
     var inf = d.informe;
-    if (inf && !inf.enviado) {
+    if (inf && inf.pedir !== false && !inf.enviado) {
       h += '<button type="button" class="informe-aviso" id="abrir-informe"><span class="circulo">' + svg('libro') + '</span>' +
         '<span><span class="registrar-t">Envía tu informe de ' + esc(inf.mesNombre.split(' ')[0].toLowerCase()) + '</span>' +
         '<span class="registrar-d">Toca aquí para informar tu predicación del mes</span></span>' + SVG_CHEVRON + '</button>';
@@ -489,7 +489,7 @@
     // Desde una notificación de informe pendiente
     if (location.hash === '#informe') {
       history.replaceState(null, '', location.pathname + location.search);
-      if (d.informe && !d.informe.enviado) abrirInforme(null);
+      if (d.informe && d.informe.pedir !== false && !d.informe.enviado) abrirInforme(null);
     }
     // Desde una notificación de registro pendiente
     if (location.hash === '#registrar') {
