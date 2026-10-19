@@ -97,8 +97,42 @@ var VMC_SECCIONES = [
 // Texto que indica que esa semana no hay reunión normal (se muestra como aviso, no como nombre)
 var EVENTO_ESPECIAL_RE = /asamblea|conmemoraci|superintendente de circuito|sin reuni/i;
 
+var MESES_NOMBRES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+/**
+ * Fecha escrita como texto en el encabezado de una semana:
+ *   "3 de noviembre de 2026 - VISITA DEL SUPERINTENDENTE DE CIRCUITO"  -> ese día, con la nota
+ *   "05 AL 11 DE OCTUBRE - SEMANA DE LA ASAMBLEA"                      -> el jueves de esa semana, con la nota
+ */
+function fechaTexto_(t, anioPorDefecto) {
+  var n = norm_(t).replace(/setiembre/, 'septiembre');
+  var m = /^(\d{1,2})(?:\s*(?:al|-|a)\s*(\d{1,2}))?\s+de\s+([a-z]+)(?:\s+(?:de\s+|del\s+)?(\d{4}))?\s*(?:[-–:·,]\s*(.*))?$/.exec(n);
+  if (!m) return null;
+  var mes = MESES_NOMBRES.indexOf(m[3]);
+  if (mes < 0) return null;
+  var anio = +m[4] || anioPorDefecto;
+  var desde = +m[1], hasta = +m[2] || 0;
+  var fecha = anio + '-' + pad2_(mes + 1) + '-' + pad2_(desde);
+  if (hasta) {
+    // Semana "del X al Y": la reunión de entre semana es el jueves
+    for (var d = 0; d <= 6; d++) { var f = sumarDias_(fecha, d); if (diaSemana_(f) === 4) { fecha = f; break; } }
+  }
+  var nota = texto_(String(t).replace(/^[^-–:·,]*[-–:·,]\s*/, ''));
+  return { fecha: fecha, nota: m[5] ? nota : '' };
+}
+
+/** Año del programa, tomado del título ("Congregación Los Romeros - NOVIEMBRE 2026"). */
+function anioDeHoja_(sheet) {
+  for (var r = 0; r < Math.min(sheet.values.length, 6); r++) {
+    var m = /\b(20\d{2})\b/.exec((sheet.values[r] || []).map(texto_).join(' '));
+    if (m) return +m[1];
+  }
+  return new Date().getFullYear();
+}
+
 function parseVMC(sheet) {
   var out = { periodo: sheet.name, reuniones: [], avisos: [] };
+  var anio = anioDeHoja_(sheet);
   var reunion = null, seccion = null, salas = null, parte = 0;
 
   function etiqueta(t) { return /:\s*$/.test(t); }
@@ -124,8 +158,10 @@ function parseVMC(sheet) {
   for (var r = 0; r < sheet.values.length; r++) {
     var row = sheet.values[r] || [];
     var f = fecha_(row[0]);
+    var ft = !f && typeof row[0] === 'string' ? fechaTexto_(row[0], anio) : null;
+    if (ft) f = ft.fecha;
     if (f) {
-      reunion = nuevaReunion_(f, { titulo: 'Vida y Ministerio Cristianos' });
+      reunion = nuevaReunion_(f, { titulo: 'Vida y Ministerio Cristianos', nota: ft ? ft.nota : '' });
       reunion.secciones.push({ titulo: '', filas: [] });
       out.reuniones.push(reunion);
       seccion = null; salas = null; parte = 0;
