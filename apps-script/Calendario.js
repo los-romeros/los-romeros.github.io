@@ -268,14 +268,16 @@ function avisosDiaAntes_(asign, cfg) {
     if (a['Fecha'] !== manana || !a['Correo'] || ['Rechazado', 'Eliminada', 'Borrador'].indexOf(a['Estado']) >= 0) return;
     (porPersona[a['Correo']] = porPersona[a['Correo']] || []).push(a);
   });
+  var avisados = 0;
   Object.keys(porPersona).forEach(function (correo) {
     var lista = porPersona[correo];
-    notificar_(cfg, correo, 'Mañana tienes ' + (lista.length > 1 ? lista.length + ' asignaciones' : 'una asignación'),
+    avisados += notificar_(cfg, correo, 'Mañana tienes ' + (lista.length > 1 ? lista.length + ' asignaciones' : 'una asignación'),
       lista.map(function (a) { return nombreAsignacion_(a) + (a['Hora'] ? ' · ' + a['Hora'] : ''); }).join(' · '), './', 'manana-' + correo);
     enviarCorreo_(cfg, correo, 'Mañana tienes una asignación', [
       'Hola ' + String(lista[0]['Nombre']).split(' ')[0] + ',', '', 'Te recordamos que mañana tienes:', ''
     ].concat(lista.map(lineaAsignacion_)).concat(['', cfg.urlApp ? 'Ver en la app: ' + cfg.urlApp : '', '', 'Mensaje automático de la app de programas.']));
   });
+  if (Object.keys(porPersona).length) registrar_('Aviso del día anterior', Object.keys(porPersona).length + ' persona(s) con asignación mañana · ' + avisados + ' notificación(es) entregadas a teléfonos');
   return 0;
 }
 

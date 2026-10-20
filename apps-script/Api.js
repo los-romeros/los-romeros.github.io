@@ -55,6 +55,7 @@ function doPost(e) {
       case 'aceptarChoque': return json_(conBloqueo_(function () { return aceptarChoque_(yo, p, cfg); }));
       case 'aprobar': return json_(conBloqueo_(function () { return aprobar_(yo, p); }));
       case 'registrar': return json_(registrarPredicacion_(yo, p, cfg));
+      case 'probarAviso': return json_(probarAviso_(yo, cfg));
       case 'dispositivo': return json_(conBloqueo_(function () { return registrarDispositivo_(yo, p); }));
       case 'territorios': return json_(resumenTerritorios_(yo, cfg));
       case 'informe': return json_(conBloqueo_(function () { return guardarInforme_(yo, p, cfg); }));

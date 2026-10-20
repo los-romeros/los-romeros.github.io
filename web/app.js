@@ -412,7 +412,7 @@
     var especiales = (d.enlaces || []).filter(function (l) { return l.privilegiado; });
     h += enlacesHTML('Enlaces', publicos) + enlacesHTML('Contenido especial', especiales);
     h += instalarHTML();
-    h += '<p class="pie"><a href="#datos">Mis datos</a> · <a href="guia.html">Cómo usar la app</a>' + ((u.editables || []).length || (d.informe && d.informe.verGrupos) ? ' · <a href="guia-responsables.html">Guía para responsables</a>' : '') + '</p>';
+    h += '<p class="pie"><a href="#datos">Mis datos</a>' + (avisosDisponibles() && avisosActivos() ? ' · <button type="button" class="enlace-boton" id="probar-avisos">Probar avisos</button>' : '') + ' · <a href="guia.html">Cómo usar la app</a>' + ((u.editables || []).length || (d.informe && d.informe.verGrupos) ? ' · <a href="guia-responsables.html">Guía para responsables</a>' : '') + '</p>';
     h += '<p class="pie">Conectado como ' + esc(u.nombre || '') + (u.rol ? ' · ' + esc(u.rol) : '') +
       ' · <button type="button" class="enlace-boton" id="salir">Salir</button><br>Actualizado ' +
       esc(new Date(d.generado).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })) + '</p>';
@@ -486,6 +486,22 @@
     if (bi2) bi2.addEventListener('click', function () { abrirInforme(null); });
     var ba = document.getElementById('activar-avisos');
     if (ba) ba.addEventListener('click', function () { activarAvisos(true); });
+    var bp = document.getElementById('probar-avisos');
+    if (bp) bp.addEventListener('click', function () {
+      bp.disabled = true;
+      aviso('Enviando un aviso de prueba…');
+      api('probarAviso').then(function (r) {
+        bp.disabled = false;
+        if (!r.ok) throw new Error(r.error);
+        aviso('Enviado. Debería llegarte en unos segundos.');
+      }).catch(function (e) {
+        bp.disabled = false;
+        if (e.message === 'sesion') return;
+        if (/no está registrado/.test(e.message)) guardar('programas-push', null);
+        aviso(e.message || 'No se pudo enviar.', true);
+        if (/no está registrado/.test(e.message)) render();
+      });
+    });
     // Desde una notificación de informe pendiente
     if (location.hash === '#informe') {
       history.replaceState(null, '', location.pathname + location.search);
@@ -1454,6 +1470,15 @@
       if (!firebase.apps.length) firebase.initializeApp(cfg.firebase);
       return navigator.serviceWorker.ready;
     }).then(function (reg) {
+      // Con la app abierta en pantalla, Firebase entrega el aviso a la página (no al service worker): mostrarlo igual
+      if (!estado.escuchaAvisos) {
+        estado.escuchaAvisos = true;
+        firebase.messaging().onMessage(function (m) {
+          var dd = m.data || {};
+          reg.showNotification(dd.titulo || 'Cong. Los Romeros', { body: dd.cuerpo || '', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: dd.tag || undefined, data: { url: dd.url || './' } })
+            .catch(function () { aviso((dd.titulo || '') + (dd.cuerpo ? ': ' + dd.cuerpo : '')); });
+        });
+      }
       return firebase.messaging().getToken({ vapidKey: cfg.vapidKey, serviceWorkerRegistration: reg });
     }).then(function (token) {
       if (!token) throw new Error('sin token');

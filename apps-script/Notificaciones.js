@@ -64,7 +64,12 @@ function notificar_(cfg, correo, titulo, cuerpo, url, tag, opciones) {
     var code = r.getResponseCode();
     if (code === 200) enviados++;
     else if (code === 404 || /UNREGISTERED|INVALID_ARGUMENT/.test(r.getContentText())) borrar.push(d);
-    else console.warn('FCM ' + code + ': ' + r.getContentText().slice(0, 300));
+    else {
+      var err = 'FCM ' + code + ': ' + r.getContentText().slice(0, 300);
+      console.warn(err);
+      if (opciones && opciones.errores) opciones.errores.push(err);
+      if (!notificar_.errorAnotado) { notificar_.errorAnotado = true; registrar_('Error en notificaciones', correo + ' · ' + err); }
+    }
   });
   // Teléfonos que ya no existen (app desinstalada, permiso quitado)
   if (borrar.length) {
@@ -72,6 +77,17 @@ function notificar_(cfg, correo, titulo, cuerpo, url, tag, opciones) {
     reescribirTabla_('dispositivos', filas.filter(function (d) { return tokens.indexOf(d['Token']) < 0; }));
   }
   return enviados;
+}
+
+/** Acción "probarAviso": envía una notificación de prueba a los teléfonos del propio usuario. */
+function probarAviso_(yo, cfg) {
+  if (!si_(cfg.notificacionesActivas)) return { ok: false, error: 'Las notificaciones están desactivadas (Inicio ▸ notificacionesActivas).' };
+  if (!permitido_(cfg, yo.correo)) return { ok: false, error: 'Tu correo no está en soloEstosCorreos (modo prueba).' };
+  var errores = [];
+  var n = notificar_(cfg, yo.correo, 'Aviso de prueba', 'Si ves esto, los avisos funcionan en este teléfono.', './', 'prueba', { ignorarSilencio: true, errores: errores });
+  registrar_('Aviso de prueba', yo.nombre + ': ' + n + ' teléfono(s)' + (errores.length ? ' · ' + errores[0] : ''));
+  if (n) return { ok: true, enviados: n };
+  return { ok: false, error: errores.length ? 'Google rechazó el envío: ' + errores[0].slice(0, 160) : 'Este teléfono no está registrado. Toca "Activar avisos" en el inicio.' };
 }
 
 /**
