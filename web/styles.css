@@ -610,3 +610,4 @@ a.resumen-cab.enlace .chevron { width: 20px; height: 20px; color: var(--muted); 
 .mapa-paginas { display: flex; flex-direction: column; gap: 10px; margin: 0 -16px; }
 .mapa-pagina { width: 100%; height: auto; display: block; background: #fff; }
 .pie .enlace-boton { color: inherit; }
+.pie.version { opacity: .6; font-size: 12px; }

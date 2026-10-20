@@ -2,9 +2,8 @@
  * Choques de asignaciones (la misma persona con dos cosas a la misma hora) y
  * sugerencias de reemplazo cuando alguien no puede.
  *
- * Choque: misma persona, mismo día, horarios que se cruzan, en programas distintos
- * (o dos veces en el mismo programa, salvo en las reuniones, donde el presidente
- * también puede tener una parte). Es solo una advertencia.
+ * Choque: misma persona, mismo día, horarios que se cruzan, entre acomodación y audio/video
+ * y las reuniones (o dos veces en acomodación). Es solo una advertencia.
  */
 
 var PROGRAMAS_CON_REPETICION = ['vmc', 'finsemana'];
@@ -25,9 +24,17 @@ function seCruzan_(a, b, cfg) {
   return ia < ib + duracionAsignacion_(b, cfg) && ib < ia + duracionAsignacion_(a, cfg);
 }
 
+/**
+ * Solo se cruzan acomodación y audio/video (acomodación, micrófonos, plataforma, audio, video)
+ * con las reuniones (entre semana y fin de semana), o consigo mismos.
+ * Predicación, aseo y hospitalidad no se comparan.
+ */
 function chocan_(a, b, cfg) {
   if (a['Clave'] === b['Clave'] || a['Fecha'] !== b['Fecha']) return false;
-  if (a['Programa'] === b['Programa'] && PROGRAMAS_CON_REPETICION.indexOf(a['Programa']) >= 0) return false;
+  var pa = a['Programa'], pb = b['Programa'];
+  if (pa !== 'acomodacion' && pb !== 'acomodacion') return false;
+  var otro = pa === 'acomodacion' ? pb : pa;
+  if (otro !== 'acomodacion' && PROGRAMAS_CON_REPETICION.indexOf(otro) < 0) return false;
   return seCruzan_(a, b, cfg);
 }
 

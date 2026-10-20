@@ -38,6 +38,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
+  var VERSION_APP = 'v26'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -412,7 +413,7 @@
     var especiales = (d.enlaces || []).filter(function (l) { return l.privilegiado; });
     h += enlacesHTML('Enlaces', publicos) + enlacesHTML('Contenido especial', especiales);
     h += instalarHTML();
-    h += '<p class="pie"><a href="#datos">Mis datos</a>' + (avisosDisponibles() && avisosActivos() ? ' · <button type="button" class="enlace-boton" id="probar-avisos">Probar avisos</button>' : '') + ' · <a href="guia.html">Cómo usar la app</a>' + ((u.editables || []).length || (d.informe && d.informe.verGrupos) ? ' · <a href="guia-responsables.html">Guía para responsables</a>' : '') + '</p>';
+    h += '<p class="pie"><a href="#datos">Mis datos</a>' + ' · <button type="button" class="enlace-boton" id="probar-avisos">Probar avisos</button>' + ' · <a href="guia.html">Cómo usar la app</a>' + ((u.editables || []).length || (d.informe && d.informe.verGrupos) ? ' · <a href="guia-responsables.html">Guía para responsables</a>' : '') + '</p><p class="pie version">Versión ' + VERSION_APP + '</p>';
     h += '<p class="pie">Conectado como ' + esc(u.nombre || '') + (u.rol ? ' · ' + esc(u.rol) : '') +
       ' · <button type="button" class="enlace-boton" id="salir">Salir</button><br>Actualizado ' +
       esc(new Date(d.generado).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })) + '</p>';
@@ -488,9 +489,12 @@
     if (ba) ba.addEventListener('click', function () { activarAvisos(true); });
     var bp = document.getElementById('probar-avisos');
     if (bp) bp.addEventListener('click', function () {
+      var motivo = motivoSinAvisos();
+      if (motivo) { aviso(motivo, true); return; }
+      if (!avisosActivos()) { activarAvisos(true); return; }
       bp.disabled = true;
       aviso('Enviando un aviso de prueba…');
-      api('probarAviso').then(function (r) {
+      activarAvisos(false, true).then(function () { return api('probarAviso'); }).then(function (r) {
         bp.disabled = false;
         if (!r.ok) throw new Error(r.error);
         aviso('Enviado. Debería llegarte en unos segundos.');
@@ -1454,8 +1458,19 @@
     });
   }
   /** Pide permiso (si pidePermiso) y registra el teléfono en el servidor. */
-  function activarAvisos(pidePermiso) {
-    if (!avisosDisponibles()) return;
+  /** Por qué este teléfono no puede recibir avisos (o '' si puede). */
+  function motivoSinAvisos() {
+    var ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    var instalada = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (DEMO) return 'Los avisos no funcionan en el modo de prueba.';
+    if (ios && !instalada) return 'En iPhone, los avisos solo funcionan con la app agregada a la pantalla de inicio (Compartir ▸ Agregar a inicio) y abierta desde ese ícono.';
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) return 'Este navegador no permite avisos. En Android usa Chrome; en iPhone, la app agregada a la pantalla de inicio.';
+    if (!cfg.firebase || !cfg.vapidKey || cfg.avisos === false) return 'Los avisos no están configurados en la app.';
+    if (Notification.permission === 'denied') return 'Bloqueaste los avisos para esta app. Permítelos en la configuración del teléfono (Notificaciones) y vuelve a intentar.';
+    return '';
+  }
+  function activarAvisos(pidePermiso, forzar) {
+    if (!avisosDisponibles()) return Promise.resolve();
     var ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
     var instalada = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
     if (pidePermiso && ios && !instalada) {
@@ -1463,7 +1478,7 @@
       return;
     }
     var permiso = pidePermiso ? Notification.requestPermission() : Promise.resolve(Notification.permission);
-    permiso.then(function (p) {
+    return permiso.then(function (p) {
       if (p !== 'granted') { if (pidePermiso) aviso('No se activaron los avisos. Puedes permitirlos en la configuración del navegador.', true); throw new Error('sin permiso'); }
       return window.firebase ? null : cargarScript(FIREBASE_SDK + 'firebase-app-compat.js').then(function () { return cargarScript(FIREBASE_SDK + 'firebase-messaging-compat.js'); });
     }).then(function () {
@@ -1482,7 +1497,7 @@
       return firebase.messaging().getToken({ vapidKey: cfg.vapidKey, serviceWorkerRegistration: reg });
     }).then(function (token) {
       if (!token) throw new Error('sin token');
-      if (leer('programas-push') === token && !pidePermiso) return null;
+      if (leer('programas-push') === token && !pidePermiso && !forzar) return null;
       return api('dispositivo', { dispositivo: token, plataforma: navigator.userAgent.slice(0, 60) }).then(function (r) {
         if (!r.ok) throw new Error(r.error);
         guardar('programas-push', token);
