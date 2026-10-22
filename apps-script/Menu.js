@@ -5,7 +5,6 @@
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Programas')
     .addItem('Sincronizar ahora', 'menuSincronizar')
-    .addItem('Preparar mapas por territorio', 'prepararMapasTerritorio')
     .addItem('Revisar respuestas y recordatorios ahora', 'menuTareasHorarias')
     .addItem('Agregar al directorio los nombres de los programas', 'armarDirectorio')
     .addItem('Crear hoja de aseo (plantilla)', 'crearPlantillaAseo')
@@ -64,7 +63,6 @@ var INICIO_POR_DEFECTO = [
   ['carpetaTerritorios', 'TERRITORIOS LOS ROMEROS', 'Carpeta de Drive donde están el listado No pasar y el mapa'],
   ['archivoNoPasar', 'Listado no pasar', 'Inicio del nombre del listado No pasar (se usa el del año más reciente)'],
   ['archivoMapa', 'Territorio Los Romeros', 'Inicio del nombre del PDF del mapa (se usa el más reciente)'],
-  ['mapaPaginas', 'general=1, 1=2, 2=3, 3=4, 4=5, 5=6, 6=7, 7=8, 8=9, 9=10, 10=11, 11=11, 12=11, 13=12, 14=13, 15=14, 16=15, 17=16, 18=17, 19=18, 20=19, 21=20', 'Página del PDF del mapa de cada territorio (territorio=página). Después de cambiarlo, borra la carpeta "Mapas por territorio" y usa Programas ▸ Preparar mapas por territorio'],
   ['noPasarVisiblePara', 'todos', 'Quiénes ven el listado No pasar'],
   ['noPasarSolicitan', 'capitan, anciano', 'Quiénes pueden solicitar agregar una dirección al listado No pasar'],
   ['noPasarAprueban', 'admin', 'Quiénes aprueban las solicitudes de No pasar (reciben el aviso)'],

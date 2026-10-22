@@ -38,7 +38,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v27'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v28'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -1517,11 +1517,12 @@
       if (!r.ok) throw new Error(r.error);
       if (r.sinMapa) return false;
       if (r.sinCambios && g) return null;
-      var bin = atob(r.pdf), bytes = new Uint8Array(bin.length);
+      var tipo = r.tipo || 'application/pdf';
+      var bin = atob(r.datos || r.pdf), bytes = new Uint8Array(bin.length);
       for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      var blob = new Blob([bytes], { type: 'application/pdf' });
+      var blob = new Blob([bytes], { type: tipo });
       if ('caches' in window) {
-        caches.open('mapa').then(function (c) { return c.put(k.url, new Response(blob, { headers: { 'Content-Type': 'application/pdf' } })); })
+        caches.open('mapa').then(function (c) { return c.put(k.url, new Response(blob, { headers: { 'Content-Type': tipo } })); })
           .then(function () { guardar(k.version, r.version); }).catch(function () {});
       }
       return blob;
@@ -1535,18 +1536,25 @@
   }
   function guardarMapa(blob, url) {
     var archivo = null;
-    try { archivo = new File([blob], 'Mapa del territorio.pdf', { type: 'application/pdf' }); } catch (e) { /* navegador antiguo */ }
+    var ext = /jpe?g/.test(blob.type) ? '.jpg' : /png/.test(blob.type) ? '.png' : '.pdf';
+    try { archivo = new File([blob], 'Mapa del territorio' + ext, { type: blob.type || 'application/pdf' }); } catch (e) { /* navegador antiguo */ }
     if (archivo && navigator.canShare && navigator.canShare({ files: [archivo] })) {
       navigator.share({ files: [archivo], title: 'Mapa del territorio' }).catch(function () {});
       return;
     }
     var a = document.createElement('a');
-    a.href = url; a.download = 'Mapa del territorio.pdf';
+    a.href = url; a.download = 'Mapa del territorio' + ext;
     document.body.appendChild(a); a.click(); a.remove();
   }
   /** Dibuja el PDF dentro de la app con PDF.js (en iPhone un PDF suelto no se ve bien dentro de la app). */
   var PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
   function dibujarMapa(blob, cont, msg, nota) {
+    if (/^image\//.test(blob.type)) {
+      // Imagen: se muestra directo (se acerca con dos dedos)
+      cont.innerHTML = '<img class="mapa-pagina" alt="Mapa" src="' + URL.createObjectURL(blob) + '">';
+      msg.textContent = nota || '';
+      return;
+    }
     var listo = window.pdfjsLib ? Promise.resolve() : cargarScript(PDFJS + 'pdf.min.js');
     listo.then(function () {
       window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js';

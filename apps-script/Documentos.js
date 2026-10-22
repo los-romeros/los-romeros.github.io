@@ -73,104 +73,44 @@ function listadoNoPasar_(yo, cfg) {
   return { ok: true, archivo: archivo.getName(), actualizado: Utilities.formatDate(archivo.getLastUpdated(), Session.getScriptTimeZone(), 'yyyy-MM-dd'), territorios: territorios };
 }
 
-/** Acción "mapa": el PDF en base64 (la app lo guarda en el teléfono para no descargarlo cada vez).
- *  Con p.territorio entrega el mapa de ese territorio; sin él, el mapa general. */
+/** Acción "mapa": el mapa en base64 (la app lo guarda en el teléfono para no descargarlo cada vez).
+ *  Con p.territorio entrega el de ese territorio; sin él, el general. Usa las imágenes de la carpeta
+ *  "Mapas por territorio" (General.jpg, Territorio 1.jpg…) y, si no hay, el PDF completo. */
 function mapaTerritorio_(yo, cfg, p) {
   if (!enAudiencia_(cfg.mapaVisiblePara || 'todos', yo)) throw new Error('No tienes acceso al mapa.');
   var t = String(p.territorio || '').replace(/\D/g, '');
-  var archivo = mapaPorTerritorio_(cfg, t || 'general');
+  var archivo = mapaPorTerritorio_(t || 'general');
   if (!archivo && t) return { ok: true, sinMapa: true };
   if (!archivo) archivo = buscarArchivo_(cfg, cfg.archivoMapa || 'Territorio Los Romeros', MimeType.PDF);
-  if (!archivo) throw new Error('No encontré el mapa del territorio (PDF) en la carpeta de territorios.');
+  if (!archivo) throw new Error('No encontré el mapa del territorio en la carpeta de territorios.');
   var version = archivo.getId() + ':' + archivo.getLastUpdated().getTime();
   if (p.version === version) return { ok: true, version: version, sinCambios: true };
-  return { ok: true, version: version, nombre: archivo.getName(), pdf: Utilities.base64Encode(archivo.getBlob().getBytes()) };
+  var tipo = archivo.getMimeType();
+  var datos = Utilities.base64Encode(archivo.getBlob().getBytes());
+  return { ok: true, version: version, nombre: archivo.getName(), tipo: tipo, datos: datos, pdf: tipo === MimeType.PDF ? datos : undefined };
 }
 
-/* ------------------------------------------------------------------ */
-/* Mapas por territorio: el PDF completo dividido en un PDF por territorio */
-/* ------------------------------------------------------------------ */
-
-// Página del PDF completo de cada territorio (Inicio ▸ mapaPaginas). Los territorios 10, 11 y 12 comparten página.
-var MAPA_PAGINAS_POR_DEFECTO = 'general=1, 1=2, 2=3, 3=4, 4=5, 5=6, 6=7, 7=8, 8=9, 9=10, 10=11, 11=11, 12=11, 13=12, 14=13, 15=14, 16=15, 17=16, 18=17, 19=18, 20=19, 21=20';
 var CARPETA_MAPAS = 'Mapas por territorio';
 
-function paginasMapa_(cfg) {
-  var out = {};
-  String(cfg.mapaPaginas || MAPA_PAGINAS_POR_DEFECTO).split(/[,;]+/).forEach(function (par) {
-    var m = /^\s*(\w+)\s*=\s*(\d+)\s*$/.exec(par);
-    if (m) out[norm_(m[1])] = +m[2];
-  });
-  return out;
-}
-
-function nombreMapa_(t) { return t === 'general' ? 'General.pdf' : 'Territorio ' + t + '.pdf'; }
-
-/** Carpeta "Mapas por territorio" dentro de la carpeta de territorios (se crea si falta). */
-function carpetaMapas_(cfg, crear) {
-  var padres = DriveApp.getFoldersByName(cfg.carpetaTerritorios || 'TERRITORIOS LOS ROMEROS');
-  if (!padres.hasNext()) return null;
-  var padre = padres.next();
-  var it = padre.getFoldersByName(CARPETA_MAPAS);
-  if (it.hasNext()) return it.next();
-  return crear ? padre.createFolder(CARPETA_MAPAS) : null;
-}
-
-/** El PDF de un territorio ('general' para el mapa completo), o null si aún no existe. */
-function mapaPorTerritorio_(cfg, t) {
+/** Imagen (o PDF) del mapa de un territorio ('general' para el completo), o null si no existe. */
+function mapaPorTerritorio_(t) {
   var clave = 'mapa-terr:' + t;
   var cache = CacheService.getScriptCache();
   var id = cache.get(clave);
+  if (id === '-') return null;
   if (id) { try { return DriveApp.getFileById(id); } catch (e) { /* se busca de nuevo */ } }
-  var carpeta = carpetaMapas_(cfg, false);
-  if (!carpeta) return null;
-  var it = carpeta.getFilesByName(nombreMapa_(t));
-  if (!it.hasNext()) return null;
-  var f = it.next();
-  cache.put(clave, f.getId(), 21600);
-  return f;
-}
-
-/**
- * Menú ▸ Preparar mapas por territorio: divide el PDF completo en un PDF por territorio (y uno general).
- * Si se corta por tiempo, se vuelve a ejecutar y sigue con los que faltan. Para rehacerlos, borra la carpeta.
- */
-async function prepararMapasTerritorio() {
-  var cfg = config_();
-  var ui = null;
-  try { ui = SpreadsheetApp.getUi(); } catch (e) { /* sin interfaz */ }
-  var origen = buscarArchivo_(cfg, cfg.archivoMapa || 'Territorio Los Romeros', MimeType.PDF);
-  if (!origen) throw new Error('No encontré el PDF del mapa en la carpeta de territorios.');
-  var carpeta = carpetaMapas_(cfg, true);
-  var paginas = paginasMapa_(cfg);
-  var faltan = Object.keys(paginas).filter(function (t) { return !carpeta.getFilesByName(nombreMapa_(t)).hasNext(); });
-  if (!faltan.length) { if (ui) ui.alert('Los mapas por territorio ya están listos. Para rehacerlos, borra la carpeta "' + CARPETA_MAPAS + '".'); return; }
-
-  // pdf-lib (gratis, se descarga al momento). Apps Script no tiene setTimeout: se reemplaza por una espera.
-  var setTimeout = function (f, ms) { if (ms) Utilities.sleep(ms); return f(); }; // eslint-disable-line no-unused-vars
-  var self = globalThis, exports, module, define; // eslint-disable-line no-unused-vars
-  eval(UrlFetchApp.fetch('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js').getContentText());
-  var inicio = Date.now();
-  var PDFLib = globalThis.PDFLib;
-  var completo = await PDFLib.PDFDocument.load(new Uint8Array(origen.getBlob().getBytes()), { ignoreEncryption: true, updateMetadata: false });
-  var total = completo.getPageCount();
-  var hechos = [];
-  for (var i = 0; i < faltan.length; i++) {
-    if (Date.now() - inicio > 4.5 * 60000) break; // dejar margen antes del límite de 6 minutos
-    var t = faltan[i], pag = paginas[t];
-    if (pag < 1 || pag > total) continue;
-    var nuevo = await PDFLib.PDFDocument.create();
-    var copia = await nuevo.copyPages(completo, [pag - 1]);
-    nuevo.addPage(copia[0]);
-    var bytes = await nuevo.save();
-    carpeta.createFile(Utilities.newBlob(Array.prototype.slice.call(bytes), MimeType.PDF, nombreMapa_(t)));
-    hechos.push(t);
+  var base = t === 'general' ? 'general' : 'territorio ' + t;
+  var encontrado = null;
+  var carpetas = DriveApp.getFoldersByName(CARPETA_MAPAS);
+  while (carpetas.hasNext() && !encontrado) {
+    var it = carpetas.next().getFiles();
+    while (it.hasNext()) {
+      var f = it.next();
+      if (norm_(f.getName()).replace(/\.(jpe?g|png|webp|pdf)$/, '') === base && !f.isTrashed()) { encontrado = f; break; }
+    }
   }
-  CacheService.getScriptCache().removeAll(Object.keys(paginas).map(function (t) { return 'mapa-terr:' + t; }));
-  var quedan = faltan.length - hechos.length;
-  registrar_('Mapas por territorio', hechos.length + ' creados' + (quedan ? ', faltan ' + quedan : '') + ' (PDF de ' + total + ' páginas)');
-  if (ui) ui.alert(quedan ? 'Se crearon ' + hechos.length + ' mapas. Faltan ' + quedan + ': vuelve a ejecutar "Preparar mapas por territorio" para continuar.'
-    : 'Listo: se crearon ' + hechos.length + ' mapas en la carpeta "' + CARPETA_MAPAS + '".');
+  cache.put(clave, encontrado ? encontrado.getId() : '-', encontrado ? 21600 : 600);
+  return encontrado;
 }
 
 /* ------------------------------------------------------------------ */
