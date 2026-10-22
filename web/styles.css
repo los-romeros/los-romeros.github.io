@@ -619,3 +619,4 @@ a.resumen-cab.enlace .chevron { width: 20px; height: 20px; color: var(--muted); 
 .terr-l.sug span { color: #1f5a33; }
 .terr-l small { display: block; font-size: 12px; opacity: .8; margin-top: 2px; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .terr-l.sug { background: #1f3a2a; color: #cdebd6; } :root:not([data-theme="light"]) .terr-l.sug span { color: #cdebd6; } }
+.t-faltan { color: var(--muted); white-space: nowrap; }

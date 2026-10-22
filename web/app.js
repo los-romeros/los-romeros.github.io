@@ -38,7 +38,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v29'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v30'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -1121,7 +1121,9 @@
             (x.pendientesMes.length ? '<div class="terr-l"><span>Pendientes de ' + esc(mesN(td.mesActual)) + '</span>' + esc(x.pendientesMes.join(', ')) + '</div>' : '') +
             (x.noTrabajadasMesAnterior.length ? '<div class="terr-l"><span>No trabajadas en ' + esc(mesN(td.mesAnterior)) + '</span>' + esc(x.noTrabajadasMesAnterior.join(', ')) + '</div>' : '') +
             '<div class="terr-l"><span>Próxima salida programada</span>' + (proximas.length ? proximas.map(function (p) {
-              return esc(mayuscula(fechaLarga(p.fecha))) + (p.hora ? ' · ' + esc(p.hora) : '') + (p.encargado ? ' · ' + esc(p.encargado) : '');
+              var faltan = Math.round((Date.parse(p.fecha) - Date.parse(hoy)) / 864e5);
+              return esc(mayuscula(fechaLarga(p.fecha))) + (p.hora ? ' · ' + esc(p.hora) : '') + (p.encargado ? ' · ' + esc(p.encargado) : '') +
+                ' <span class="t-faltan">(' + (faltan === 1 ? 'mañana' : faltan + ' días más') + ')</span>';
             }).join('<br>') : 'No hay salidas programadas a este territorio') + '</div>' +
             (x.historial.length ? '<details class="terr-h"><summary>Últimos registros (' + x.historial.length + ')</summary>' + x.historial.map(function (g) {
               return '<div class="terr-hi"><span class="f">' + esc(fechaCorta(g.fecha)) + '</span><span>' + esc(g.manzanas || '—') + (g.notas ? '<small>' + esc(g.notas) + '</small>' : '') + '</span></div>';
@@ -1167,13 +1169,13 @@
     }
   }
 
-  /** Salidas de predicación programadas (desde hoy) a un territorio: [{ fecha, hora, encargado }] */
+  /** Salidas de predicación programadas (desde mañana) a un territorio: [{ fecha, hora, encargado }] */
   function proximasSalidas(t, hoy) {
     var prog = (estado.datos.programas || []).filter(function (p) { return p.id === 'predicacion'; })[0];
     var out = [];
     if (!prog) return out;
     prog.reuniones.forEach(function (r) {
-      if (r.borrador || r.fecha < hoy) return;
+      if (r.borrador || r.fecha <= hoy) return; // solo las futuras (no la de hoy)
       r.secciones.forEach(function (s) { s.filas.forEach(function (f) {
         var m = /Territorio ([^·]+)/.exec(f.detalle || '');
         if (m && (m[1].match(/\d+/g) || []).indexOf(String(t)) >= 0) {
