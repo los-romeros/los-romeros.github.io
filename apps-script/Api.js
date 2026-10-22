@@ -61,7 +61,8 @@ function doPost(e) {
       case 'informe': return json_(conBloqueo_(function () { return guardarInforme_(yo, p, cfg); }));
       case 'informes': return json_(informesGrupos_(yo, p, cfg));
       case 'nopasar': return json_(listadoNoPasar_(yo, cfg));
-      case 'mapa': return json_(mapaTerritorio_(yo, cfg, p));
+      case 'mapa':
+        try { return json_(mapaTerritorio_(yo, cfg, p)); } catch (e) { registrar_('Error en mapa', yo.nombre + ' · territorio ' + (p.territorio || 'general') + ': ' + e.message); throw e; }
       case 'solicitarNoPasar': return json_(conBloqueo_(function () { return solicitarNoPasar_(yo, p, cfg); }));
       case 'resolverDatos': return json_(conBloqueo_(function () { return resolverDatos_(yo, p, cfg); }));
       case 'resolverNoPasar': return json_(conBloqueo_(function () { return resolverNoPasar_(yo, p, cfg); }));

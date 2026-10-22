@@ -38,7 +38,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v28'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v29'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -1091,7 +1091,8 @@
           if (nuevo) mostrar(nuevo, '');
           else if (nuevo === false && !g && aqui()) document.getElementById('mapa-estado').textContent = 'El mapa de este territorio aún no está disponible.';
         }).catch(function (e) {
-          if (!g && aqui() && e.message !== 'sesion') document.getElementById('mapa-estado').textContent = 'No se pudo obtener el mapa. Revisa tu conexión.';
+          if (!g && aqui() && e.message !== 'sesion') document.getElementById('mapa-estado').textContent = e.message && e.message !== 'red' && e.message !== 'Failed to fetch'
+            ? 'No se pudo mostrar el mapa: ' + e.message : 'No se pudo obtener el mapa. Revisa tu conexión.';
         });
       });
     }
