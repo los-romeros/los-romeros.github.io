@@ -611,3 +611,11 @@ a.resumen-cab.enlace .chevron { width: 20px; height: 20px; color: var(--muted); 
 .mapa-pagina { width: 100%; height: auto; display: block; background: #fff; }
 .pie .enlace-boton { color: inherit; }
 .pie.version { opacity: .6; font-size: 12px; }
+
+/* Territorio: mapa, registro y No pasar */
+.t-bloque { display: flex; flex-direction: column; gap: 8px; }
+.t-h { margin: 14px 0 0; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--primary-ink); font-weight: 700; }
+.terr-l.sug { background: #e6f1e9; border-radius: 10px; padding: 8px 10px; color: #1f5a33; }
+.terr-l.sug span { color: #1f5a33; }
+.terr-l small { display: block; font-size: 12px; opacity: .8; margin-top: 2px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .terr-l.sug { background: #1f3a2a; color: #cdebd6; } :root:not([data-theme="light"]) .terr-l.sug span { color: #cdebd6; } }

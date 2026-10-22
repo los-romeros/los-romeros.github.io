@@ -38,7 +38,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v26'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v27'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -221,6 +221,8 @@
     var np = /^nopasar(?:\/(\w+))?$/.exec(ruta);
     if (np && docs.noPasar) { renderNoPasar(np[1] || ''); return; }
     if (ruta === 'mapa' && docs.mapa) { renderMapa(); return; }
+    var tt = /^t\/(\d+)$/.exec(ruta);
+    if (tt && (docs.mapa || docs.noPasar)) { renderTerritorio(tt[1]); return; }
     var m = /^p\/([\w-]+)/.exec(ruta);
     if (ruta === 'registrar' || ruta === 'informe') { renderInicio(); return; }
     if (ruta === 'datos') { renderDatos(false); return; }
@@ -774,13 +776,14 @@
         : '<div class="lugar">' + SVG_PIN + '<span>' + esc(r.lugar) + '</span></div>';
     }
     if (r.nota) h += '<div class="nota">' + esc(r.nota) + '</div>';
-    if (prog.id === 'predicacion' && estado.datos.documentos && estado.datos.documentos.noPasar) {
+    var docsP = estado.datos.documentos || {};
+    if (prog.id === 'predicacion' && (docsP.noPasar || docsP.mapa)) {
       var terrs = [];
       r.secciones.forEach(function (s) { s.filas.forEach(function (f) {
         var m = /Territorio ([^·]+)/.exec(f.detalle || '');
         if (m) terrs = terrs.concat((m[1].match(/\d+/g) || []));
       }); });
-      terrs.forEach(function (t) { h += '<a class="nopasar-link" href="#nopasar/' + esc(t) + '">' + svg('alto') + 'No pasar del territorio ' + esc(t) + '</a>'; });
+      terrs.forEach(function (t) { h += '<a class="nopasar-link" href="#t/' + esc(t) + '">' + svg('mapa') + 'Territorio ' + esc(t) + (docsP.noPasar ? ' y No pasar' : '') + '</a>'; });
     }
     r.secciones.forEach(function (s) {
       var color = COLOR_SECCION[norm(s.titulo)];
@@ -1051,6 +1054,133 @@
       var n = document.getElementById('buscar-t'); n.focus();
     });
     document.getElementById('registrar-nuevo').addEventListener('click', function () { abrirRegistro(null); });
+  }
+
+  /* ---------- Un territorio: mapa, registro (ancianos y capitanes) y No pasar ---------- */
+  function renderTerritorio(t) {
+    var d = estado.datos, docs = d.documentos || {}, hoy = d.hoy || hoyISO();
+    var verRegistro = !!(d.territorios && d.territorios.puedeVer);
+    var sn = d.solicitudesNoPasar || {};
+    document.title = 'Territorio ' + t + ' · Cong. Los Romeros';
+    var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Volver</button><h1>Territorio ' + esc(t) + '</h1></div></div>';
+    if (docs.mapa) h += '<section class="t-bloque"><div class="mapa-acc" id="mapa-acc"></div><p class="mensaje mapa-msg" id="mapa-estado">Abriendo el mapa…</p><div class="mapa-paginas" id="mapa-paginas"></div></section>';
+    if (verRegistro) h += '<section class="t-bloque" id="t-registro"><h2 class="t-h">Registro</h2><p class="vacio">Cargando registro…</p></section>';
+    if (docs.noPasar) h += '<section class="t-bloque" id="t-nopasar"><h2 class="t-h">No pasar</h2><p class="vacio">Cargando listado…</p></section>';
+    if (sn.puedeSolicitar) h += '<button type="button" class="btn" id="solicitar-np">Solicitar agregar una dirección</button>';
+    app.innerHTML = h;
+    window.scrollTo(0, 0);
+    document.getElementById('volver').addEventListener('click', volverAtras);
+    var bs = document.getElementById('solicitar-np');
+    if (bs) bs.addEventListener('click', function () { abrirSolicitudNoPasar(t); });
+    var aqui = function () { return location.hash === '#t/' + t; };
+
+    // Mapa del territorio (guardado en el teléfono; se revisa si hay versión nueva)
+    if (docs.mapa) {
+      var mostrar = function (blob, nota) {
+        if (!aqui()) return;
+        var url = URL.createObjectURL(blob);
+        document.getElementById('mapa-acc').innerHTML = '<a class="btn btn-sec" href="' + url + '" target="_blank" rel="noopener">Pantalla completa</a>' +
+          '<button type="button" class="btn btn-sec" id="mapa-guardar">Guardar</button>';
+        document.getElementById('mapa-guardar').addEventListener('click', function () { guardarMapa(blob, url); });
+        dibujarMapa(blob, document.getElementById('mapa-paginas'), document.getElementById('mapa-estado'), nota);
+      };
+      mapaGuardado(t).then(function (g) {
+        if (g) mostrar(g.blob, '');
+        else if (aqui()) document.getElementById('mapa-estado').textContent = 'Descargando el mapa del territorio…';
+        return actualizarMapa(g, t).then(function (nuevo) {
+          if (nuevo) mostrar(nuevo, '');
+          else if (nuevo === false && !g && aqui()) document.getElementById('mapa-estado').textContent = 'El mapa de este territorio aún no está disponible.';
+        }).catch(function (e) {
+          if (!g && aqui() && e.message !== 'sesion') document.getElementById('mapa-estado').textContent = 'No se pudo obtener el mapa. Revisa tu conexión.';
+        });
+      });
+    }
+
+    // Registro: solo ancianos y capitanes
+    if (verRegistro) {
+      var pintarRegistro = function () {
+        var cont = document.getElementById('t-registro');
+        if (!cont || !aqui()) return;
+        var td = estado.territoriosDatos, x = td && td.territorios.filter(function (y) { return y.territorio === String(t); })[0];
+        var proximas = proximasSalidas(t, hoy);
+        var hh = '<h2 class="t-h">Registro</h2>';
+        if (!x) hh += '<p class="vacio">No hay registro para este territorio.</p>';
+        else {
+          var mesN = function (ym) { return MESES[+ym.slice(5, 7) - 1]; };
+          var dd = x.ultima ? Math.round((Date.parse(hoy) - Date.parse(x.ultima)) / 864e5) : null;
+          var pct = x.manzanas.length ? Math.round(100 * x.trabajadasMes.length / x.manzanas.length) : 0;
+          // Sugeridas: pendientes de este mes que tampoco se trabajaron el mes anterior
+          var sugeridas = x.pendientesMes.filter(function (m) { return x.noTrabajadasMesAnterior.indexOf(m) >= 0; });
+          hh += '<div class="terr t-resumen">' +
+            '<div class="terr-u' + (dd === null || dd > 30 ? ' viejo' : '') + '">' + (x.ultima ? 'Última vez trabajado: ' + esc(fechaCorta(x.ultima)) + ' · hace ' + dd + ' día' + (dd === 1 ? '' : 's') : 'Sin registros') + '</div>' +
+            '<div class="terr-barra"><span style="width:' + pct + '%"></span></div>' +
+            '<div class="terr-cifra">' + x.trabajadasMes.length + ' de ' + x.manzanas.length + ' manzanas en ' + esc(mesN(td.mesActual)) + '</div>' +
+            (!x.pendientesMes.length ? '<div class="terr-l ok">Completo este mes</div>'
+              : sugeridas.length ? '<div class="terr-l sug"><span>Sugeridas para trabajar</span>' + esc(sugeridas.join(', ')) + '<small>Pendientes este mes que tampoco se trabajaron en ' + esc(mesN(td.mesAnterior)) + '</small></div>' : '') +
+            (x.pendientesMes.length ? '<div class="terr-l"><span>Pendientes de ' + esc(mesN(td.mesActual)) + '</span>' + esc(x.pendientesMes.join(', ')) + '</div>' : '') +
+            (x.noTrabajadasMesAnterior.length ? '<div class="terr-l"><span>No trabajadas en ' + esc(mesN(td.mesAnterior)) + '</span>' + esc(x.noTrabajadasMesAnterior.join(', ')) + '</div>' : '') +
+            '<div class="terr-l"><span>Próxima salida programada</span>' + (proximas.length ? proximas.map(function (p) {
+              return esc(mayuscula(fechaLarga(p.fecha))) + (p.hora ? ' · ' + esc(p.hora) : '') + (p.encargado ? ' · ' + esc(p.encargado) : '');
+            }).join('<br>') : 'No hay salidas programadas a este territorio') + '</div>' +
+            (x.historial.length ? '<details class="terr-h"><summary>Últimos registros (' + x.historial.length + ')</summary>' + x.historial.map(function (g) {
+              return '<div class="terr-hi"><span class="f">' + esc(fechaCorta(g.fecha)) + '</span><span>' + esc(g.manzanas || '—') + (g.notas ? '<small>' + esc(g.notas) + '</small>' : '') + '</span></div>';
+            }).join('') + '</details>' : '') + '</div>';
+        }
+        cont.innerHTML = hh;
+      };
+      if (estado.territoriosDatos) pintarRegistro();
+      api('territorios').then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        estado.territoriosDatos = r;
+        pintarRegistro();
+      }).catch(function (e) {
+        var c = document.getElementById('t-registro');
+        if (c && !estado.territoriosDatos && e.message !== 'sesion') c.innerHTML = '<h2 class="t-h">Registro</h2><p class="vacio">' + esc(e.message || 'No se pudo cargar.') + '</p>';
+      });
+    }
+
+    // No pasar de este territorio
+    if (docs.noPasar) {
+      var pintarNoPasar = function () {
+        var cont = document.getElementById('t-nopasar');
+        if (!cont || !aqui()) return;
+        var x = estado.noPasar.territorios.filter(function (y) { return y.territorio === String(t); })[0];
+        var mias = (sn.mias || []).filter(function (m) { return m.territorio === String(t) && m.estado === 'Pendiente'; });
+        cont.innerHTML = '<h2 class="t-h">No pasar</h2>' + '<div class="terr">' +
+          (x && x.direcciones.length ? x.direcciones.map(function (dd) {
+            return '<div class="np-item"><span class="np-mz">' + esc(dd.manzana || '—') + '</span><span>' + esc(dd.direccion) +
+              (dd.fecha ? '<small>Desde ' + esc(/^\d{4}-\d{2}-\d{2}$/.test(dd.fecha) ? fechaCorta(dd.fecha) + ' ' + dd.fecha.slice(0, 4) : dd.fecha) + '</small>' : '') + '</span></div>';
+          }).join('') : '<p class="vacio">No hay direcciones en el listado para este territorio.</p>') +
+          mias.map(function (m) { return '<div class="np-item"><span class="np-mz">' + esc(m.manzana || '—') + '</span><span>' + esc(m.direccion) + '<small>Solicitud pendiente de aprobación</small></span></div>'; }).join('') +
+          '</div>';
+      };
+      if (estado.noPasar) pintarNoPasar();
+      api('nopasar').then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        estado.noPasar = r;
+        pintarNoPasar();
+      }).catch(function (e) {
+        var c = document.getElementById('t-nopasar');
+        if (c && !estado.noPasar && e.message !== 'sesion') c.innerHTML = '<h2 class="t-h">No pasar</h2><p class="vacio">' + esc(e.message || 'No se pudo cargar.') + '</p>';
+      });
+    }
+  }
+
+  /** Salidas de predicación programadas (desde hoy) a un territorio: [{ fecha, hora, encargado }] */
+  function proximasSalidas(t, hoy) {
+    var prog = (estado.datos.programas || []).filter(function (p) { return p.id === 'predicacion'; })[0];
+    var out = [];
+    if (!prog) return out;
+    prog.reuniones.forEach(function (r) {
+      if (r.borrador || r.fecha < hoy) return;
+      r.secciones.forEach(function (s) { s.filas.forEach(function (f) {
+        var m = /Territorio ([^·]+)/.exec(f.detalle || '');
+        if (m && (m[1].match(/\d+/g) || []).indexOf(String(t)) >= 0) {
+          out.push({ fecha: r.fecha, hora: r.hora || '', encargado: f.asignados.map(function (a) { return a.nombre; }).join(', ') });
+        }
+      }); });
+    });
+    return out.sort(function (a, b) { return (a.fecha + a.hora).localeCompare(b.fecha + b.hora); }).slice(0, 3);
   }
 
   /* ---------- Mis datos / registro ---------- */
@@ -1356,11 +1486,11 @@
       document.getElementById('mapa-guardar').addEventListener('click', function () { guardarMapa(blob, url); });
       dibujarMapa(blob, document.getElementById('mapa-paginas'), document.getElementById('mapa-estado'), nota);
     };
-    mapaGuardado().then(function (g) {
+    mapaGuardado('').then(function (g) {
       if (g) mostrar(g.blob, 'Usa dos dedos para acercar.');
       else document.getElementById('mapa-estado').textContent = 'Descargando el mapa… (solo la primera vez, puede tardar unos segundos)';
       // Revisar si hay una versión nueva (sin hacer esperar si ya hay uno guardado)
-      return actualizarMapa(g).then(function (nuevo) {
+      return actualizarMapa(g, '').then(function (nuevo) {
         if (nuevo) mostrar(nuevo, g ? 'Se actualizó el mapa a la versión más reciente.' : 'Usa dos dedos para acercar. Quedó guardado en este teléfono.');
       }).catch(function (e) {
         if (e.message === 'sesion') return;
@@ -1370,24 +1500,29 @@
   }
 
   var MAPA_VERSION = 'programas-mapa-version', MAPA_URL = './__mapa-territorio.pdf';
-  function mapaGuardado() {
+  // Mapa general (t vacío) o de un territorio: cada uno se guarda aparte en el teléfono
+  function claveMapa(t) { return t ? { version: MAPA_VERSION + '-' + t, url: './__mapa-territorio-' + t + '.pdf' } : { version: MAPA_VERSION, url: MAPA_URL }; }
+  function mapaGuardado(t) {
+    var k = claveMapa(t);
     if (!('caches' in window)) return Promise.resolve(null);
-    return caches.open('mapa').then(function (c) { return c.match(MAPA_URL); })
+    return caches.open('mapa').then(function (c) { return c.match(k.url); })
       .then(function (r) { return r ? r.blob() : null; })
-      .then(function (b) { return b && b.size ? { blob: b, version: leer(MAPA_VERSION) || '' } : null; })
+      .then(function (b) { return b && b.size ? { blob: b, version: leer(k.version) || '' } : null; })
       .catch(function () { return null; });
   }
-  /** Pide el mapa solo si cambió. Devuelve el PDF nuevo o null si el guardado sigue vigente. */
-  function actualizarMapa(g) {
-    return api('mapa', { version: g ? g.version : '' }).then(function (r) {
+  /** Pide el mapa solo si cambió. Devuelve el PDF nuevo, null si el guardado sigue vigente, o false si el territorio no tiene mapa. */
+  function actualizarMapa(g, t) {
+    var k = claveMapa(t);
+    return api('mapa', { version: g ? g.version : '', territorio: t || '' }).then(function (r) {
       if (!r.ok) throw new Error(r.error);
+      if (r.sinMapa) return false;
       if (r.sinCambios && g) return null;
       var bin = atob(r.pdf), bytes = new Uint8Array(bin.length);
       for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       var blob = new Blob([bytes], { type: 'application/pdf' });
       if ('caches' in window) {
-        caches.open('mapa').then(function (c) { return c.put(MAPA_URL, new Response(blob, { headers: { 'Content-Type': 'application/pdf' } })); })
-          .then(function () { guardar(MAPA_VERSION, r.version); }).catch(function () {});
+        caches.open('mapa').then(function (c) { return c.put(k.url, new Response(blob, { headers: { 'Content-Type': 'application/pdf' } })); })
+          .then(function () { guardar(k.version, r.version); }).catch(function () {});
       }
       return blob;
     });
@@ -1396,7 +1531,7 @@
   function precargarMapa() {
     if (DEMO || !navigator.onLine || leer('programas-mapa-revisado') === hoyISO()) return;
     guardar('programas-mapa-revisado', hoyISO());
-    mapaGuardado().then(actualizarMapa).catch(function () {});
+    mapaGuardado('').then(function (g) { return actualizarMapa(g, ''); }).catch(function () {});
   }
   function guardarMapa(blob, url) {
     var archivo = null;
