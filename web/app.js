@@ -38,7 +38,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v31'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v32'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -1013,6 +1013,20 @@
       }).catch(function (e) { if (e.message !== 'sesion') aviso(e.message || 'No se pudo cargar.', true); });
       return;
     }
+    // Salidas sin registrar (solo para quienes están en Inicio ▸ registrosPendientesVer)
+    if (t.pendientes && t.pendientes.length) {
+      h += '<details class="whatsapp pend-reg"' + (estado.abrirPendReg ? ' open' : '') + ' id="pend-reg"><summary><span class="circulo ambar">' + t.pendientes.length + '</span>' +
+        '<span><span class="registrar-t">Registros pendientes</span><span class="registrar-d">Salidas de los últimos 30 días sin registrar</span></span></summary>' +
+        t.pendientes.map(function (x) {
+          var msj = 'Hola ' + primerNombre(x.encargado) + ', ¿cómo estás? Te recuerdo registrar lo trabajado en la salida del ' + fechaLarga(x.fecha) +
+            ' (territorio ' + x.territorios.join(' y ') + '). Puedes hacerlo en la app: ' + location.origin + location.pathname + ' ¡Muchas gracias!';
+          return '<div class="wa-item"><div class="atencion-t">' + esc(x.encargado) + '</div>' +
+            '<div class="atencion-d">' + esc(mayuscula(cuando(x.fecha, t.hoy))) + (x.hora ? ' · ' + esc(x.hora) : '') + ' · Territorio ' + esc(x.territorios.join(' y ')) + '</div>' +
+            '<div class="sol-acc"><a class="btn wa" target="_blank" rel="noopener" href="' + esc(whatsappURL(x.telefono, msj)) + '">' + svg('chat') + (x.telefono ? 'Recordar por WhatsApp' : 'WhatsApp (sin número)') + '</a></div></div>';
+        }).join('') + '</details>';
+    } else if (t.pendientes) {
+      h += '<p class="pend-ok">' + svg('check') + ' No hay salidas sin registrar.</p>';
+    }
     var hoy = t.hoy, q = String(estado.buscarTerr || '').replace(/\D/g, ''), f = estado.filtroTerr || 'todos';
     var diasDesde = function (iso) { return iso ? Math.round((Date.parse(hoy) - Date.parse(iso)) / 864e5) : null; };
     var lista = t.territorios.filter(function (x) {
@@ -1044,6 +1058,8 @@
 
   function enlazarTerritorios() {
     document.getElementById('volver').addEventListener('click', function () { location.hash = ''; });
+    var pr = document.getElementById('pend-reg');
+    if (pr) pr.addEventListener('toggle', function () { estado.abrirPendReg = pr.open; });
     app.querySelectorAll('[data-filtro]').forEach(function (b) {
       b.addEventListener('click', function () { estado.filtroTerr = b.getAttribute('data-filtro'); renderTerritorios(); });
     });

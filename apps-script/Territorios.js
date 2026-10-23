@@ -122,6 +122,42 @@ function registrarPredicacion_(yo, p, cfg) {
   return { ok: true };
 }
 
+/** Quién ve el listado de todos los registros pendientes (Inicio ▸ registrosPendientesVer). */
+function puedeVerPendientesTodos_(yo, cfg) {
+  var t = String(cfg.registrosPendientesVer || 'Felipe Valderrama, Maximiliano Wilson');
+  var partes = t.split(/[,;]+/).map(norm_).filter(Boolean);
+  // No basta con ser admin: solo quienes están en la lista
+  return partes.some(function (x) { return x === norm_(yo.nombre) || x === yo.correo || enAudiencia_(x, { rol: '', privilegiado: yo.privilegiado, grupo: yo.grupo, correo: yo.correo, nombre: yo.nombre, perfiles: yo.perfiles || [] }); });
+}
+
+/** Todas las salidas recientes que aún no tienen registro: [{ fecha, hora, territorios, encargado, telefono, lugar }] */
+function registrosPendientesTodos_(cfg, ss) {
+  var base = baseCacheada_();
+  var prog = base.programas.filter(function (p) { return p.id === 'predicacion'; })[0];
+  if (!prog) return [];
+  var hoy = hoyISO_(), desde = sumarDias_(hoy, -DIAS_REGISTRO_PENDIENTE);
+  var ahora = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm');
+  var regs = leerRegistros_(ss);
+  var dir = directorio_();
+  var tel = {}, correo = {};
+  dir.personas.forEach(function (x) { tel[norm_(x.nombre)] = String(x.telefono || ''); correo[norm_(x.nombre)] = String(x.correo || '').toLowerCase(); });
+  var out = [];
+  prog.reuniones.forEach(function (r) {
+    if (r.borrador || r.fecha < desde || r.fecha > hoy) return;
+    if (r.fecha === hoy && sumarMinutos_(r.hora || cfg.horaPredicacionPorDefecto || '10:30', MINUTOS_AVISO_REGISTRO) > ahora) return;
+    r.secciones.forEach(function (s) { s.filas.forEach(function (f) {
+      var terrs = territoriosDeDetalle_(f.detalle);
+      if (!terrs.length) return;
+      f.asignados.forEach(function (a) {
+        var n = norm_(a.nombre);
+        var hecho = regs.some(function (g) { return g.fecha === r.fecha && (terrs.indexOf(g.territorio) >= 0 || (correo[n] && g.correo === correo[n])); });
+        if (!hecho) out.push({ fecha: r.fecha, hora: r.hora || '', territorios: terrs, encargado: a.nombre, telefono: tel[n] || '', lugar: r.lugar || '' });
+      });
+    }); });
+  });
+  return out.sort(function (a, b) { return (b.fecha + b.hora).localeCompare(a.fecha + a.hora); });
+}
+
 /** Acción "territorios": resumen por territorio para la vista de la app. */
 function resumenTerritorios_(yo, cfg) {
   if (!puedeVerTerritorios_(yo, cfg)) throw new Error('No tienes acceso al resumen de territorios.');
@@ -156,5 +192,7 @@ function resumenTerritorios_(yo, cfg) {
         .map(function (g) { return { fecha: g.fecha, manzanas: g.manzanas.join(', '), notas: g.notas }; })
     };
   });
-  return { ok: true, hoy: hoy, mesActual: mesActual, mesAnterior: mesAnterior, territorios: lista };
+  var pendientes = null;
+  if (puedeVerPendientesTodos_(yo, cfg)) { try { pendientes = registrosPendientesTodos_(cfg, ss); } catch (e) { console.warn(e); pendientes = []; } }
+  return { ok: true, hoy: hoy, mesActual: mesActual, mesAnterior: mesAnterior, territorios: lista, pendientes: pendientes };
 }

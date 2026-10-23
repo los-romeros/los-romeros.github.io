@@ -67,6 +67,7 @@ var INICIO_POR_DEFECTO = [
   ['noPasarSolicitan', 'capitan, anciano', 'Quiénes pueden solicitar agregar una dirección al listado No pasar'],
   ['noPasarAprueban', 'admin', 'Quiénes aprueban las solicitudes de No pasar (reciben el aviso)'],
   ['mapaVisiblePara', 'todos', 'Quiénes ven el mapa del territorio'],
+  ['registrosPendientesVer', 'Felipe Valderrama, Maximiliano Wilson', 'Quiénes ven en Registro de territorios el listado de todas las salidas sin registrar, con botón de WhatsApp (nombres o correos separados por coma)'],
   ['territoriosVisiblePara', 'anciano, capitan', 'Quiénes ven el resumen de territorios en la app'],
   ['zoomPredicacion', '', 'Enlace de Zoom de la predicación (se abre al tocar "Predicación por Zoom")'],
   ['zoomEntreSemana', '', 'Enlace de Zoom de la reunión de entre semana'],

@@ -96,6 +96,7 @@ function enAudiencia_(texto, yo) {
     if (x === yo.rol) return true;
     if (/^grupo \d+$/.test(x)) return yo.grupo === +x.replace(/\D/g, '');
     if (x.indexOf('@') > 0) return x === yo.correo;
+    if (yo.nombre && x === norm_(yo.nombre)) return true; // una persona por su nombre
     return yo.perfiles.indexOf(x) >= 0 || yo.perfiles.indexOf(x.replace(/s$/, '')) >= 0;
   });
 }
