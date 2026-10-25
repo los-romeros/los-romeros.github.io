@@ -1,6 +1,6 @@
 // Guarda la app para abrirla sin conexión (los datos se guardan aparte, en localStorage)
 // y muestra las notificaciones que llegan por Firebase Cloud Messaging.
-var VERSION = 'v32';
+var VERSION = 'v33';
 var FIREBASE_SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
 importScripts('config.js');
 if (self.APP_CONFIG && self.APP_CONFIG.firebase) {

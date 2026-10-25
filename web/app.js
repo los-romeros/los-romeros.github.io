@@ -31,14 +31,15 @@
     chat: '<path d="M4 20l1.3-3.9A8 8 0 1 1 8 19.3z"/><path d="M9 10.5h6M9 13.5h4"/>',
     alto: '<path d="M8.5 2.5h7l5 5v7l-5 5h-7l-5-5v-7z"/><path d="M8 12h8"/>',
     plano: '<path d="m3 6.5 6-3 6 3 6-3v14l-6 3-6-3-6 3z"/><path d="M9 3.5v14M15 6.5v14"/>',
-    video: '<rect x="2.5" y="6" width="13" height="12" rx="2"/><path d="m15.5 10.5 6-3.5v10l-6-3.5"/>'
+    video: '<rect x="2.5" y="6" width="13" height="12" rx="2"/><path d="m15.5 10.5 6-3.5v10l-6-3.5"/>',
+    conteo: '<rect x="3.5" y="3" width="17" height="18" rx="2"/><path d="M7.5 8h2M7.5 12h2M7.5 16h2M12.5 8h4M12.5 12h4M12.5 16h4"/>'
   };
 
   function svg(nombre, extra) {
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v32'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v33'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -227,6 +228,7 @@
     if (ruta === 'registrar' || ruta === 'informe') { renderInicio(); return; }
     if (ruta === 'datos') { renderDatos(false); return; }
     if (ruta === 'mias') { renderMias(); return; }
+    if (ruta === 'asistencia' && estado.datos.asistencia && estado.datos.asistencia.puedeVer) { renderAsistencia(); return; }
     var prog = m && estado.datos.programas.filter(function (p) { return p.id === m[1]; })[0];
     if (prog) renderPrograma(prog); else renderInicio();
   }
@@ -308,6 +310,13 @@
         '<span><span class="registrar-t">Envía tu informe de ' + esc(inf.mesNombre.split(' ')[0].toLowerCase()) + '</span>' +
         '<span class="registrar-d">Toca aquí para informar tu predicación del mes</span></span>' + SVG_CHEVRON + '</button>';
     }
+
+    // Asistencia por registrar (reuniones recientes)
+    ((d.asistencia && d.asistencia.pendientes) || []).slice(-3).forEach(function (r) {
+      h += '<button type="button" class="registrar-aviso" data-asistencia="' + esc(r.fecha + '|' + r.reunion) + '">' +
+        '<span class="circulo beige">' + svg('conteo') + '</span><span><span class="registrar-t">Registra la asistencia</span>' +
+        '<span class="registrar-d">Reunión ' + (r.reunion === 'Entre semana' ? 'de entre semana' : 'del fin de semana') + ' · ' + esc(cuando(r.fecha, hoy)) + '</span></span>' + SVG_CHEVRON + '</button>';
+    });
 
     // Registro de predicación pendiente (capitanes)
     (d.registrosPendientes || []).forEach(function (g) {
@@ -399,6 +408,11 @@
         '<span class="baldosa-nombre">Informes</span><span class="baldosa-det">De ' + esc(d.informe.mesNombre.split(' ')[0].toLowerCase()) + '</span>' +
         '<span class="baldosa-fecha">' + svg('calendario') + 'Quién falta</span></a>';
     }
+    if (d.asistencia && d.asistencia.puedeVer) {
+      h += '<a class="baldosa" href="#asistencia"><span class="baldosa-top"><span class="circulo">' + svg('conteo') + '</span>' + SVG_CHEVRON + '</span>' +
+        '<span class="baldosa-nombre">Asistencia</span><span class="baldosa-det">S-88 y formularios</span>' +
+        '<span class="baldosa-fecha">' + svg('calendario') + 'Año de servicio</span></a>';
+    }
     if (d.territorios && d.territorios.puedeVer) {
       h += '<a class="baldosa" href="#territorios"><span class="baldosa-top"><span class="circulo">' + svg('mapa') + '</span>' + SVG_CHEVRON + '</span>' +
         '<span class="baldosa-nombre">Registro de territorios</span><span class="baldosa-det">Resumen de lo trabajado</span>' +
@@ -472,6 +486,12 @@
     });
     app.querySelectorAll('[data-reasignar]').forEach(function (b) {
       b.addEventListener('click', function () { estado.abrirClave = b.getAttribute('data-reasignar'); location.hash = 'p/' + b.getAttribute('data-prog'); });
+    });
+    app.querySelectorAll('[data-asistencia]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var k = b.getAttribute('data-asistencia').split('|');
+        abrirAsistencia({ fecha: k[0], reunion: k[1] }, cargar);
+      });
     });
     app.querySelectorAll('[data-registrar]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -692,6 +712,16 @@
         return { fecha: x.fecha, reuniones: x.reuniones.filter(function (r) { return reunionTiene(r, q); }) };
       }).filter(function (x) { return x.reuniones.length; });
     }
+    // Predicación: filtros por horario (mañana/tarde) y por día (entre semana/fin de semana), combinables
+    var fp = estado.filtroPred = estado.filtroPred || { hora: '', dia: '' };
+    if (prog.id === 'predicacion' && (fp.hora || fp.dia)) {
+      dias = dias.map(function (x) {
+        return { fecha: x.fecha, reuniones: x.reuniones.filter(function (r) {
+          var tarde = (r.hora || '10:30') >= '13:00', finde = [0, 6].indexOf(diaSemana(r.fecha)) >= 0;
+          return (!fp.hora || (fp.hora === 'tarde') === tarde) && (!fp.dia || (fp.dia === 'finde') === finde);
+        }) };
+      }).filter(function (x) { return x.reuniones.length; });
+    }
     var anteriores = dias.filter(function (x) { return x.fecha < hoy; });
     var visibles = estado.verAnteriores || q ? dias : dias.filter(function (x) { return x.fecha >= hoy; });
     var proxima = dias.filter(function (x) { return x.fecha >= hoy && x.reuniones.some(function (r) { return !r.borrador; }); })[0];
@@ -705,6 +735,14 @@
     var zoom = d.inicio.zoom && d.inicio.zoom[prog.id];
     if (zoom) h += '<a class="zoom" href="' + esc(zoom) + '" target="_blank" rel="noopener">' + svg('video') + '<span>Conectarse por Zoom</span>' + SVG_CHEVRON + '</a>';
     if (estado.sinConexion) h += '<div class="estado-red">Sin conexión. Estás viendo los últimos datos guardados.</div>';
+    if (prog.id === 'predicacion') {
+      var chip = function (grupo, valor, texto) {
+        var activo = valor ? fp[grupo] === valor : !fp.hora && !fp.dia;
+        return '<button type="button" class="filtro' + (activo ? ' activo' : '') + '" data-fpred="' + grupo + '" data-valor="' + valor + '" aria-pressed="' + activo + '">' + texto + '</button>';
+      };
+      h += '<div class="filtros" role="group" aria-label="Filtrar salidas">' + chip('todas', '', 'Todas') + chip('hora', 'manana', 'Mañana') + chip('hora', 'tarde', 'Tarde') +
+        chip('dia', 'semana', 'Entre semana') + chip('dia', 'finde', 'Fin de semana') + '</div>';
+    }
     if (d.estados) {
       h += '<p class="leyenda"><span><i class="punto ok"></i> Confirmado</span><span><i class="punto pend"></i> Pendiente</span>' +
         '<span><i class="punto rech"></i> Rechazado</span><span><i class="punto manual"></i> Avisar a mano</span></p>';
@@ -714,7 +752,7 @@
       h += '<button class="btn btn-sec" type="button" id="anteriores">Ver fechas anteriores (' + anteriores.length + ')</button>';
     }
     if (!visibles.length) {
-      h += '<p class="vacio">' + (q ? 'No hay asignaciones para «' + esc(estado.busqueda) + '».' : 'Aún no hay un programa publicado con fechas próximas.') + '</p>';
+      h += '<p class="vacio">' + (q ? 'No hay asignaciones para «' + esc(estado.busqueda) + '».' : (fp.hora || fp.dia) && prog.id === 'predicacion' ? 'No hay salidas con ese filtro.' : 'Aún no hay un programa publicado con fechas próximas.') + '</p>';
     }
     var mesActual = '';
     visibles.forEach(function (x) {
@@ -745,6 +783,14 @@
     });
     var ant = document.getElementById('anteriores');
     if (ant) ant.addEventListener('click', function () { estado.verAnteriores = true; renderPrograma(prog); });
+    app.querySelectorAll('[data-fpred]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var g = b.getAttribute('data-fpred'), v = b.getAttribute('data-valor');
+        if (g === 'todas') estado.filtroPred = { hora: '', dia: '' };
+        else estado.filtroPred[g] = estado.filtroPred[g] === v ? '' : v; // tocar de nuevo lo quita
+        renderPrograma(prog);
+      });
+    });
     app.querySelectorAll('[data-editar]').forEach(function (b) {
       b.addEventListener('click', function () { abrirEditor(prog, b.getAttribute('data-editar')); });
     });
@@ -1072,6 +1118,115 @@
     document.getElementById('registrar-nuevo').addEventListener('click', function () { abrirRegistro(null); });
   }
 
+  /* ---------- Asistencia a las reuniones ---------- */
+  /** Ventana para registrar (o corregir) la asistencia. r = { fecha, reunion, presencial, zoom, notas } o null para elegir fecha. */
+  function abrirAsistencia(r, alGuardar) {
+    r = r || {};
+    var manual = !r.fecha, hoy = estado.datos.hoy || hoyISO();
+    var cont = document.createElement('div');
+    cont.className = 'editor-fondo';
+    cont.innerHTML =
+      '<form class="editor" role="dialog" aria-modal="true" aria-labelledby="as-t">' +
+      '<div class="editor-cab"><div id="as-t" class="editor-t">Asistencia</div>' +
+      (manual ? '' : '<div class="editor-d">Reunión ' + (r.reunion === 'Entre semana' ? 'de entre semana' : 'del fin de semana') + ' · ' + esc(fechaLarga(r.fecha)) + '</div>') + '</div>' +
+      (manual ? '<label for="as-fecha">Fecha</label><input id="as-fecha" type="date" max="' + hoy + '" value="' + hoy + '" required>' +
+        '<label for="as-reu">Reunión</label><select id="as-reu"><option>Entre semana</option><option>Fin de semana</option></select>' : '') +
+      '<label for="as-pres">Presencial (en el Salón)</label><input id="as-pres" type="number" inputmode="numeric" min="0" max="2000" required value="' + (r.presencial != null ? r.presencial : '') + '">' +
+      '<label for="as-zoom">Por Zoom</label><input id="as-zoom" type="number" inputmode="numeric" min="0" max="2000" value="' + (r.zoom != null ? r.zoom : '') + '" placeholder="0">' +
+      '<p class="as-total">Total: <strong id="as-tot">' + ((+r.presencial || 0) + (+r.zoom || 0) || '—') + '</strong></p>' +
+      '<label for="as-notas">Notas (opcional)</label><input id="as-notas" value="' + esc(r.notas || '') + '" placeholder="Por ejemplo: visita del superintendente">' +
+      '<p class="editor-nota">Se cuenta una sola vez, a mitad de la reunión. En Zoom cuenta a cada persona conectada (si hay varias en una pantalla, súmalas).</p>' +
+      '<p class="editor-msg" id="as-msg" role="status"></p>' +
+      '<div class="editor-acc"><button type="button" class="btn btn-sec" id="as-cancelar">Cancelar</button><button type="submit" class="btn" id="as-guardar">Guardar</button></div></form>';
+    document.body.appendChild(cont);
+    var cerrar = function () { cont.remove(); };
+    cont.addEventListener('click', function (e) { if (e.target === cont) cerrar(); });
+    document.getElementById('as-cancelar').addEventListener('click', cerrar);
+    var tot = function () {
+      var p = parseInt(document.getElementById('as-pres').value, 10) || 0, z = parseInt(document.getElementById('as-zoom').value, 10) || 0;
+      document.getElementById('as-tot').textContent = p + z || '—';
+    };
+    document.getElementById('as-pres').addEventListener('input', tot);
+    document.getElementById('as-zoom').addEventListener('input', tot);
+    cont.querySelector('form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var msg = document.getElementById('as-msg');
+      var datos = {
+        fecha: manual ? document.getElementById('as-fecha').value : r.fecha,
+        reunion: manual ? document.getElementById('as-reu').value : r.reunion,
+        presencial: document.getElementById('as-pres').value, zoom: document.getElementById('as-zoom').value || '0',
+        notas: document.getElementById('as-notas').value
+      };
+      document.getElementById('as-guardar').disabled = true;
+      msg.textContent = 'Guardando…';
+      api('asistencia', datos).then(function (res) {
+        if (!res.ok) throw new Error(res.error);
+        cerrar();
+        aviso('Asistencia guardada: ' + res.total + ' en total. ¡Gracias!');
+        if (estado.datos.asistencia) estado.datos.asistencia.pendientes = (estado.datos.asistencia.pendientes || []).filter(function (x) { return !(x.fecha === datos.fecha && x.reunion === datos.reunion); });
+        if (alGuardar) alGuardar(); else render();
+      }).catch(function (err) {
+        if (err.message === 'sesion') { cerrar(); return; }
+        msg.textContent = err.message && err.message !== 'red' ? err.message : 'No se pudo guardar. Revisa tu conexión.';
+        document.getElementById('as-guardar').disabled = false;
+      });
+    });
+    document.getElementById('as-pres').focus();
+  }
+
+  /** Resumen para el secretario: S-88 del año de servicio, reuniones sin registrar y las últimas registradas. */
+  function renderAsistencia() {
+    document.title = 'Asistencia · Cong. Los Romeros';
+    var t = estado.asistenciaDatos;
+    var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Inicio</button><h1>Asistencia</h1></div></div>';
+    var anioPedido = estado.asistenciaAnio || 0;
+    if (!t || (anioPedido && t.anio !== anioPedido)) {
+      app.innerHTML = h + '<p class="vacio">Cargando asistencia…</p>';
+      document.getElementById('volver').addEventListener('click', function () { location.hash = ''; });
+      api('resumenAsistencia', { anio: anioPedido || '' }).then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        estado.asistenciaDatos = r;
+        if (location.hash === '#asistencia') renderAsistencia();
+      }).catch(function (e) { if (e.message !== 'sesion') { app.innerHTML = h + '<p class="vacio">' + esc(e.message || 'No se pudo cargar.') + '</p>'; document.getElementById('volver').addEventListener('click', function () { location.hash = ''; }); } });
+      return;
+    }
+    var hoy = estado.datos.hoy || hoyISO();
+    h += '<div class="meses-nav"><button type="button" class="filtro" data-anio="' + (t.anio - 1) + '">‹ ' + (t.anio - 1) + '</button>' +
+      (t.anio !== t.anioActual ? '<button type="button" class="filtro" data-anio="' + t.anioActual + '">Año actual ›</button>' : '') + '</div>';
+    h += '<div class="as-acc"><button type="button" class="btn" id="as-nueva">Registrar una reunión</button>' +
+      '<a class="btn btn-sec" href="' + esc(t.url) + '" target="_blank" rel="noopener">Abrir planilla para imprimir (S-1, S-3, S-88)</a></div>';
+    if (t.sinRegistrar.length) {
+      h += '<section class="tarjeta as-pend"><strong>Sin registrar (' + t.sinRegistrar.length + ')</strong>' + t.sinRegistrar.slice().reverse().map(function (r) {
+        return '<button type="button" class="as-fila" data-as-reg="' + esc(r.fecha + '|' + r.reunion) + '"><span>' + esc(mayuscula(fechaCorta(r.fecha))) + ' · ' + esc(r.reunion) + '</span><span class="as-ir">Registrar ›</span></button>';
+      }).join('') + '</section>';
+    }
+    var celda = function (x) { return x ? '<td>' + x.reuniones + '</td><td>' + x.total + '</td><td><strong>' + x.promedio + '</strong></td>' : '<td></td><td></td><td></td>'; };
+    var tabla = function (clave, titulo, prom) {
+      return '<section class="tarjeta s88"><h2 class="t-h">' + titulo + '</h2><div class="s88-scroll"><table><thead><tr><th>' + esc(t.anio) + '</th><th>Reuniones</th><th>Total</th><th>Promedio</th></tr></thead><tbody>' +
+        t.meses.map(function (m) { return '<tr' + (m[clave] ? '' : ' class="vacia"') + '><td>' + esc(m.mes) + '</td>' + celda(m[clave]) + '</tr>'; }).join('') +
+        '</tbody><tfoot><tr><td colspan="3">Promedio de asistencia mensual</td><td><strong>' + (prom != null ? prom : '—') + '</strong></td></tr></tfoot></table></div></section>';
+    };
+    h += '<p class="ayuda-editar">Registro de asistencia (S-88) del año de servicio ' + esc(t.anio) + ' (septiembre ' + (t.anio - 1) + ' a agosto ' + t.anio + ').</p>';
+    h += tabla('semana', 'Reunión de entre semana', t.promedioSemana) + tabla('finde', 'Reunión del fin de semana', t.promedioFinde);
+    if (t.recientes.length) {
+      h += '<details class="tarjeta terr-h as-recientes"><summary>Reuniones registradas (' + t.recientes.length + ')</summary>' + t.recientes.map(function (x, i) {
+        return '<button type="button" class="as-fila" data-as-ed="' + i + '"><span>' + esc(mayuscula(fechaCorta(x.fecha))) + ' · ' + esc(x.reunion) +
+          '<small>' + x.presencial + ' presencial + ' + x.zoom + ' Zoom' + (x.por ? ' · ' + esc(x.por) : '') + (x.notas ? ' · ' + esc(x.notas) : '') + '</small></span><strong>' + x.total + '</strong></button>';
+      }).join('') + '</details>';
+    }
+    app.innerHTML = h;
+    var recargar = function () { estado.asistenciaDatos = null; renderAsistencia(); };
+    document.getElementById('volver').addEventListener('click', function () { location.hash = ''; });
+    document.getElementById('as-nueva').addEventListener('click', function () { abrirAsistencia(null, recargar); });
+    app.querySelectorAll('[data-anio]').forEach(function (b) { b.addEventListener('click', function () { estado.asistenciaAnio = +b.getAttribute('data-anio'); renderAsistencia(); }); });
+    app.querySelectorAll('[data-as-reg]').forEach(function (b) {
+      b.addEventListener('click', function () { var k = b.getAttribute('data-as-reg').split('|'); abrirAsistencia({ fecha: k[0], reunion: k[1] }, recargar); });
+    });
+    app.querySelectorAll('[data-as-ed]').forEach(function (b) {
+      b.addEventListener('click', function () { abrirAsistencia(t.recientes[+b.getAttribute('data-as-ed')], recargar); });
+    });
+  }
+
   /* ---------- Un territorio: mapa, registro (ancianos y capitanes) y No pasar ---------- */
   function renderTerritorio(t) {
     var d = estado.datos, docs = d.documentos || {}, hoy = d.hoy || hoyISO();
@@ -1224,6 +1379,16 @@
         '<div id="dt-correcto-c" hidden><label for="dt-correcto">Nombre completo correcto</label><input id="dt-correcto" autocomplete="name" placeholder="Nombre y apellido, como quieres que aparezca"></div>' +
         '<label for="dt-apodo">¿Cómo te gusta que te llamen?</label><input id="dt-apodo" autocomplete="nickname" placeholder="Opcional, por ejemplo: Pepe" value="' + esc(r.apodo || '') + '">' +
         '<label for="dt-tel">Teléfono con WhatsApp</label><input id="dt-tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="+56 9 1234 5678" value="' + esc(r.telefono || '') + '" required>' +
+        (nuevo ? '' : (function () {
+          var em = r.emergencia || {};
+          return '<label for="dt-dir">Tu dirección</label><input id="dt-dir" autocomplete="street-address" placeholder="Calle, número, depto., comuna" value="' + esc(r.direccion || '') + '">' +
+            '<fieldset class="dt-grupo"><legend>Contacto de emergencia</legend>' +
+            '<label for="dt-em-nom">Nombre</label><input id="dt-em-nom" autocomplete="off" value="' + esc(em.nombre || '') + '">' +
+            '<label for="dt-em-par">Parentesco o relación</label><input id="dt-em-par" autocomplete="off" placeholder="Por ejemplo: hija, esposo, vecino" value="' + esc(em.parentesco || '') + '">' +
+            '<label for="dt-em-dir">Dirección</label><input id="dt-em-dir" autocomplete="off" value="' + esc(em.direccion || '') + '">' +
+            '<label for="dt-em-tel">Teléfono</label><input id="dt-em-tel" type="tel" inputmode="tel" autocomplete="off" placeholder="+56 9 1234 5678" value="' + esc(em.telefono || '') + '">' +
+            '<p class="dt-nota">Queda en el directorio de la congregación, para usarlo en caso de emergencia. No se muestra a otros hermanos en la app.</p></fieldset>';
+        })()) +
         '<p class="login-error" id="dt-msg" role="alert" hidden></p>' +
         '<button type="submit" class="btn" id="dt-enviar">' + (nuevo ? 'Confirmar y entrar' : 'Guardar') + '</button>' +
         (nuevo ? '<button type="button" class="enlace-boton" id="dt-salir">Entrar con otra cuenta</button>' : '<a class="enlace-boton" href="#">Volver</a>') +
@@ -1243,6 +1408,11 @@
           apodo: document.getElementById('dt-apodo').value.trim(),
           telefono: document.getElementById('dt-tel').value.trim()
         };
+        if (!nuevo) {
+          var val = function (id) { return document.getElementById(id).value.trim(); };
+          datos.direccion = val('dt-dir');
+          datos.emergencia = { nombre: val('dt-em-nom'), parentesco: val('dt-em-par'), direccion: val('dt-em-dir'), telefono: val('dt-em-tel') };
+        }
         document.getElementById('dt-enviar').disabled = true;
         msg.hidden = true;
         api('actualizarDatos', datos).then(function (res) {
@@ -1693,6 +1863,14 @@
       for (var i = 0; i < u.length; i++) t += String.fromCharCode(u[i]);
       return { ok: true, version: 'demo-' + u.length, sinCambios: p.version === 'demo-' + u.length, pdf: btoa(t) };
     });
+    if (accion === 'asistencia') return Promise.resolve({ ok: true, total: (+p.presencial || 0) + (+p.zoom || 0) });
+    if (accion === 'resumenAsistencia') return Promise.resolve((function () {
+      var anio = +p.anio || 2027, meses = ['Septiembre', 'Octubre', 'Noviembre', 'Diciembre', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto'];
+      return { ok: true, anio: anio, anioActual: 2027, url: 'https://docs.google.com', promedioSemana: 92, promedioFinde: 108,
+        meses: meses.map(function (m, i) { return { mes: m, semana: i < 2 ? { reuniones: 4, total: 360 + i * 12, promedio: 90 + i * 3 } : null, finde: i < 2 ? { reuniones: 4, total: 420 + i * 20, promedio: 105 + i * 5 } : null }; }),
+        sinRegistrar: [{ fecha: '2026-10-22', reunion: 'Entre semana' }],
+        recientes: [{ fecha: '2026-10-18', reunion: 'Fin de semana', presencial: 98, zoom: 12, total: 110, por: 'Hermes Moraga', notas: '' }] };
+    })());
     if (accion === 'sugerencias') return Promise.resolve({ ok: true, tipo: 'Micrófono', sugerencias: (d.personas || []).slice(3, 7).map(function (n, i) {
       return { nombre: n, ultima: i === 0 ? '' : '2026-0' + (9 - i) + '-1' + i, proxima: i === 3 ? '2026-11-20' : '' };
     }) });

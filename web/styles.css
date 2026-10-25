@@ -623,3 +623,21 @@ a.resumen-cab.enlace .chevron { width: 20px; height: 20px; color: var(--muted); 
 .pend-reg .circulo.ambar { font-size: 18px; }
 .pend-ok { display: flex; align-items: center; gap: 6px; color: #2a6a3c; font-weight: 600; margin: 4px 0; }
 .pend-ok svg { width: 18px; height: 18px; }
+.dt-grupo { border: 1px solid rgba(255, 255, 255, .35); border-radius: 12px; padding: 4px 12px 12px; margin: 10px 0 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.dt-grupo legend { font-weight: 800; padding: 0 6px; }
+.dt-nota { margin: 4px 0 0; font-size: 13px; opacity: .85; }
+
+/* Asistencia */
+.as-total { margin: 4px 0 0; font-size: 16px; }
+.as-acc { display: flex; flex-wrap: wrap; gap: 8px; }
+.as-fila { appearance: none; border: 0; border-top: 1px solid var(--line); background: none; width: 100%; padding: 10px 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; text-align: left; color: var(--ink); font: inherit; cursor: pointer; }
+.as-fila small { display: block; color: var(--muted); font-size: 13px; }
+.as-ir { color: #b8473a; font-weight: 700; white-space: nowrap; }
+.as-pend strong { display: block; margin-bottom: 4px; }
+.s88 table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.s88 th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); text-align: right; padding: 6px 4px; }
+.s88 th:first-child, .s88 td:first-child { text-align: left; }
+.s88 td { text-align: right; padding: 7px 4px; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.s88 tr.vacia td { color: var(--muted); }
+.s88 tfoot td { font-weight: 600; }
+.s88-scroll { overflow-x: auto; }

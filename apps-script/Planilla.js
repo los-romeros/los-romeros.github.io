@@ -17,8 +17,9 @@ var HOJAS = {
   },
   personas: {
     nombre: 'Personas',
-    titulos: ['Nombre', 'Otras formas de escribirlo (separadas por ;)', 'Nombre público', 'Correo', 'Teléfono (WhatsApp)', 'Grupo', 'Notas', 'Anciano', 'Participa', 'Capitán', 'Secretario', 'Servicio', 'Cómo le dicen'],
-    anchos: [220, 260, 160, 240, 150, 70, 240, 80, 80, 80, 90, 150, 140]
+    titulos: ['Nombre', 'Otras formas de escribirlo (separadas por ;)', 'Nombre público', 'Correo', 'Teléfono (WhatsApp)', 'Grupo', 'Notas', 'Anciano', 'Participa', 'Capitán', 'Secretario', 'Servicio', 'Cómo le dicen',
+      'Dirección', 'Emergencia: nombre', 'Emergencia: parentesco', 'Emergencia: dirección', 'Emergencia: teléfono'],
+    anchos: [220, 260, 160, 240, 150, 70, 240, 80, 80, 80, 90, 150, 140, 260, 200, 140, 260, 150]
   },
   grupos: {
     nombre: 'Grupos',
@@ -67,6 +68,11 @@ var HOJAS = {
     titulos: ['Programa', 'Periodo', 'JSON'],
     anchos: [110, 200, 600],
     sistema: true
+  },
+  conductores: {
+    nombre: 'Conductor de La Atalaya',
+    titulos: ['Fecha', 'Conductor', 'Cambiado por', 'Cambiado el'],
+    anchos: [110, 220, 200, 140]
   },
   solicitudesNoPasar: {
     nombre: 'Solicitudes No pasar',

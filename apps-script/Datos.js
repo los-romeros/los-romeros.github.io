@@ -22,7 +22,9 @@ function personaFila_(nombre) {
 function misDatos_(correo, yo) {
   if (yo.registrado) {
     var f = personaFila_(yo.nombre) || {};
-    return { ok: true, registrado: true, nombre: yo.nombre, apodo: f['Cómo le dicen'] || '', telefono: String(f['Teléfono (WhatsApp)'] || ''), correo: correo };
+    return { ok: true, registrado: true, nombre: yo.nombre, apodo: f['Cómo le dicen'] || '', telefono: String(f['Teléfono (WhatsApp)'] || ''), correo: correo,
+      direccion: f['Dirección'] || '',
+      emergencia: { nombre: f['Emergencia: nombre'] || '', parentesco: f['Emergencia: parentesco'] || '', direccion: f['Emergencia: dirección'] || '', telefono: String(f['Emergencia: teléfono'] || '') } };
   }
   var nombres = leerTabla_('personas').filter(function (p) { return p['Nombre'] && !String(p['Correo'] || '').trim(); })
     .map(function (p) { return p['Nombre']; }).sort(function (a, b) { return a.localeCompare(b, 'es'); });
@@ -50,6 +52,16 @@ function actualizarDatos_(correo, yo, p, cfg) {
   }
   var cambios = {};
   if (apodo !== String(fila['Cómo le dicen'] || '')) cambios['Cómo le dicen'] = apodo;
+  // Dirección y contacto de emergencia: solo desde "Mis datos" de quien ya está registrado (se guardan directo)
+  if (yo.registrado) {
+    var em = p.emergencia || {};
+    var extra = { 'Dirección': p.direccion, 'Emergencia: nombre': em.nombre, 'Emergencia: parentesco': em.parentesco, 'Emergencia: dirección': em.direccion, 'Emergencia: teléfono': em.telefono };
+    Object.keys(extra).forEach(function (k) {
+      if (extra[k] === undefined) return;
+      var v = texto_(extra[k]).slice(0, 200);
+      if (v !== texto_(fila[k])) cambios[k] = v;
+    });
+  }
   if (!motivos.length) {
     if (!yo.registrado) cambios['Correo'] = correo;
     if (!mismoTelefono_(fila['Teléfono (WhatsApp)'], telefono)) cambios['Teléfono (WhatsApp)'] = telefono;

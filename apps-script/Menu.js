@@ -34,6 +34,7 @@ var INICIO_POR_DEFECTO = [
   ['aviso', '', 'Aviso destacado (opcional). Déjalo vacío para no mostrar nada'],
   ['direccion', 'Jardín Poniente 795, Concón', 'Dirección del Salón del Reino'],
   ['horaEntreSemana', '19:30', 'Hora por defecto de la reunión de entre semana'],
+  ['conductorAtalaya', 'Roberto Canales', 'Conductor habitual del estudio de La Atalaya. Si una semana lo reemplaza otro, el encargado lo cambia en la app (queda en la pestaña "Conductor de La Atalaya")'],
   ['horaFinSemana', '18:30', 'Hora por defecto de la reunión del fin de semana'],
   ['duracionMin', '105', 'Duración de los eventos de reunión en el calendario (minutos)'],
   ['diasPasados', '7', 'Días hacia atrás que muestra la app'],
@@ -58,6 +59,12 @@ var INICIO_POR_DEFECTO = [
   ['informesFormularios', '', 'URLs de planillas de respuestas de formularios de informe que aún se usan (separadas por coma), p. ej. la del grupo 4'],
   ['diasRecordatorioInforme', '1,5,10', 'Días del mes en que se recuerda (notificación) a quien no ha enviado el informe'],
   ['horaRecordatorioInforme', '10', 'Hora (0-23) de ese recordatorio'],
+  ['asistenciaRegistran', 'anciano, secretario', 'Quiénes registran la asistencia a las reuniones (además, quien tiene acomodación ese día)'],
+  ['asistenciaVen', 'secretario', 'Quiénes ven el resumen de asistencia (S-88) y la planilla para imprimir los formularios'],
+  ['congregacionNombre', 'Los Romeros', 'Nombre de la congregación en los formularios S-1 y S-3'],
+  ['ciudad', 'Concón', 'Ciudad (formulario S-1)'],
+  ['provincia', 'Valparaíso', 'Provincia o región (formulario S-1)'],
+  ['numeroCongregacion', '', 'Número de la congregación (formulario S-1)'],
   ['informesDesde', '2026-10', 'Primer mes cuyo informe se pide en la app (AAAA-MM). Los meses anteriores no se piden ni se recuerdan'],
   ['informeEditableHasta', '20', 'Día del mes hasta el que se puede corregir el informe del mes anterior'],
   ['carpetaTerritorios', 'TERRITORIOS LOS ROMEROS', 'Carpeta de Drive donde están el listado No pasar y el mapa'],
@@ -139,7 +146,7 @@ function prepararPlanilla() {
   textoPlano_('asignaciones', ['Clave', 'Periodo', 'Fecha', 'Hora']);
   textoPlano_('datos', ['Periodo', 'JSON']);
   textoPlano_('especiales', ['Hora']);
-  textoPlano_('personas', ['Teléfono (WhatsApp)']);
+  textoPlano_('personas', ['Teléfono (WhatsApp)', 'Emergencia: teléfono']);
 
   // Listas desplegables
   lista_('programas', 'Requiere confirmación', ['Sí', 'No']);
@@ -297,6 +304,13 @@ function importarPersonas() {
   var c = function (t) { return tit.indexOf(norm_(t)); };
   var cNom = c('Nombre'), cOrig = c('Formato original'), cGrupo = c('Grupo'), cServ = c('Servicio'), cNombrado = c('Nombrado'), cMes = c('Último mes informado'),
     cTel = c('Teléfono'), cSec = c('Secretario');
+  // Dirección y contacto de emergencia (planilla "Datos emergencia"): solo completan lo que está vacío
+  var extras = { 'Dirección': c('Dirección'), 'Emergencia: nombre': c('Emergencia: nombre'), 'Emergencia: parentesco': c('Emergencia: parentesco'),
+    'Emergencia: dirección': c('Emergencia: dirección'), 'Emergencia: teléfono': c('Emergencia: teléfono') };
+  // Sin columna Grupo, la planilla solo completa datos: no agrega personas nuevas
+  var soloCompletar = cGrupo < 0;
+  var sinCoincidencia = [];
+  asegurarColumnas_('personas');
 
   var dir = directorio_();
   var filas = leerTabla_('personas');
@@ -319,7 +333,13 @@ function importarPersonas() {
       if (siervo && !/siervo/i.test(f['Notas'])) { f['Notas'] = (f['Notas'] ? f['Notas'] + ' · ' : '') + 'Siervo ministerial'; cambio = true; }
       if (cTel >= 0 && o[cTel] && !f['Teléfono (WhatsApp)']) { f['Teléfono (WhatsApp)'] = String(o[cTel]); cambio = true; }
       if (cSec >= 0 && si_(o[cSec]) && f['Secretario'] !== true) { f['Secretario'] = true; cambio = true; }
+      Object.keys(extras).forEach(function (k) {
+        var v = extras[k] >= 0 ? texto_(o[extras[k]]) : '';
+        if (v && !texto_(f[k])) { f[k] = v; cambio = true; }
+      });
       if (cambio) completados++;
+    } else if (soloCompletar) {
+      sinCoincidencia.push(nombre);
     } else {
       var nuevo = {
         'Nombre': nombre, 'Nombre público': nombrePublico_(nombre), 'Grupo': grupo || '', 'Servicio': servicio,
@@ -335,7 +355,7 @@ function importarPersonas() {
     }
   });
   var sh = hoja_('personas');
-  textoPlano_('personas', ['Teléfono (WhatsApp)']);
+  textoPlano_('personas', ['Teléfono (WhatsApp)', 'Emergencia: teléfono']);
   var titulos = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
   filas = filas.filter(function (f) { return texto_(f['Nombre']); })
     .sort(function (a, b) { return String(a['Nombre']).localeCompare(String(b['Nombre']), 'es'); });
@@ -344,8 +364,9 @@ function importarPersonas() {
   if (sh.getMaxRows() > datos.length + 1) sh.getRange(datos.length + 2, 1, sh.getMaxRows() - datos.length - 1, titulos.length).clearContent();
   limpiarCache_();
   registrar_('Personas importadas', nuevos + ' nuevas, ' + completados + ' completadas');
-  ui.alert('Listo', nuevos + ' persona(s) agregadas y ' + completados + ' completadas (grupo, servicio o anciano).' +
-    (distintos.length ? '\n\nEstas tienen un grupo distinto al del registro y NO se cambiaron:\n' + distintos.join('\n') : ''), ui.ButtonSet.OK);
+  ui.alert('Listo', nuevos + ' persona(s) agregadas y ' + completados + ' completadas (grupo, servicio, anciano, teléfono, dirección o emergencia).' +
+    (distintos.length ? '\n\nEstas tienen un grupo distinto al del registro y NO se cambiaron:\n' + distintos.join('\n') : '') +
+    (sinCoincidencia.length ? '\n\nNo encontré en el directorio a:\n' + sinCoincidencia.join('\n') : ''), ui.ButtonSet.OK);
 }
 
 /**

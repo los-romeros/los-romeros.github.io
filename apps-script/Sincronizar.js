@@ -55,6 +55,7 @@ function sincronizar_(forzar) {
         return;
       }
       if (!res.reuniones.length) return;
+      if (prog['ID'] === 'finsemana') agregarConductor_(res, cfg);
       var fechas = res.reuniones.map(function (r) { return r.fecha; }).sort();
       if (fechas[fechas.length - 1] < desde) return;
       vistas[prog['ID'] + '|' + res.periodo] = true;
@@ -150,6 +151,60 @@ function sincronizar_(forzar) {
   return resumen.length;
 }
 
+/* ------------------------------------------------------------------ */
+/* Conductor de La Atalaya (fin de semana)                              */
+/* ------------------------------------------------------------------ */
+
+var memoConductor_ = null;
+/** Conductor habitual (Inicio ▸ conductorAtalaya). */
+function conductorPorDefecto_(cfg) {
+  if (cfg) return texto_(cfg.conductorAtalaya || 'Roberto Canales');
+  if (memoConductor_ === null) memoConductor_ = texto_(config_().conductorAtalaya || 'Roberto Canales');
+  return memoConductor_;
+}
+
+/** ¿Es la asignación del conductor habitual? (no se le invita ni se le pide confirmar cada semana) */
+function esConductorHabitual_(a, cfg) {
+  return /\|conductor$/.test(String(a['Clave'] || '')) && norm_(a['Nombre']) === norm_(conductorPorDefecto_(cfg));
+}
+
+/** Cambios de conductor por fecha (pestaña "Conductor de La Atalaya"). */
+function conductoresPorFecha_() {
+  var out = {};
+  leerTabla_('conductores', { opcional: true }).forEach(function (c) {
+    var f = c['Fecha'] instanceof Date ? Utilities.formatDate(c['Fecha'], Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(c['Fecha'] || '').slice(0, 10);
+    if (f && texto_(c['Conductor'])) out[f] = texto_(c['Conductor']);
+  });
+  return out;
+}
+
+/** Agrega "Conductor de La Atalaya" (antes del lector) en cada reunión del fin de semana que tiene lector. */
+function agregarConductor_(res, cfg) {
+  var cambios = conductoresPorFecha_(), habitual = conductorPorDefecto_(cfg);
+  res.reuniones.forEach(function (r) {
+    r.secciones.forEach(function (s) {
+      var i = s.filas.map(function (f) { return f.texto; }).indexOf('Lector de La Atalaya');
+      if (i < 0) return;
+      var nombre = cambios[r.fecha] || habitual;
+      s.filas.splice(i, 0, { texto: 'Conductor de La Atalaya', detalle: '', asignados: [{ slot: 'conductor', rol: 'Conductor de La Atalaya', nombre: nombre, celda: null }] });
+    });
+  });
+}
+
+/** Guarda el conductor de una fecha (desde la app). Volver al habitual borra el cambio. */
+function guardarConductor_(fecha, nombre, quien) {
+  asegurarColumnas_('conductores');
+  var filas = leerTabla_('conductores', { opcional: true });
+  var fila = filas.filter(function (c) {
+    var f = c['Fecha'] instanceof Date ? Utilities.formatDate(c['Fecha'], Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(c['Fecha'] || '').slice(0, 10);
+    return f === fecha;
+  })[0];
+  var valores = { 'Fecha': fecha, 'Conductor': norm_(nombre) === norm_(conductorPorDefecto_()) ? '' : nombre, 'Cambiado por': quien, 'Cambiado el': new Date() };
+  if (fila) actualizarFila_('conductores', fila, valores);
+  else if (valores['Conductor']) agregarFilas_('conductores', [valores]);
+  return true;
+}
+
 function horaPorDefecto_(programaId, reunion, cfg, especiales) {
   if (reunion.tipo === 'salida') return null;
   if (especiales[reunion.fecha] && especiales[reunion.fecha].hora) return especiales[reunion.fecha].hora;
@@ -189,7 +244,7 @@ function reconocer_(nombre, dir) {
 }
 
 function estadoInicial_(prog, a) {
-  if (a['Reconocido'] === 'Externo') return 'Sin confirmación';
+  if (a['Reconocido'] === 'Externo' || esConductorHabitual_(a)) return 'Sin confirmación';
   if (!a['Correo']) return 'Avisar manualmente';
   return prog && si_(prog['Requiere confirmación']) ? 'Pendiente' : 'Sin confirmación';
 }

@@ -98,7 +98,7 @@ function procesarInvitaciones_(asignaciones, cfg) {
         if (a['Estado'] === 'Avisar manualmente') a['Estado'] = estadoInicial_(programas[a['Programa']], a);
       }
     }
-    if (a['ID evento'] || !puedeInvitar_(cfg, a['Correo'])) return;
+    if (a['ID evento'] || !puedeInvitar_(cfg, a['Correo']) || esConductorHabitual_(a, cfg)) return;
 
     info = info || infoReuniones_();
     cal = cal || calendario_();
@@ -170,6 +170,9 @@ function tareasHorarias() {
     if (hora >= +(cfg.horaAvisoDiaAntes || 18) && unaVezAlDia_('AVISO_DIA_ANTES')) cambios += avisosDiaAntes_(asign, cfg);
     if (dia === 1 && hora >= 8 && unaVezAlDia_('RESUMEN_SEMANAL')) resumenSemanal_(asign, cfg);
     try { recordatoriosInforme_(cfg); } catch (e) { registrar_('Error en recordatorio de informe', e.message); }
+    if (hora >= 3 && PropertiesService.getScriptProperties().getProperty('ASISTENCIA_ID') && unaVezAlDia_('DATOS_S1')) {
+      try { actualizarDatosS1_(cfg); } catch (e) { registrar_('Error al actualizar S-1', e.message); }
+    }
     if (cambios) {
       reescribirTabla_('asignaciones', asign);
       limpiarCache_();
@@ -265,7 +268,7 @@ function avisosDiaAntes_(asign, cfg) {
   var manana = sumarDias_(hoyISO_(), 1);
   var porPersona = {};
   asign.forEach(function (a) {
-    if (a['Fecha'] !== manana || !a['Correo'] || ['Rechazado', 'Eliminada', 'Borrador'].indexOf(a['Estado']) >= 0) return;
+    if (a['Fecha'] !== manana || !a['Correo'] || ['Rechazado', 'Eliminada', 'Borrador'].indexOf(a['Estado']) >= 0 || esConductorHabitual_(a, cfg)) return;
     (porPersona[a['Correo']] = porPersona[a['Correo']] || []).push(a);
   });
   var avisados = 0;
@@ -287,7 +290,7 @@ function resumenSemanal_(asign, cfg) {
   var hoy = hoyISO_(), fin = sumarDias_(hoy, 6);
   var porPersona = {};
   asign.forEach(function (a) {
-    if (a['Fecha'] < hoy || a['Fecha'] > fin || !a['Correo'] || ['Rechazado', 'Eliminada', 'Borrador'].indexOf(a['Estado']) >= 0) return;
+    if (a['Fecha'] < hoy || a['Fecha'] > fin || !a['Correo'] || ['Rechazado', 'Eliminada', 'Borrador'].indexOf(a['Estado']) >= 0 || esConductorHabitual_(a, cfg)) return;
     (porPersona[a['Correo']] = porPersona[a['Correo']] || []).push(a);
   });
   Object.keys(porPersona).forEach(function (correo) {

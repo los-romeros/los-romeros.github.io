@@ -55,6 +55,8 @@ function doPost(e) {
       case 'aceptarChoque': return json_(conBloqueo_(function () { return aceptarChoque_(yo, p, cfg); }));
       case 'aprobar': return json_(conBloqueo_(function () { return aprobar_(yo, p); }));
       case 'registrar': return json_(registrarPredicacion_(yo, p, cfg));
+      case 'asistencia': return json_(conBloqueo_(function () { return guardarAsistencia_(yo, p, cfg); }));
+      case 'resumenAsistencia': return json_(resumenAsistencia_(yo, p, cfg));
       case 'probarAviso': return json_(probarAviso_(yo, cfg));
       case 'dispositivo': return json_(conBloqueo_(function () { return registrarDispositivo_(yo, p); }));
       case 'territorios': return json_(resumenTerritorios_(yo, cfg));
@@ -349,6 +351,13 @@ function datosUsuario_(yo, cfg) {
   out.documentos = { noPasar: enAudiencia_(cfg.noPasarVisiblePara || 'todos', yo), mapa: enAudiencia_(cfg.mapaVisiblePara || 'todos', yo) };
   try { out.solicitudesNoPasar = solicitudesParaUsuario_(yo, cfg); } catch (e) { out.solicitudesNoPasar = { puedeSolicitar: false, porAprobar: [], mias: [] }; }
 
+  // Asistencia a las reuniones
+  try {
+    var asisVer = puedeVerAsistencia_(yo, cfg);
+    var asisPend = asistenciaPendiente_(yo, cfg, asign);
+    out.asistencia = { puedeVer: asisVer, pendientes: asisPend.pendientes };
+  } catch (e) { console.warn(e); out.asistencia = { puedeVer: false, pendientes: [] }; }
+
   // Informe mensual de predicación
   try { out.informe = estadoInforme_(yo, cfg); } catch (e) { console.warn(e); out.informe = null; }
 
@@ -429,7 +438,7 @@ function reasignar_(yo, p) {
   var aviso = '';
   var escrito = false;
   try {
-    escrito = escribirEnOrigen_(prog, fila, nombreFinal);
+    escrito = escribirEnOrigen_(prog, fila, nombreFinal, yo.nombre);
   } catch (e) {
     aviso = 'Se cambió en la app, pero no pude escribir en la hoja oficial: ' + e.message;
   }
@@ -450,7 +459,9 @@ function reasignar_(yo, p) {
 }
 
 /** Busca la celda de origen de la asignación y reemplaza el nombre anterior por el nuevo. */
-function escribirEnOrigen_(prog, fila, nombreNuevo) {
+function escribirEnOrigen_(prog, fila, nombreNuevo, quien) {
+  // El conductor de La Atalaya no está en la hoja del programa: se guarda en la planilla central
+  if (/\|conductor$/.test(fila['Clave'])) return guardarConductor_(fila['Fecha'], nombreNuevo, quien || '');
   var dato = leerTabla_('datos').filter(function (d) { return d['Programa'] === fila['Programa'] && d['Periodo'] === fila['Periodo']; })[0];
   if (!dato) throw new Error('no encontré el periodo');
   var partes = fila['Clave'].split('|'); // programa | id reunión | slot
