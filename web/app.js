@@ -41,7 +41,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v40'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v41'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -471,7 +471,7 @@
     var especiales = (d.enlaces || []).filter(function (l) { return l.privilegiado; });
     h += enlacesHTML('Enlaces', publicos) + enlacesHTML('Contenido especial', especiales);
     h += instalarHTML();
-    h += '<p class="pie"><a href="#datos">Mis datos</a> · <a href="#eventos">Eventos</a>' + ' · <button type="button" class="enlace-boton" id="probar-avisos">Probar avisos</button>' + ' · <a href="guia.html">Cómo usar la app</a>' + ((u.editables || []).length || (d.informe && d.informe.verGrupos) ? ' · <a href="guia-responsables.html">Guía para responsables</a>' : '') + '</p><p class="pie version">Versión ' + VERSION_APP + '</p>';
+    h += '<p class="pie"><a href="#datos">Mis datos</a> · <a href="#eventos">Eventos</a>' + ' · <button type="button" class="enlace-boton" id="probar-avisos">Probar avisos</button>' + ' · <a href="guia.html">Cómo usar la app</a>' + ((u.editables || []).length || (d.informe && d.informe.verGrupos) ? ' · <a href="guia-responsables.html">Guía para responsables</a>' : '') + (u.rol === 'admin' ? ' · <a href="https://github.com/los-romeros/los-romeros.github.io/blob/main/docs/MANUAL-ADMIN.md" target="_blank" rel="noopener">Manual de administración</a>' : '') + '</p><p class="pie version">Versión ' + VERSION_APP + '</p>';
     h += '<p class="pie">Conectado como ' + esc(u.nombre || '') + (u.rol ? ' · ' + esc(u.rol) : '') +
       ' · <button type="button" class="enlace-boton" id="salir">Salir</button><br>Actualizado ' +
       esc(new Date(d.generado).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })) + '</p>';

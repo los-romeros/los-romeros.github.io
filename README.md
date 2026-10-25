@@ -2,6 +2,10 @@
 
 App gratuita para publicar los programas de la congregación y seguir las confirmaciones de las asignaciones.
 
+- **Manual de administración:** [docs/MANUAL-ADMIN.md](docs/MANUAL-ADMIN.md) (pestañas, configuración, menú, permisos, qué hacer si algo falla).
+- **Contexto técnico para continuar el desarrollo:** [CLAUDE.md](CLAUDE.md).
+- Guías para los hermanos y responsables: dentro de la app (`web/guia.html`, `web/guia-responsables.html`).
+
 ## Piezas
 
 | Carpeta | Qué es | Dónde vive |
@@ -16,7 +20,7 @@ App gratuita para publicar los programas de la congregación y seguir las confir
 1. Cada responsable sigue trabajando en su propia hoja de Google Sheets, compartida con la cuenta de la congregación (solo lectura basta).
 2. Cada 15 minutos la planilla central lee esas hojas (`sincronizar`) y registra los periodos nuevos como **Borrador**.
 3. Al pasar un periodo a **Aprobado**, sus asignaciones quedan publicadas en la app.
-4. La app pide los datos a la API (`doGet?accion=publico`), que entrega nombres abreviados, sin correos ni teléfonos.
+4. La app pide los datos a la API (POST con sesión de Google); cada usuario recibe solo lo que su perfil puede ver.
 
 ## Pruebas locales
 
@@ -25,13 +29,13 @@ python3 tools/xlsx2json.py          # exporta originales/*.xlsx a tools/fixtures
 node tools/run-parsers.js           # muestra lo que entiende cada lector
 node tools/names.js                 # borrador del directorio de personas
 node tools/build-dev-data.js        # genera web/dev-data.json para ver la app local
-python3 -m http.server 8766 --directory web
+python3 -m http.server 8765 --directory web   # abrir http://localhost:8765/?demo
 ```
 
 ## Publicar cambios
 
 ```bash
-cd apps-script && clasp push        # código del servidor
+cd apps-script && clasp push -f && clasp update-deployment AKfycbycdU7MzXKNd2xFniRK3w3CECTjyeDE73fE_cW-7OBffwLWLADeD9O7dN61ogjCM3Vn   # servidor
 git push                            # app web (GitHub Pages)
 ```
 
