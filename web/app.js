@@ -41,7 +41,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v39'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v40'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -230,6 +230,7 @@
     if (ruta === 'registrar' || ruta === 'informe') { renderInicio(); return; }
     if (ruta === 'datos') { renderDatos(false); return; }
     if (ruta === 'mias') { renderMias(); return; }
+    if (ruta === 'eventos') { renderEventos(); return; }
     if (ruta === 'emergencias' && estado.datos.emergencias && estado.datos.emergencias.puedeVer) { renderEmergencias(); return; }
     if (ruta === 'asistencia' && estado.datos.asistencia && estado.datos.asistencia.puedeVer) { renderAsistencia(); return; }
     var prog = m && estado.datos.programas.filter(function (p) { return p.id === m[1]; })[0];
@@ -367,7 +368,9 @@
             '</div>' : '') +
           '</div></div>';
       });
-      h += '</section>';
+      h += '<a class="aviso-todos" href="#eventos">Ver todos los eventos (' + (d.inicio.avisos || []).length + ')' + SVG_CHEVRON + '</a></section>';
+    } else if ((d.inicio.avisos || []).length) {
+      h += '<a class="aviso-todos solo" href="#eventos">' + svg('calendario') + 'Ver los eventos importantes (' + d.inicio.avisos.length + ')' + SVG_CHEVRON + '</a>';
     }
 
     // Activar notificaciones en este teléfono
@@ -468,7 +471,7 @@
     var especiales = (d.enlaces || []).filter(function (l) { return l.privilegiado; });
     h += enlacesHTML('Enlaces', publicos) + enlacesHTML('Contenido especial', especiales);
     h += instalarHTML();
-    h += '<p class="pie"><a href="#datos">Mis datos</a>' + ' · <button type="button" class="enlace-boton" id="probar-avisos">Probar avisos</button>' + ' · <a href="guia.html">Cómo usar la app</a>' + ((u.editables || []).length || (d.informe && d.informe.verGrupos) ? ' · <a href="guia-responsables.html">Guía para responsables</a>' : '') + '</p><p class="pie version">Versión ' + VERSION_APP + '</p>';
+    h += '<p class="pie"><a href="#datos">Mis datos</a> · <a href="#eventos">Eventos</a>' + ' · <button type="button" class="enlace-boton" id="probar-avisos">Probar avisos</button>' + ' · <a href="guia.html">Cómo usar la app</a>' + ((u.editables || []).length || (d.informe && d.informe.verGrupos) ? ' · <a href="guia-responsables.html">Guía para responsables</a>' : '') + '</p><p class="pie version">Versión ' + VERSION_APP + '</p>';
     h += '<p class="pie">Conectado como ' + esc(u.nombre || '') + (u.rol ? ' · ' + esc(u.rol) : '') +
       ' · <button type="button" class="enlace-boton" id="salir">Salir</button><br>Actualizado ' +
       esc(new Date(d.generado).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })) + '</p>';
@@ -1182,6 +1185,58 @@
       var n = document.getElementById('buscar-t'); n.focus();
     });
     document.getElementById('registrar-nuevo').addEventListener('click', function () { abrirRegistro(null); });
+  }
+
+  /* ---------- Todos los eventos y avisos ---------- */
+  function cuandoAviso(a, hoy) {
+    if (!a.fecha) return '';
+    var faltan = diasEntre(hoy, a.fecha), enCurso = faltan < 0 && a.fin && a.fin >= hoy;
+    return (enCurso ? 'En curso · hasta el ' + fechaCorta(a.fin) : faltan === 0 ? 'Hoy' : faltan === 1 ? 'Mañana' : 'Faltan ' + faltan + ' días') +
+      ' · ' + mayuscula(fechaCorta(a.fecha)) + (a.fin && !enCurso ? ' al ' + fechaCorta(a.fin) : '') + (a.hora ? ' · ' + a.hora : '');
+  }
+  function renderEventos() {
+    var d = estado.datos, hoy = d.hoy || hoyISO();
+    document.title = 'Eventos · Cong. Los Romeros';
+    var ocultos = leer('avisos-ocultos') || {};
+    var lista = (d.inicio.avisos || []).slice().sort(function (a, b) { return String(a.fecha || '9999').localeCompare(String(b.fecha || '9999')); });
+    var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Inicio</button><h1>Eventos y avisos</h1></div></div>';
+    if (!lista.length) h += '<p class="vacio">No hay eventos ni avisos por ahora.</p>';
+    var mes = '';
+    lista.forEach(function (a) {
+      var m = a.fecha ? a.fecha.slice(0, 7) : 'sin-fecha';
+      if (m !== mes) {
+        if (mes) h += '</section>';
+        mes = m;
+        h += '<section class="avisos eventos-mes"><h2 class="t-h">' + (a.fecha ? esc(mayuscula(MESES[+m.slice(5, 7) - 1]) + ' ' + m.slice(0, 4)) : 'Otros avisos') + '</h2>';
+      }
+      var cuando = cuandoAviso(a, hoy), faltan = a.fecha ? diasEntre(hoy, a.fecha) : null;
+      h += '<div class="aviso-item"><span class="circulo ' + (a.icono === 'megafono' ? 'beige' : 'teal') + '">' + svg(a.icono || 'megafono') + '</span><div>' +
+        '<div class="aviso-t">' + esc(a.titulo) + '</div>' + (a.detalle ? '<div class="aviso-d">' + esc(a.detalle) + '</div>' : '') +
+        (cuando ? '<div class="aviso-f' + (faltan != null && faltan >= 0 && faltan <= 7 ? ' pronto' : '') + '">' + esc(cuando) + '</div>' : '') +
+        (a.lugar ? '<div class="aviso-d">' + esc(a.lugar) + '</div>' : '') +
+        '<div class="aviso-acc">' + (a.fecha ? '<button type="button" class="enlace-boton" data-cal-aviso="' + esc(a.id) + '">Agregar al calendario</button>' : '') +
+        (!a.fijo && ocultos[a.id] ? '<button type="button" class="enlace-boton quitar" data-mostrar-aviso="' + esc(a.id) + '">Mostrar en el inicio</button>' : '') + '</div>' +
+        '</div></div>';
+    });
+    if (mes) h += '</section>';
+    app.innerHTML = h;
+    window.scrollTo(0, 0);
+    document.getElementById('volver').addEventListener('click', function () { location.hash = ''; });
+    app.querySelectorAll('[data-cal-aviso]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var a = lista.filter(function (x) { return x.id === b.getAttribute('data-cal-aviso'); })[0];
+        if (a) agregarAlCalendario(a);
+      });
+    });
+    app.querySelectorAll('[data-mostrar-aviso]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var o = leer('avisos-ocultos') || {};
+        delete o[b.getAttribute('data-mostrar-aviso')];
+        guardar('avisos-ocultos', o);
+        aviso('Volverá a aparecer en el inicio.');
+        renderEventos();
+      });
+    });
   }
 
   /* ---------- Agregar un aviso al calendario ---------- */
