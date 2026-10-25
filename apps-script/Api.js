@@ -352,6 +352,9 @@ function datosUsuario_(yo, cfg) {
   out.documentos = { noPasar: enAudiencia_(cfg.noPasarVisiblePara || 'todos', yo), mapa: enAudiencia_(cfg.mapaVisiblePara || 'todos', yo) };
   try { out.solicitudesNoPasar = solicitudesParaUsuario_(yo, cfg); } catch (e) { out.solicitudesNoPasar = { puedeSolicitar: false, porAprobar: [], mias: [] }; }
 
+  // Confirmación anual de los datos de contacto
+  try { out.confirmarDatos = debeConfirmarDatos_(personaFila_(yo.nombre), cfg); } catch (e) { out.confirmarDatos = false; }
+
   // Contactos de emergencia (ancianos y secretario: todos; superintendente y auxiliar: su grupo)
   try { var alc = alcanceEmergencias_(yo, cfg); out.emergencias = { puedeVer: alc === 'todos' || alc.length > 0 }; } catch (e) { out.emergencias = { puedeVer: false }; }
 

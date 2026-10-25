@@ -41,7 +41,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v34'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v35'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -248,6 +248,13 @@
       '<section class="saludo"><div class="saludo-fecha">' + esc(mayuscula(fechaLarga(hoy))) + '</div>' +
       '<h1>Hola, ' + esc(u.apodo || primerNombre(u.nombre)) + '</h1><p>Tu semana de un vistazo</p></section>';
     if (estado.sinConexion) h += '<div class="estado-red">Sin conexión. Estás viendo los últimos datos guardados.</div>';
+
+    // Confirmación anual de datos de contacto y de emergencia
+    if (d.confirmarDatos) {
+      h += '<a class="confirmar-datos" href="#datos"><span class="circulo">' + svg('cruz') + '</span>' +
+        '<span><span class="registrar-t">Confirma tus datos de contacto</span>' +
+        '<span class="registrar-d">Una vez al año revisamos tu teléfono, dirección y contacto de emergencia. Toma un minuto.</span></span>' + SVG_CHEVRON + '</a>';
+    }
 
     // Requiere tu atención: asignaciones rechazadas y solicitudes de No pasar por aprobar
     var solic = (d.solicitudesNoPasar && d.solicitudesNoPasar.porAprobar) || [];
@@ -1191,6 +1198,7 @@
             (c.telefono ? '<div class="em-acc"><a class="btn em-llamar" href="' + esc(telURL(c.telefono)) + '">' + svg('telefono') + 'Llamar</a>' +
               '<a class="btn wa" target="_blank" rel="noopener" href="' + esc(whatsappURL(c.telefono, '')) + '">' + svg('chat') + 'WhatsApp</a></div>' : '') + '</div>'
           : '<div class="em-c em-falta">Sin contacto de emergencia registrado</div>') +
+        '<div class="em-conf' + (x.confirmadosEl ? '' : ' no') + '">' + (x.confirmadosEl ? 'Datos confirmados el ' + esc(fechaCorta(x.confirmadosEl)) + ' ' + x.confirmadosEl.slice(0, 4) : 'Datos sin confirmar') + '</div>' +
         '</article>';
     });
     if (!lista.length) h += '<p class="vacio">No hay resultados.</p>';
@@ -1480,8 +1488,10 @@
             '<label for="dt-em-tel">Teléfono</label><input id="dt-em-tel" type="tel" inputmode="tel" autocomplete="off" placeholder="+56 9 1234 5678" value="' + esc(em.telefono || '') + '">' +
             '<p class="dt-nota">Queda en el directorio de la congregación, para usarlo en caso de emergencia. No se muestra a otros hermanos en la app.</p></fieldset>';
         })()) +
+        (nuevo ? '' : '<p class="dt-nota">' + (r.confirmadosEl ? 'Confirmaste tus datos por última vez el ' + esc(fechaLarga(r.confirmadosEl)) + ' de ' + r.confirmadosEl.slice(0, 4) + '.' : 'Aún no has confirmado tus datos.') +
+          ' Si todo está bien, toca el botón igual: así queda confirmado por un año.</p>') +
         '<p class="login-error" id="dt-msg" role="alert" hidden></p>' +
-        '<button type="submit" class="btn" id="dt-enviar">' + (nuevo ? 'Confirmar y entrar' : 'Guardar') + '</button>' +
+        '<button type="submit" class="btn" id="dt-enviar">' + (nuevo ? 'Confirmar y entrar' : estado.datos && estado.datos.confirmarDatos ? 'Confirmar mis datos' : 'Guardar') + '</button>' +
         (nuevo ? '<button type="button" class="enlace-boton" id="dt-salir">Entrar con otra cuenta</button>' : '<a class="enlace-boton" href="#">Volver</a>') +
         '</form></section>';
       app.innerHTML = h;
@@ -1518,7 +1528,8 @@
               '<button type="button" class="btn" id="dt-ok">Entendido</button></section>';
             document.getElementById('dt-ok').addEventListener('click', function () { salir(); });
           } else {
-            aviso(res.estado === 'Pendiente' ? 'Guardado. El cambio de nombre lo revisará un anciano.' : 'Tus datos quedaron guardados.');
+            if (estado.datos) estado.datos.confirmarDatos = false;
+            aviso(res.estado === 'Pendiente' ? 'Guardado. El cambio de nombre lo revisará un anciano.' : 'Tus datos quedaron confirmados. ¡Gracias!');
             location.hash = '';
             cargar();
           }

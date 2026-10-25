@@ -663,3 +663,14 @@ a.resumen-cab.enlace .chevron { width: 20px; height: 20px; color: var(--muted); 
 .em-falta { color: #b8473a; font-weight: 600; font-size: 14px; }
 .tarjeta.em-sin { box-shadow: inset 3px 0 0 #b8473a, var(--sombra); }
 .em-sin-t { color: #b8473a; font-weight: 600; }
+
+/* Confirmación anual de datos */
+.confirmar-datos { display: grid; grid-template-columns: 52px 1fr auto; gap: 14px; align-items: center; padding: 14px 16px; border-radius: var(--radius);
+  background: #b8473a; color: #fff; text-decoration: none; box-shadow: var(--sombra); }
+.confirmar-datos .circulo { background: rgba(255, 255, 255, .2); color: #fff; }
+.confirmar-datos .registrar-t { display: block; font-weight: 800; font-size: 17px; }
+.confirmar-datos .registrar-d, .confirmar-datos .registrar-t { color: #fff; }
+.confirmar-datos .registrar-d { display: block; font-size: 14px; opacity: .92; }
+.confirmar-datos .chevron { width: 20px; height: 20px; color: #fff; }
+.em-conf { font-size: 12px; color: var(--muted); }
+.em-conf.no { color: #b8473a; font-weight: 600; }

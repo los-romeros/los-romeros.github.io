@@ -21,7 +21,7 @@ function listaEmergencias_() {
   return leerTabla_('personas').filter(function (p) { return texto_(p['Nombre']); }).map(function (p) {
     return {
       nombre: texto_(p['Nombre']), grupo: +p['Grupo'] || null,
-      telefono: String(p['Teléfono (WhatsApp)'] || ''), direccion: texto_(p['Dirección']),
+      telefono: String(p['Teléfono (WhatsApp)'] || ''), direccion: texto_(p['Dirección']), confirmadosEl: datosConfirmadosEl_(p),
       contacto: { nombre: texto_(p['Emergencia: nombre']), parentesco: texto_(p['Emergencia: parentesco']),
         direccion: texto_(p['Emergencia: dirección']), telefono: String(p['Emergencia: teléfono'] || '') }
     };
@@ -61,16 +61,16 @@ function planillaEmergencias_(cfg, actualizar) {
     var sh = ss.getSheets()[0];
     sh.setName('Contactos');
     sh.clear();
-    var titulos = ['Grupo', 'Nombre', 'Teléfono', 'Dirección', 'Contacto de emergencia', 'Parentesco', 'Teléfono del contacto', 'Dirección del contacto'];
+    var titulos = ['Grupo', 'Nombre', 'Teléfono', 'Dirección', 'Contacto de emergencia', 'Parentesco', 'Teléfono del contacto', 'Dirección del contacto', 'Confirmado el'];
     var filas = listaEmergencias_().map(function (x) {
-      return [x.grupo || '', x.nombre, x.telefono, x.direccion, x.contacto.nombre, x.contacto.parentesco, x.contacto.telefono, x.contacto.direccion];
+      return [x.grupo || '', x.nombre, x.telefono, x.direccion, x.contacto.nombre, x.contacto.parentesco, x.contacto.telefono, x.contacto.direccion, x.confirmadosEl || 'Sin confirmar'];
     });
     sh.getRange(1, 1, 1, titulos.length).setValues([titulos]).setFontWeight('bold').setBackground('#5e8499').setFontColor('#ffffff').setWrap(true);
     sh.getRange(2, 3, Math.max(filas.length, 1), 1).setNumberFormat('@');
     sh.getRange(2, 7, Math.max(filas.length, 1), 1).setNumberFormat('@');
     if (filas.length) sh.getRange(2, 1, filas.length, titulos.length).setValues(filas).setVerticalAlignment('top').setWrap(true);
     sh.setFrozenRows(1);
-    [55, 190, 110, 230, 170, 110, 120, 230].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+    [55, 190, 110, 230, 170, 110, 120, 230, 100].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
     // Separación visual entre grupos y en rojo quien no tiene contacto de emergencia
     var reglas = [
       SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($B2<>"",$E2="")').setBackground('#f6e3df')

@@ -14,6 +14,18 @@ function mismoTelefono_(a, b) {
   return a.length >= 8 && b.length >= 8 && a.slice(-8) === b.slice(-8);
 }
 
+/** Fecha (AAAA-MM-DD) en que la persona confirmó sus datos por última vez, o ''. */
+function datosConfirmadosEl_(fila) {
+  var v = fila && fila['Datos confirmados el'];
+  return v instanceof Date ? Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(v || '').slice(0, 10);
+}
+
+/** ¿Le toca confirmar sus datos? (una vez al año: Inicio ▸ diasConfirmarDatos) */
+function debeConfirmarDatos_(fila, cfg) {
+  var f = datosConfirmadosEl_(fila);
+  return !f || f < sumarDias_(hoyISO_(), -(+cfg.diasConfirmarDatos || 365));
+}
+
 function personaFila_(nombre) {
   return leerTabla_('personas').filter(function (p) { return norm_(p['Nombre']) === norm_(nombre); })[0] || null;
 }
@@ -23,7 +35,7 @@ function misDatos_(correo, yo) {
   if (yo.registrado) {
     var f = personaFila_(yo.nombre) || {};
     return { ok: true, registrado: true, nombre: yo.nombre, apodo: f['Cómo le dicen'] || '', telefono: String(f['Teléfono (WhatsApp)'] || ''), correo: correo,
-      direccion: f['Dirección'] || '',
+      direccion: f['Dirección'] || '', confirmadosEl: datosConfirmadosEl_(f),
       emergencia: { nombre: f['Emergencia: nombre'] || '', parentesco: f['Emergencia: parentesco'] || '', direccion: f['Emergencia: dirección'] || '', telefono: String(f['Emergencia: teléfono'] || '') } };
   }
   var nombres = leerTabla_('personas').filter(function (p) { return p['Nombre'] && !String(p['Correo'] || '').trim(); })
@@ -66,6 +78,8 @@ function actualizarDatos_(correo, yo, p, cfg) {
     if (!yo.registrado) cambios['Correo'] = correo;
     if (!mismoTelefono_(fila['Teléfono (WhatsApp)'], telefono)) cambios['Teléfono (WhatsApp)'] = telefono;
   }
+  // Guardar "Mis datos" estando registrado cuenta como la confirmación anual (aunque no cambie nada)
+  if (yo.registrado) cambios['Datos confirmados el'] = new Date();
   if (Object.keys(cambios).length) actualizarFila_('personas', fila, cambios);
   if (registro['Nombre correcto']) motivos.push('Cambio de nombre');
   registro['Estado'] = motivos.length ? 'Pendiente' : 'Aplicada';
