@@ -59,7 +59,7 @@ var INICIO_POR_DEFECTO = [
   ['informesFormularios', '', 'URLs de planillas de respuestas de formularios de informe que aún se usan (separadas por coma), p. ej. la del grupo 4'],
   ['diasRecordatorioInforme', '1,5,10', 'Días del mes en que se recuerda (notificación) a quien no ha enviado el informe'],
   ['horaRecordatorioInforme', '10', 'Hora (0-23) de ese recordatorio'],
-  ['diasConfirmarDatos', '365', 'Cada cuántos días se pide a cada hermano confirmar sus datos y su contacto de emergencia'],
+  ['fechaConfirmarDatos', '01-09', 'Fecha del año (día-mes) desde la que se pide a todos confirmar sus datos y contacto de emergencia. Quien ya confirmó después de esa fecha no ve el aviso'],
   ['emergenciasVen', 'anciano, secretario', 'Quiénes ven los contactos de emergencia de todos (los superintendentes y auxiliares de grupo ven solo su grupo)'],
   ['asistenciaRegistran', 'anciano, secretario', 'Quiénes registran la asistencia a las reuniones (además, quien tiene acomodación ese día)'],
   ['asistenciaVen', 'secretario', 'Quiénes ven el resumen de asistencia (S-88) y la planilla para imprimir los formularios'],

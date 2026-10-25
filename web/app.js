@@ -41,7 +41,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v35'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v36'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -253,7 +253,7 @@
     if (d.confirmarDatos) {
       h += '<a class="confirmar-datos" href="#datos"><span class="circulo">' + svg('cruz') + '</span>' +
         '<span><span class="registrar-t">Confirma tus datos de contacto</span>' +
-        '<span class="registrar-d">Una vez al año revisamos tu teléfono, dirección y contacto de emergencia. Toma un minuto.</span></span>' + SVG_CHEVRON + '</a>';
+        '<span class="registrar-d">Cada año revisamos el teléfono, la dirección y el contacto de emergencia de todos. Toma un minuto.</span></span>' + SVG_CHEVRON + '</a>';
     }
 
     // Requiere tu atención: asignaciones rechazadas y solicitudes de No pasar por aprobar
@@ -1489,7 +1489,7 @@
             '<p class="dt-nota">Queda en el directorio de la congregación, para usarlo en caso de emergencia. No se muestra a otros hermanos en la app.</p></fieldset>';
         })()) +
         (nuevo ? '' : '<p class="dt-nota">' + (r.confirmadosEl ? 'Confirmaste tus datos por última vez el ' + esc(fechaLarga(r.confirmadosEl)) + ' de ' + r.confirmadosEl.slice(0, 4) + '.' : 'Aún no has confirmado tus datos.') +
-          ' Si todo está bien, toca el botón igual: así queda confirmado por un año.</p>') +
+          ' Si todo está bien, toca el botón igual: así queda confirmado para este año.</p>') +
         '<p class="login-error" id="dt-msg" role="alert" hidden></p>' +
         '<button type="submit" class="btn" id="dt-enviar">' + (nuevo ? 'Confirmar y entrar' : estado.datos && estado.datos.confirmarDatos ? 'Confirmar mis datos' : 'Guardar') + '</button>' +
         (nuevo ? '<button type="button" class="enlace-boton" id="dt-salir">Entrar con otra cuenta</button>' : '<a class="enlace-boton" href="#">Volver</a>') +

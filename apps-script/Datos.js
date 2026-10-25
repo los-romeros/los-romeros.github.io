@@ -20,10 +20,27 @@ function datosConfirmadosEl_(fila) {
   return v instanceof Date ? Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(v || '').slice(0, 10);
 }
 
-/** ¿Le toca confirmar sus datos? (una vez al año: Inicio ▸ diasConfirmarDatos) */
+/**
+ * Fecha anual de confirmación (Inicio ▸ fechaConfirmarDatos, "día-mes", p. ej. 01-09) más reciente que ya llegó.
+ * Ej.: con 01-09, el 25-10-2026 da 2026-09-01; el 15-03-2027 también da 2026-09-01.
+ */
+function inicioConfirmacion_(cfg) {
+  var v = cfg.fechaConfirmarDatos;
+  var dia, mes;
+  if (v instanceof Date) { dia = v.getDate(); mes = v.getMonth() + 1; }
+  else {
+    var m = /^(\d{1,2})[-\/.](\d{1,2})/.exec(String(v || '01-09'));
+    dia = m ? +m[1] : 1; mes = m ? +m[2] : 9;
+  }
+  var hoy = hoyISO_(), anio = +hoy.slice(0, 4);
+  var f = anio + '-' + pad2_(mes) + '-' + pad2_(dia);
+  return f <= hoy ? f : (anio - 1) + '-' + pad2_(mes) + '-' + pad2_(dia);
+}
+
+/** ¿Le toca confirmar sus datos? Sí, si no los ha confirmado desde la fecha anual de confirmación. */
 function debeConfirmarDatos_(fila, cfg) {
   var f = datosConfirmadosEl_(fila);
-  return !f || f < sumarDias_(hoyISO_(), -(+cfg.diasConfirmarDatos || 365));
+  return !f || f < inicioConfirmacion_(cfg);
 }
 
 function personaFila_(nombre) {
