@@ -55,6 +55,7 @@ function doPost(e) {
       case 'aceptarChoque': return json_(conBloqueo_(function () { return aceptarChoque_(yo, p, cfg); }));
       case 'aprobar': return json_(conBloqueo_(function () { return aprobar_(yo, p); }));
       case 'registrar': return json_(registrarPredicacion_(yo, p, cfg));
+      case 'emergencias': return json_(emergencias_(yo, cfg));
       case 'asistencia': return json_(conBloqueo_(function () { return guardarAsistencia_(yo, p, cfg); }));
       case 'resumenAsistencia': return json_(resumenAsistencia_(yo, p, cfg));
       case 'probarAviso': return json_(probarAviso_(yo, cfg));
@@ -350,6 +351,9 @@ function datosUsuario_(yo, cfg) {
   // Documentos del territorio
   out.documentos = { noPasar: enAudiencia_(cfg.noPasarVisiblePara || 'todos', yo), mapa: enAudiencia_(cfg.mapaVisiblePara || 'todos', yo) };
   try { out.solicitudesNoPasar = solicitudesParaUsuario_(yo, cfg); } catch (e) { out.solicitudesNoPasar = { puedeSolicitar: false, porAprobar: [], mias: [] }; }
+
+  // Contactos de emergencia (ancianos y secretario: todos; superintendente y auxiliar: su grupo)
+  try { var alc = alcanceEmergencias_(yo, cfg); out.emergencias = { puedeVer: alc === 'todos' || alc.length > 0 }; } catch (e) { out.emergencias = { puedeVer: false }; }
 
   // Asistencia a las reuniones
   try {

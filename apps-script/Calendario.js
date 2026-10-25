@@ -170,6 +170,9 @@ function tareasHorarias() {
     if (hora >= +(cfg.horaAvisoDiaAntes || 18) && unaVezAlDia_('AVISO_DIA_ANTES')) cambios += avisosDiaAntes_(asign, cfg);
     if (dia === 1 && hora >= 8 && unaVezAlDia_('RESUMEN_SEMANAL')) resumenSemanal_(asign, cfg);
     try { recordatoriosInforme_(cfg); } catch (e) { registrar_('Error en recordatorio de informe', e.message); }
+    if (hora >= 3 && PropertiesService.getScriptProperties().getProperty('EMERGENCIAS_ID') && unaVezAlDia_('EMERGENCIAS')) {
+      try { planillaEmergencias_(cfg, true); } catch (e) { registrar_('Error al actualizar contactos de emergencia', e.message); }
+    }
     if (hora >= 3 && PropertiesService.getScriptProperties().getProperty('ASISTENCIA_ID') && unaVezAlDia_('DATOS_S1')) {
       try { actualizarDatosS1_(cfg); } catch (e) { registrar_('Error al actualizar S-1', e.message); }
     }

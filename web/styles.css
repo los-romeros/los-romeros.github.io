@@ -641,3 +641,25 @@ a.resumen-cab.enlace .chevron { width: 20px; height: 20px; color: var(--muted); 
 .s88 tr.vacia td { color: var(--muted); }
 .s88 tfoot td { font-weight: 600; }
 .s88-scroll { overflow-x: auto; }
+.det a.bosquejo { color: inherit; text-decoration: underline; text-decoration-color: var(--hero); text-underline-offset: 3px; }
+
+/* Emergencias */
+.circulo.rojo { background: #f6e3df; color: #b8473a; }
+.tarjeta.em { gap: 10px; padding: 14px 16px; }
+.em-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.em-n { font-weight: 700; font-size: 17px; }
+.em-dir { display: flex; gap: 4px; align-items: flex-start; color: var(--muted); font-size: 14px; text-decoration: none; margin-top: 2px; }
+.em-dir svg { width: 15px; height: 15px; flex: none; margin-top: 2px; }
+.em-btn { flex: none; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--chip, #e7eef2); color: var(--primary-ink); }
+.em-btn svg { width: 20px; height: 20px; }
+.em-c { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 3px; }
+.em-et { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.em-cn { font-weight: 600; }
+.em-cn small { font-weight: 400; color: var(--muted); }
+.em-cd { font-size: 14px; color: var(--muted); }
+.em-acc { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.em-llamar { display: inline-flex; align-items: center; gap: 6px; background: #b8473a; color: #fff; text-decoration: none; }
+.em-llamar svg { width: 18px; height: 18px; }
+.em-falta { color: #b8473a; font-weight: 600; font-size: 14px; }
+.tarjeta.em-sin { box-shadow: inset 3px 0 0 #b8473a, var(--sombra); }
+.em-sin-t { color: #b8473a; font-weight: 600; }

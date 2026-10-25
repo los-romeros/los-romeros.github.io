@@ -32,6 +32,8 @@
     alto: '<path d="M8.5 2.5h7l5 5v7l-5 5h-7l-5-5v-7z"/><path d="M8 12h8"/>',
     plano: '<path d="m3 6.5 6-3 6 3 6-3v14l-6 3-6-3-6 3z"/><path d="M9 3.5v14M15 6.5v14"/>',
     video: '<rect x="2.5" y="6" width="13" height="12" rx="2"/><path d="m15.5 10.5 6-3.5v10l-6-3.5"/>',
+    telefono: '<path d="M5 3.5h3.5l1.8 4.5-2.3 1.4a11 11 0 0 0 5.6 5.6l1.4-2.3 4.5 1.8V18a2.5 2.5 0 0 1-2.5 2.5A15.5 15.5 0 0 1 2.5 6 2.5 2.5 0 0 1 5 3.5z"/>',
+    cruz: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 7.5v9M7.5 12h9"/>',
     conteo: '<rect x="3.5" y="3" width="17" height="18" rx="2"/><path d="M7.5 8h2M7.5 12h2M7.5 16h2M12.5 8h4M12.5 12h4M12.5 16h4"/>'
   };
 
@@ -39,7 +41,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v33'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v34'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -228,6 +230,7 @@
     if (ruta === 'registrar' || ruta === 'informe') { renderInicio(); return; }
     if (ruta === 'datos') { renderDatos(false); return; }
     if (ruta === 'mias') { renderMias(); return; }
+    if (ruta === 'emergencias' && estado.datos.emergencias && estado.datos.emergencias.puedeVer) { renderEmergencias(); return; }
     if (ruta === 'asistencia' && estado.datos.asistencia && estado.datos.asistencia.puedeVer) { renderAsistencia(); return; }
     var prog = m && estado.datos.programas.filter(function (p) { return p.id === m[1]; })[0];
     if (prog) renderPrograma(prog); else renderInicio();
@@ -407,6 +410,11 @@
       h += '<a class="baldosa" href="#informes"><span class="baldosa-top"><span class="circulo">' + svg('grupo') + '</span>' + SVG_CHEVRON + '</span>' +
         '<span class="baldosa-nombre">Informes</span><span class="baldosa-det">De ' + esc(d.informe.mesNombre.split(' ')[0].toLowerCase()) + '</span>' +
         '<span class="baldosa-fecha">' + svg('calendario') + 'Quién falta</span></a>';
+    }
+    if (d.emergencias && d.emergencias.puedeVer) {
+      h += '<a class="baldosa" href="#emergencias"><span class="baldosa-top"><span class="circulo rojo">' + svg('cruz') + '</span>' + SVG_CHEVRON + '</span>' +
+        '<span class="baldosa-nombre">Emergencias</span><span class="baldosa-det">Contactos de los hermanos</span>' +
+        '<span class="baldosa-fecha">' + svg('telefono') + 'Llamar rápido</span></a>';
     }
     if (d.asistencia && d.asistencia.puedeVer) {
       h += '<a class="baldosa" href="#asistencia"><span class="baldosa-top"><span class="circulo">' + svg('conteo') + '</span>' + SVG_CHEVRON + '</span>' +
@@ -803,6 +811,18 @@
     }
   }
 
+  /** Detalle de una fila; en el fin de semana, el título del discurso enlaza a su bosquejo en jw.org. */
+  function detalleHTML(f, prog) {
+    var url = prog.id === 'finsemana' && /^discurso/i.test(f.texto || '') ? urlBosquejo(f.detalle) : '';
+    return url ? '<a class="bosquejo" href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(f.detalle) + '</a>' : esc(f.detalle);
+  }
+  /** "45. Título…" -> enlace al bosquejo n.º 45 (docid 1000000 + número - 1). */
+  function urlBosquejo(titulo) {
+    var m = /^\s*(?:n[°º.]?\s*)?(\d{1,3})\s*[.\-–:)]/i.exec(String(titulo || ''));
+    if (!m || +m[1] < 1 || +m[1] > 250) return '';
+    return 'https://www.jw.org/finder?srcid=jwlshare&wtlocale=S&prefer=lang&docid=' + (1000000 + +m[1] - 1);
+  }
+
   function reunionTiene(r, q) {
     return r.secciones.some(function (s) {
       return s.filas.some(function (f) { return f.asignados.some(function (a) { return norm(a.nombre).indexOf(q) >= 0; }); });
@@ -840,7 +860,7 @@
         h += '<div class="fila' + (soloNombres ? ' solo-nombres' : '') + '">';
         if (!soloNombres) {
           h += '<div class="izq">' + (f.texto ? '<div class="txt">' + esc(f.texto) + '</div>' : '') +
-            (f.detalle ? '<div class="det">' + esc(f.detalle) + '</div>' : '') + '</div>';
+            (f.detalle ? '<div class="det">' + detalleHTML(f, prog) + '</div>' : '') + '</div>';
         }
         h += nombresHTML(f, q, prog) + '</div>';
       });
@@ -1116,6 +1136,77 @@
       var n = document.getElementById('buscar-t'); n.focus();
     });
     document.getElementById('registrar-nuevo').addEventListener('click', function () { abrirRegistro(null); });
+  }
+
+  /* ---------- Contactos de emergencia ---------- */
+  function telURL(t) {
+    var n = String(t || '').replace(/\D/g, '');
+    if (n.length === 8) n = '569' + n; else if (n.length === 9 && n.charAt(0) === '9') n = '56' + n;
+    return n ? 'tel:+' + n : '';
+  }
+  /** Los datos se piden cada vez (no se guardan en el teléfono): solo quedan en memoria mientras la app está abierta. */
+  function renderEmergencias() {
+    document.title = 'Emergencias · Cong. Los Romeros';
+    var t = estado.emergencias;
+    var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Inicio</button><h1>Emergencias</h1></div>' +
+      '<label class="buscar">' + SVG_LUPA + '<input id="buscar-em" type="search" placeholder="Buscar un hermano o contacto" autocomplete="off" value="' + esc(estado.buscarEm || '') + '" aria-label="Buscar"></label></div>';
+    if (!t) {
+      app.innerHTML = h + '<p class="vacio">Cargando contactos…</p>';
+      document.getElementById('volver').addEventListener('click', function () { location.hash = ''; });
+      api('emergencias').then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        estado.emergencias = r;
+        if (location.hash === '#emergencias') renderEmergencias();
+      }).catch(function (e) {
+        if (e.message === 'sesion') return;
+        app.innerHTML = h + '<p class="vacio">' + esc(e.message && e.message !== 'red' ? e.message : 'No se pudieron cargar los contactos. Revisa tu conexión.') + '</p>';
+        document.getElementById('volver').addEventListener('click', function () { location.hash = ''; });
+      });
+      return;
+    }
+    var q = norm(estado.buscarEm || ''), g = estado.grupoEm || '';
+    var grupos = t.lista.map(function (x) { return x.grupo; }).filter(function (x, i, a) { return x && a.indexOf(x) === i; });
+    if (grupos.length > 1) {
+      h += '<div class="filtros terr-chips" role="group" aria-label="Grupo"><button type="button" class="filtro' + (!g ? ' activo' : '') + '" data-grupo-em="">Todos</button>' +
+        grupos.map(function (x) { return '<button type="button" class="filtro' + (+g === x ? ' activo' : '') + '" data-grupo-em="' + x + '">Grupo ' + x + '</button>'; }).join('') + '</div>';
+    }
+    var lista = t.lista.filter(function (x) {
+      if (g && x.grupo !== +g) return false;
+      return !q || norm(x.nombre + ' ' + x.contacto.nombre + ' ' + x.direccion).indexOf(q) >= 0;
+    });
+    var sin = lista.filter(function (x) { return !x.contacto.nombre && !x.contacto.telefono; }).length;
+    h += '<p class="ayuda-editar">' + (t.todos ? '' : 'Tu grupo. ') + lista.length + ' hermano' + (lista.length === 1 ? '' : 's') + (sin ? ' · <span class="em-sin-t">' + sin + ' sin contacto de emergencia</span>' : '') + '</p>';
+    if (t.url) h += '<a class="btn btn-sec" href="' + esc(t.url) + '" target="_blank" rel="noopener">Abrir planilla para imprimir</a>';
+    var grupoActual = null;
+    lista.forEach(function (x) {
+      if (x.grupo !== grupoActual) { grupoActual = x.grupo; h += '<h2 class="t-h">' + (x.grupo ? 'Grupo ' + x.grupo : 'Sin grupo') + '</h2>'; }
+      var c = x.contacto, tieneC = c.nombre || c.telefono;
+      h += '<article class="tarjeta em' + (tieneC ? '' : ' em-sin') + '">' +
+        '<div class="em-cab"><div><div class="em-n">' + esc(x.nombre) + '</div>' +
+        (x.direccion ? '<a class="em-dir" target="_blank" rel="noopener" href="' + esc(mapsURL(direccionMaps(x.direccion))) + '">' + SVG_PIN + esc(x.direccion) + '</a>' : '') + '</div>' +
+        (x.telefono ? '<a class="em-btn" href="' + esc(telURL(x.telefono)) + '" aria-label="Llamar a ' + esc(x.nombre) + '">' + svg('telefono') + '</a>' : '') + '</div>' +
+        (tieneC
+          ? '<div class="em-c"><span class="em-et">Contacto de emergencia</span><div class="em-cn">' + esc(c.nombre || '—') + (c.parentesco ? ' <small>· ' + esc(c.parentesco) + '</small>' : '') + '</div>' +
+            (c.direccion ? '<div class="em-cd">' + esc(c.direccion) + '</div>' : '') +
+            (c.telefono ? '<div class="em-acc"><a class="btn em-llamar" href="' + esc(telURL(c.telefono)) + '">' + svg('telefono') + 'Llamar</a>' +
+              '<a class="btn wa" target="_blank" rel="noopener" href="' + esc(whatsappURL(c.telefono, '')) + '">' + svg('chat') + 'WhatsApp</a></div>' : '') + '</div>'
+          : '<div class="em-c em-falta">Sin contacto de emergencia registrado</div>') +
+        '</article>';
+    });
+    if (!lista.length) h += '<p class="vacio">No hay resultados.</p>';
+    app.innerHTML = h;
+    document.getElementById('volver').addEventListener('click', function () { estado.emergencias = null; location.hash = ''; });
+    var bq = document.getElementById('buscar-em');
+    bq.addEventListener('input', function () {
+      estado.buscarEm = bq.value;
+      var pos = bq.selectionStart;
+      renderEmergencias();
+      var n = document.getElementById('buscar-em'); n.focus();
+      try { n.setSelectionRange(pos, pos); } catch (e) { /* no aplica */ }
+    });
+    app.querySelectorAll('[data-grupo-em]').forEach(function (b) {
+      b.addEventListener('click', function () { estado.grupoEm = b.getAttribute('data-grupo-em'); renderEmergencias(); });
+    });
   }
 
   /* ---------- Asistencia a las reuniones ---------- */
@@ -1863,6 +1954,10 @@
       for (var i = 0; i < u.length; i++) t += String.fromCharCode(u[i]);
       return { ok: true, version: 'demo-' + u.length, sinCambios: p.version === 'demo-' + u.length, pdf: btoa(t) };
     });
+    if (accion === 'emergencias') return Promise.resolve({ ok: true, todos: true, url: 'https://docs.google.com', grupos: [], lista: [
+      { nombre: 'Carmen Carrera', grupo: 1, telefono: '56900000001', direccion: 'Los Castaños 188, Concón', contacto: { nombre: 'Vladimir Vergara', parentesco: 'Hijo', direccion: 'Los Castaños 188, Concón', telefono: '56900000002' } },
+      { nombre: 'Sergio Droguett', grupo: 1, telefono: '56900000003', direccion: 'Francisco de Asís 490, Concón', contacto: { nombre: '', parentesco: '', direccion: '', telefono: '' } },
+      { nombre: 'Elcira Fajardo', grupo: 2, telefono: '56900000004', direccion: 'Villa Comercio Block 12', contacto: { nombre: 'Carolina Torres', parentesco: 'Hija, testigo', direccion: 'Villa Comercio Block 1', telefono: '56900000005' } }] });
     if (accion === 'asistencia') return Promise.resolve({ ok: true, total: (+p.presencial || 0) + (+p.zoom || 0) });
     if (accion === 'resumenAsistencia') return Promise.resolve((function () {
       var anio = +p.anio || 2027, meses = ['Septiembre', 'Octubre', 'Noviembre', 'Diciembre', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto'];
