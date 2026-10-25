@@ -226,6 +226,25 @@ function construirBase_() {
   };
 }
 
+/**
+ * Fechas escritas en un texto: "3 al 8 de noviembre", "sábado 6 de febrero", "14 de noviembre de 2026".
+ * Sin año, se usa el de "Mostrar hasta" o el próximo en que la fecha aún no pasó (con 30 días de margen).
+ */
+function fechasDeTexto_(texto, referencia) {
+  var n = norm_(texto).replace(/setiembre/, 'septiembre');
+  var m = /(\d{1,2})(?:\s*(?:al|-|a|y)\s*(\d{1,2}))?\s+de\s+([a-z]+)(?:\s+(?:de\s+|del\s+)?(\d{4}))?/.exec(n);
+  if (!m) return null;
+  var mes = MESES_NOMBRES.indexOf(m[3]);
+  if (mes < 0) return null;
+  var hoy = hoyISO_();
+  var anio = +m[4] || (referencia ? +referencia.slice(0, 4) : +hoy.slice(0, 4));
+  var f = function (d) { return anio + '-' + pad2_(mes + 1) + '-' + pad2_(d); };
+  if (!m[4] && !referencia && f(+m[1]) < sumarDias_(hoy, -30)) anio++;
+  var desde = f(+m[1]), hasta = m[2] ? f(+m[2]) : desde;
+  if (hasta < desde) hasta = desde;
+  return { desde: desde, hasta: hasta };
+}
+
 /** Aviso de la pestaña Avisos para la app (null si está vacío). Con fecha del evento: días que faltan, calendario y recordatorio. */
 function avisoDeFila_(cfg, a) {
   if (!a['Título']) return null;
@@ -236,6 +255,11 @@ function avisoDeFila_(cfg, a) {
     return m ? m[3] + '-' + pad2_(+m[2]) + '-' + pad2_(+m[1]) : /^\d{4}-\d{2}-\d{2}/.test(String(v || '')) ? String(v).slice(0, 10) : '';
   };
   var fecha = iso(a['Fecha del evento']), fin = iso(a['Fecha fin']) || fecha;
+  if (!fecha) {
+    // Sin "Fecha del evento": se toma del texto ("3 al 8 de noviembre", "sábado 6 de febrero")
+    var t = fechasDeTexto_(String(a['Detalle'] || '') + ' ' + String(a['Título'] || ''), iso(a['Mostrar hasta']));
+    if (t) { fecha = t.desde; fin = iso(a['Fecha fin']) || t.hasta; }
+  }
   var hasta = iso(a['Mostrar hasta']) || fin || '9999-12-31';
   var recordar = String(a['Recordar días antes'] === undefined ? '' : a['Recordar días antes']).trim();
   return {
