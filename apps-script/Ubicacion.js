@@ -80,7 +80,9 @@ function ubicarDirecciones_(max, todas) {
     if (buscadas >= (max || 1000) || Date.now() - inicio > 240000) return;
     var texto = textoMapa_(p);
     if (!texto) { noEncontradas.push(p['Nombre']); return; }
-    if (!todas && ubicacionGuardada_(p, texto)) return;
+    var guardada = ubicacionGuardada_(p, texto);
+    // La ubicación que la propia persona marcó en el mapa (✓) no se reemplaza mientras no cambie la dirección
+    if (guardada && (!todas || String(p['Ubicación (mapa)']).indexOf('✓') >= 0)) return;
     buscadas++;
     var g = null;
     try { g = geocodificar_(texto); } catch (e) { console.warn(e.message); return; }
@@ -91,11 +93,28 @@ function ubicarDirecciones_(max, todas) {
   return { ubicadas: ubicadas, noEncontradas: noEncontradas, buscadas: buscadas };
 }
 
+/** Valida unas coordenadas marcadas en la app (dentro de la zona, con un margen). */
+function coordenadasValidas_(u) {
+  var lat = +(u && u.lat), lng = +(u && u.lng);
+  if (!isFinite(lat) || !isFinite(lng) || !lat || !lng) return null;
+  if (lat < ZONA_MAPA.sur - 0.3 || lat > ZONA_MAPA.norte + 0.3 || lng < ZONA_MAPA.oeste - 0.3 || lng > ZONA_MAPA.este + 0.3) return null;
+  return { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6 };
+}
+
+/** Acción "geocodificar": ubica un texto de dirección (para mover el pin en "Mis datos"). */
+function geocodificarAccion_(p) {
+  var tx = limpiarDireccion_(p.texto);
+  if (!tx) return { ok: true, encontrada: false };
+  var g = geocodificar_(tx);
+  return { ok: true, encontrada: !!g, lat: g ? g.lat : null, lng: g ? g.lng : null, exacta: g ? g.exacta : false };
+}
+
 /** Datos para abrir el mapa desde la app: { lat, lng } si se ubicó; si no, el texto limpio para buscar. */
 function mapaDePersona_(p) {
   var texto = textoMapa_(p);
   var u = texto ? ubicacionGuardada_(p, texto) : null;
-  return { lat: u && u.lat !== '' ? u.lat : null, lng: u && u.lng !== '' ? u.lng : null, texto: texto };
+  return { lat: u && u.lat !== '' ? u.lat : null, lng: u && u.lng !== '' ? u.lng : null, texto: texto,
+    confirmada: String(p['Ubicación (mapa)'] || '').indexOf('✓') >= 0 };
 }
 
 /** Menú ▸ Ubicar direcciones en el mapa. */

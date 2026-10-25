@@ -41,7 +41,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v37'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v38'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -1486,6 +1486,9 @@
         (nuevo ? '' : (function () {
           var em = r.emergencia || {};
           return '<label for="dt-dir">Tu dirección</label><input id="dt-dir" autocomplete="street-address" placeholder="Calle, número, depto., comuna" value="' + esc(r.direccion || '') + '">' +
+            '<div class="dt-mapa-c"><div id="dt-mapa" class="dt-mapa" aria-label="Mapa con la ubicación de tu casa"></div>' +
+            '<p class="dt-nota" id="dt-mapa-nota">Cargando el mapa…</p>' +
+            '<button type="button" class="enlace-boton" id="dt-aqui">Estoy en mi casa: usar mi ubicación actual</button></div>' +
             '<fieldset class="dt-grupo"><legend>Contacto de emergencia</legend>' +
             '<label for="dt-em-nom">Nombre</label><input id="dt-em-nom" autocomplete="off" value="' + esc(em.nombre || '') + '">' +
             '<label for="dt-em-par">Parentesco o relación</label><input id="dt-em-par" autocomplete="off" placeholder="Por ejemplo: hija, esposo, vecino" value="' + esc(em.parentesco || '') + '">' +
@@ -1501,6 +1504,8 @@
         '</form></section>';
       app.innerHTML = h;
       document.getElementById('dt-corregir').addEventListener('change', function (e) { document.getElementById('dt-correcto-c').hidden = !e.target.checked; });
+      var pin = { valido: false, marker: null };
+      if (!nuevo) iniciarMapaDatos(r.ubicacion, pin);
       var bs = document.getElementById('dt-salir');
       if (bs) bs.addEventListener('click', function () { salir(); });
       document.getElementById('datos-form').addEventListener('submit', function (e) {
@@ -1517,6 +1522,7 @@
         if (!nuevo) {
           var val = function (id) { return document.getElementById(id).value.trim(); };
           datos.direccion = val('dt-dir');
+          if (pin.valido && pin.marker) { var ll = pin.marker.getLatLng(); datos.ubicacion = { lat: ll.lat, lng: ll.lng }; }
           datos.emergencia = { nombre: val('dt-em-nom'), parentesco: val('dt-em-par'), direccion: val('dt-em-dir'), telefono: val('dt-em-tel') };
         }
         document.getElementById('dt-enviar').disabled = true;
@@ -1549,6 +1555,61 @@
       if (e.message === 'sesion') return;
       app.innerHTML = '<section class="login"><p class="login-error">' + esc(e.message || 'No se pudo cargar.') + '</p></section>';
     });
+  }
+
+  /* ---------- mapa de "Mis datos": pin que se puede mover ---------- */
+  var LEAFLET = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/';
+  function cargarLeaflet() {
+    if (window.L) return Promise.resolve();
+    if (!document.getElementById('leaflet-css')) {
+      var l = document.createElement('link'); l.id = 'leaflet-css'; l.rel = 'stylesheet'; l.href = LEAFLET + 'leaflet.min.css'; document.head.appendChild(l);
+    }
+    return cargarScript(LEAFLET + 'leaflet.min.js');
+  }
+  /** pin = { valido, marker }: valido cuando el pin está en una ubicación real (guardada, buscada, arrastrada o del GPS). */
+  function iniciarMapaDatos(u, pin) {
+    var nota = document.getElementById('dt-mapa-nota'), cont = document.getElementById('dt-mapa');
+    var texto = function (t) { if (nota) nota.textContent = t; };
+    var CONCON = [-32.93, -71.52];
+    cargarLeaflet().then(function () {
+      if (!document.body.contains(cont)) return;
+      var tiene = u && u.lat != null && u.lng != null;
+      var mapa = L.map(cont, { zoomControl: true, attributionControl: true }).setView(tiene ? [u.lat, u.lng] : CONCON, tiene ? 17 : 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mapa);
+      pin.marker = L.marker(tiene ? [u.lat, u.lng] : CONCON, { draggable: true, autoPan: true }).addTo(mapa);
+      pin.valido = !!tiene;
+      var arrastrado = false;
+      var listo = function (t) { pin.valido = true; texto(t); };
+      texto(tiene ? (u.confirmada ? 'Esta es la ubicación que confirmaste. Si no está bien, mueve el pin hasta tu casa.' : 'Revisa que el pin esté en tu casa. Si no, arrástralo hasta el lugar correcto.')
+        : 'Escribe tu dirección y te mostraremos el lugar; luego ajusta el pin si hace falta.');
+      pin.marker.on('dragend', function () { arrastrado = true; listo('Listo: guardaremos esta ubicación al tocar el botón de abajo.'); });
+      mapa.on('click', function (e) { pin.marker.setLatLng(e.latlng); arrastrado = true; listo('Listo: guardaremos esta ubicación al tocar el botón de abajo.'); });
+      // Al cambiar la dirección escrita, se busca y se mueve el pin (si no lo movió a mano)
+      var dir = document.getElementById('dt-dir'), ultima = dir.value.trim();
+      dir.addEventListener('change', function () {
+        var v = dir.value.trim();
+        if (!v || v === ultima || arrastrado) return;
+        ultima = v;
+        texto('Buscando la dirección en el mapa…');
+        api('geocodificar', { texto: v }).then(function (g) {
+          if (!g.ok) throw new Error(g.error);
+          if (!g.encontrada) { texto('No encontramos esa dirección: mueve el pin hasta tu casa (puedes acercar el mapa).'); return; }
+          pin.marker.setLatLng([g.lat, g.lng]); mapa.setView([g.lat, g.lng], 17);
+          listo(g.exacta ? 'Revisa que el pin esté en tu casa. Si no, arrástralo.' : 'Encontramos la calle, pero quizás no el número: mueve el pin hasta tu casa.');
+        }).catch(function () { texto('No se pudo buscar la dirección. Puedes mover el pin a mano.'); });
+      });
+      var aqui = document.getElementById('dt-aqui');
+      if (!('geolocation' in navigator)) aqui.hidden = true;
+      aqui.addEventListener('click', function () {
+        texto('Obteniendo tu ubicación…');
+        navigator.geolocation.getCurrentPosition(function (pos) {
+          var ll = [pos.coords.latitude, pos.coords.longitude];
+          pin.marker.setLatLng(ll); mapa.setView(ll, 18); arrastrado = true;
+          listo('Usamos tu ubicación actual. Si no es exacta, ajusta el pin.');
+        }, function () { texto('No pudimos obtener tu ubicación. Mueve el pin a mano.'); }, { enableHighAccuracy: true, timeout: 15000 });
+      });
+      setTimeout(function () { mapa.invalidateSize(); }, 200);
+    }).catch(function () { texto('No se pudo cargar el mapa. Puedes guardar tus datos igual.'); if (cont) cont.hidden = true; });
   }
 
   /* ---------- informe mensual ---------- */
@@ -1970,6 +2031,10 @@
       for (var i = 0; i < u.length; i++) t += String.fromCharCode(u[i]);
       return { ok: true, version: 'demo-' + u.length, sinCambios: p.version === 'demo-' + u.length, pdf: btoa(t) };
     });
+    if (accion === 'misDatos') return Promise.resolve({ ok: true, registrado: true, nombre: d.usuario.nombre, apodo: '', telefono: '56900000000', correo: 'demo@example.com',
+      direccion: 'Los Lobos 610 block N depto 402, Concón', confirmadosEl: '', ubicacion: { lat: -32.9361, lng: -71.5231, texto: 'Los Lobos 610, Concón, Chile', confirmada: false },
+      emergencia: { nombre: 'Ana Pérez', parentesco: 'Hermana', direccion: 'Centinela 630, Concón', telefono: '56911111111' } });
+    if (accion === 'geocodificar') return Promise.resolve({ ok: true, encontrada: true, lat: -32.9301, lng: -71.5201, exacta: true });
     if (accion === 'emergencias') return Promise.resolve({ ok: true, todos: true, url: 'https://docs.google.com', grupos: [], lista: [
       { nombre: 'Carmen Carrera', grupo: 1, telefono: '56900000001', direccion: 'Los Castaños 188, Concón', contacto: { nombre: 'Vladimir Vergara', parentesco: 'Hijo', direccion: 'Los Castaños 188, Concón', telefono: '56900000002' } },
       { nombre: 'Sergio Droguett', grupo: 1, telefono: '56900000003', direccion: 'Francisco de Asís 490, Concón', contacto: { nombre: '', parentesco: '', direccion: '', telefono: '' } },

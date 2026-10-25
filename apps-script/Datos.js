@@ -52,7 +52,7 @@ function misDatos_(correo, yo) {
   if (yo.registrado) {
     var f = personaFila_(yo.nombre) || {};
     return { ok: true, registrado: true, nombre: yo.nombre, apodo: f['Cómo le dicen'] || '', telefono: String(f['Teléfono (WhatsApp)'] || ''), correo: correo,
-      direccion: f['Dirección'] || '', confirmadosEl: datosConfirmadosEl_(f),
+      direccion: f['Dirección'] || '', confirmadosEl: datosConfirmadosEl_(f), ubicacion: mapaDePersona_(f),
       emergencia: { nombre: f['Emergencia: nombre'] || '', parentesco: f['Emergencia: parentesco'] || '', direccion: f['Emergencia: dirección'] || '', telefono: String(f['Emergencia: teléfono'] || '') } };
   }
   var nombres = leerTabla_('personas').filter(function (p) { return p['Nombre'] && !String(p['Correo'] || '').trim(); })
@@ -95,8 +95,15 @@ function actualizarDatos_(correo, yo, p, cfg) {
     if (!yo.registrado) cambios['Correo'] = correo;
     if (!mismoTelefono_(fila['Teléfono (WhatsApp)'], telefono)) cambios['Teléfono (WhatsApp)'] = telefono;
   }
-  // Dirección nueva: se ubica en el mapa de inmediato (si falla, lo hace la tarea diaria)
-  if (cambios['Dirección'] !== undefined) {
+  // Ubicación marcada por la persona en el mapa (✓): manda sobre la búsqueda automática
+  var marcada = yo.registrado ? coordenadasValidas_(p.ubicacion) : null;
+  if (marcada) {
+    var copiaM = {}; for (var km in fila) copiaM[km] = fila[km];
+    if (cambios['Dirección'] !== undefined) copiaM['Dirección'] = cambios['Dirección'];
+    var txM = textoMapa_(copiaM);
+    if (txM) cambios['Ubicación (mapa)'] = marcada.lat + ',' + marcada.lng + ' ✓ | ' + txM;
+  } else if (cambios['Dirección'] !== undefined) {
+    // Dirección nueva: se ubica en el mapa de inmediato (si falla, lo hace la tarea diaria)
     try {
       var copia = {}; for (var k in fila) copia[k] = fila[k];
       copia['Dirección'] = cambios['Dirección'];

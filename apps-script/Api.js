@@ -43,6 +43,7 @@ function doPost(e) {
     if (!correoSesion) return json_({ ok: false, codigo: 'sesion', error: 'Tu sesión terminó. Vuelve a entrar.' });
     var yo = perfil_(correoSesion);
     if (p.accion === 'misDatos') return json_(misDatos_(correoSesion, yo));
+    if (p.accion === 'geocodificar') return json_(geocodificarAccion_(p));
     if (p.accion === 'actualizarDatos') return json_(conBloqueo_(function () { return actualizarDatos_(correoSesion, yo, p, cfg); }));
     if (!yo.registrado) return json_({ ok: false, codigo: 'sesion', error: 'Tu correo ya no está en el directorio.' });
 

@@ -674,3 +674,9 @@ a.resumen-cab.enlace .chevron { width: 20px; height: 20px; color: var(--muted); 
 .confirmar-datos .chevron { width: 20px; height: 20px; color: #fff; }
 .em-conf { font-size: 12px; color: var(--muted); }
 .em-conf.no { color: #b8473a; font-weight: 600; }
+
+/* Mapa en "Mis datos" */
+.dt-mapa-c { display: flex; flex-direction: column; gap: 6px; }
+.dt-mapa { height: 240px; border-radius: 12px; overflow: hidden; background: #dfe7ea; }
+.dt-mapa-c .enlace-boton { color: #fff; align-self: flex-start; font-size: 14px; }
+.leaflet-container { font: inherit; }
