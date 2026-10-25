@@ -170,6 +170,9 @@ function tareasHorarias() {
     if (hora >= +(cfg.horaAvisoDiaAntes || 18) && unaVezAlDia_('AVISO_DIA_ANTES')) cambios += avisosDiaAntes_(asign, cfg);
     if (dia === 1 && hora >= 8 && unaVezAlDia_('RESUMEN_SEMANAL')) resumenSemanal_(asign, cfg);
     try { recordatoriosInforme_(cfg); } catch (e) { registrar_('Error en recordatorio de informe', e.message); }
+    if (hora >= +(cfg.horaRecordatorioAvisos || 10) && unaVezAlDia_('RECORDATORIO_AVISOS')) {
+      try { recordatoriosAvisos_(cfg); } catch (e) { registrar_('Error en recordatorio de avisos', e.message); }
+    }
     if (hora >= 3 && unaVezAlDia_('UBICAR_DIRECCIONES')) {
       try { ubicarDirecciones_(40); } catch (e) { registrar_('Error al ubicar direcciones', e.message); }
     }

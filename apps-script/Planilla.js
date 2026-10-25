@@ -34,8 +34,8 @@ var HOJAS = {
   },
   avisos: {
     nombre: 'Avisos',
-    titulos: ['Título', 'Detalle', 'Ícono', 'Mostrar hasta', 'Orden', 'Visible para'],
-    anchos: [260, 260, 110, 120, 60, 200]
+    titulos: ['Título', 'Detalle', 'Ícono', 'Mostrar hasta', 'Orden', 'Visible para', 'Fecha del evento', 'Fecha fin', 'Hora', 'Lugar', 'Fijo (no se puede quitar)', 'Recordar días antes'],
+    anchos: [260, 260, 110, 120, 60, 200, 120, 120, 70, 220, 110, 110]
   },
   visibilidad: {
     nombre: 'Visibilidad',

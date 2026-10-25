@@ -680,3 +680,9 @@ a.resumen-cab.enlace .chevron { width: 20px; height: 20px; color: var(--muted); 
 .dt-mapa { height: 240px; border-radius: 12px; overflow: hidden; background: #dfe7ea; }
 .dt-mapa-c .enlace-boton { color: #fff; align-self: flex-start; font-size: 14px; }
 .leaflet-container { font: inherit; }
+.aviso-f { font-size: 14px; font-weight: 700; color: var(--primary-ink); margin-top: 2px; }
+.aviso-f.pronto { color: #b8473a; }
+.aviso-acc { display: flex; gap: 16px; margin-top: 6px; flex-wrap: wrap; }
+.aviso-acc .enlace-boton { font-size: 14px; }
+.aviso-acc .quitar { color: var(--muted); }
+.aviso-rec { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #fff; background: #b8473a; border-radius: 999px; padding: 2px 8px; margin-bottom: 2px; }

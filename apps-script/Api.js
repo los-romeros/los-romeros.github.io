@@ -204,14 +204,10 @@ function construirBase_() {
     });
 
   var avisos = leerTabla_('avisos', { opcional: true })
-    .filter(function (a) {
-      if (!a['Título']) return false;
-      var h = a['Mostrar hasta'];
-      return !(h instanceof Date) || Utilities.formatDate(h, Session.getScriptTimeZone(), 'yyyy-MM-dd') >= hoy;
-    })
-    .sort(function (a, b) { return (+a['Orden'] || 99) - (+b['Orden'] || 99); })
-    .map(function (a) { return { titulo: a['Título'], detalle: a['Detalle'], icono: a['Ícono'] || 'megafono', visiblePara: a['Visible para'] || '' }; });
-  if (cfg.aviso) avisos.unshift({ titulo: cfg.aviso, detalle: '', icono: 'megafono' });
+    .map(avisoDeFila_.bind(null, cfg))
+    .filter(function (a) { return a && a.hasta >= hoy; })
+    .sort(function (a, b) { return (a.orden - b.orden) || String(a.fecha || '9').localeCompare(String(b.fecha || '9')); });
+  if (cfg.aviso) avisos.unshift({ id: 'inicio|' + norm_(cfg.aviso), titulo: cfg.aviso, detalle: '', icono: 'megafono', fijo: true });
 
   var reglas = leerTabla_('visibilidad', { opcional: true })
     .filter(function (v) { return v['Programa'] && v['Elemento']; })
@@ -228,6 +224,46 @@ function construirBase_() {
     programas: programas,
     enlaces: enlaces
   };
+}
+
+/** Aviso de la pestaña Avisos para la app (null si está vacío). Con fecha del evento: días que faltan, calendario y recordatorio. */
+function avisoDeFila_(cfg, a) {
+  if (!a['Título']) return null;
+  var tz = Session.getScriptTimeZone();
+  var iso = function (v) {
+    if (v instanceof Date) return Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+    var m = /^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/.exec(String(v || ''));
+    return m ? m[3] + '-' + pad2_(+m[2]) + '-' + pad2_(+m[1]) : /^\d{4}-\d{2}-\d{2}/.test(String(v || '')) ? String(v).slice(0, 10) : '';
+  };
+  var fecha = iso(a['Fecha del evento']), fin = iso(a['Fecha fin']) || fecha;
+  var hasta = iso(a['Mostrar hasta']) || fin || '9999-12-31';
+  var recordar = String(a['Recordar días antes'] === undefined ? '' : a['Recordar días antes']).trim();
+  return {
+    id: norm_(a['Título']) + '|' + fecha, titulo: a['Título'], detalle: a['Detalle'] || '', icono: a['Ícono'] || 'megafono', visiblePara: a['Visible para'] || '',
+    fecha: fecha, fin: fin !== fecha ? fin : '', hora: hora_(a['Hora'], a['Hora'] instanceof Date ? Utilities.formatDate(a['Hora'], tz, 'HH:mm') : a['Hora']) || '',
+    lugar: a['Lugar'] || '', fijo: a['Fijo (no se puede quitar)'] === true || si_(a['Fijo (no se puede quitar)']),
+    recordar: recordar !== '' && isFinite(+recordar) ? +recordar : +(cfg.avisoRecordarDias || 7),
+    orden: +a['Orden'] || 99, hasta: hasta
+  };
+}
+
+/** Una vez al día: notificación a quienes ven el aviso, X días antes del evento (aunque lo hayan quitado de su inicio). */
+function recordatoriosAvisos_(cfg) {
+  var hoy = hoyISO_(), props = PropertiesService.getScriptProperties(), n = 0;
+  leerTabla_('avisos', { opcional: true }).map(avisoDeFila_.bind(null, cfg)).forEach(function (a) {
+    if (!a || !a.fecha || a.fecha < hoy || !a.recordar) return;
+    var faltan = Math.round((Date.parse(a.fecha) - Date.parse(hoy)) / 864e5);
+    if (faltan > a.recordar) return;
+    var clave = 'AVISO_RECORDADO:' + a.id;
+    if (props.getProperty(clave)) return;
+    props.setProperty(clave, hoy);
+    var cuando = faltan === 0 ? 'Hoy' : faltan === 1 ? 'Mañana' : 'En ' + faltan + ' días';
+    correosEnAudiencia_(a.visiblePara || 'todos').forEach(function (c) {
+      try { n += notificar_(cfg, c, a.titulo, cuando + (a.hora ? ' a las ' + a.hora : '') + (a.lugar ? ' · ' + a.lugar : ''), './', 'aviso-' + a.id); } catch (e) { /* sigue */ }
+    });
+    registrar_('Recordatorio de aviso', a.titulo + ' · ' + cuando.toLowerCase());
+  });
+  return n;
 }
 
 /* ------------------------------------------------------------------ */

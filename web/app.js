@@ -41,7 +41,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v38'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v39'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -336,12 +336,36 @@
     });
 
     // Avisos (solo informativos, no se pueden tocar)
-    var avisos = d.inicio.avisos || [];
+    // Avisos: días que faltan, agregar al calendario y quitar (los fijos no se quitan;
+    // uno quitado vuelve a aparecer como recordatorio los últimos días antes del evento)
+    var ocultos = leer('avisos-ocultos') || {};
+    var avisos = (d.inicio.avisos || []).map(function (a) {
+      var faltan = a.fecha ? diasEntre(hoy, a.fecha) : null;
+      // Vuelve a aparecer en los días de recordatorio solo si se quitó antes de que empezaran
+      var inicioRecordatorio = a.fecha ? sumarDiasISO(a.fecha, -(a.recordar || 0)) : '';
+      var recordando = faltan != null && faltan >= 0 && faltan <= (a.recordar || 0) && !!ocultos[a.id] && ocultos[a.id] < inicioRecordatorio;
+      return { a: a, faltan: faltan, recordando: recordando, oculto: !a.fijo && ocultos[a.id] && !recordando };
+    }).filter(function (x) { return !x.oculto; });
     if (avisos.length) {
       h += '<section class="avisos" aria-label="Avisos">';
-      avisos.forEach(function (a) {
+      avisos.forEach(function (x) {
+        var a = x.a;
+        var cuando = '';
+        if (a.fecha) {
+          var enCurso = x.faltan < 0 && a.fin && a.fin >= hoy;
+          cuando = enCurso ? 'En curso · hasta el ' + fechaCorta(a.fin)
+            : x.faltan === 0 ? 'Hoy' : x.faltan === 1 ? 'Mañana' : 'Faltan ' + x.faltan + ' días';
+          cuando += ' · ' + mayuscula(fechaCorta(a.fecha)) + (a.fin && !enCurso ? ' al ' + fechaCorta(a.fin) : '') + (a.hora ? ' · ' + a.hora : '');
+        }
         h += '<div class="aviso-item"><span class="circulo ' + (a.icono === 'megafono' ? 'beige' : 'teal') + '">' + svg(a.icono || 'megafono') + '</span>' +
-          '<div><div class="aviso-t">' + esc(a.titulo) + '</div>' + (a.detalle ? '<div class="aviso-d">' + esc(a.detalle) + '</div>' : '') + '</div></div>';
+          '<div>' + (x.recordando ? '<div class="aviso-rec">Recordatorio</div>' : '') + '<div class="aviso-t">' + esc(a.titulo) + '</div>' + (a.detalle ? '<div class="aviso-d">' + esc(a.detalle) + '</div>' : '') +
+          (cuando ? '<div class="aviso-f' + (x.faltan != null && x.faltan <= 7 && x.faltan >= 0 ? ' pronto' : '') + '">' + esc(cuando) + '</div>' : '') +
+          (a.lugar ? '<div class="aviso-d">' + esc(a.lugar) + '</div>' : '') +
+          (a.fecha || !a.fijo ? '<div class="aviso-acc">' +
+            (a.fecha && (x.faltan >= 0 || (a.fin && a.fin >= hoy)) ? '<button type="button" class="enlace-boton" data-cal-aviso="' + esc(a.id) + '">Agregar al calendario</button>' : '') +
+            (!a.fijo ? '<button type="button" class="enlace-boton quitar" data-quitar-aviso="' + esc(a.id) + '">' + 'Quitar' + '</button>' : '') +
+            '</div>' : '') +
+          '</div></div>';
       });
       h += '</section>';
     }
@@ -501,6 +525,21 @@
     });
     app.querySelectorAll('[data-reasignar]').forEach(function (b) {
       b.addEventListener('click', function () { estado.abrirClave = b.getAttribute('data-reasignar'); location.hash = 'p/' + b.getAttribute('data-prog'); });
+    });
+    app.querySelectorAll('[data-quitar-aviso]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var o = leer('avisos-ocultos') || {};
+        o[b.getAttribute('data-quitar-aviso')] = hoyISO();
+        guardar('avisos-ocultos', o);
+        aviso('Aviso quitado. Te lo recordaremos unos días antes.');
+        render();
+      });
+    });
+    app.querySelectorAll('[data-cal-aviso]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var a = (d.inicio.avisos || []).filter(function (x) { return x.id === b.getAttribute('data-cal-aviso'); })[0];
+        if (a) agregarAlCalendario(a);
+      });
     });
     app.querySelectorAll('[data-asistencia]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -1143,6 +1182,45 @@
       var n = document.getElementById('buscar-t'); n.focus();
     });
     document.getElementById('registrar-nuevo').addEventListener('click', function () { abrirRegistro(null); });
+  }
+
+  /* ---------- Agregar un aviso al calendario ---------- */
+  function diasEntre(desde, hasta) {
+    var a = partes(desde), b = partes(hasta);
+    return Math.round((Date.UTC(b.a, b.m - 1, b.d) - Date.UTC(a.a, a.m - 1, a.d)) / 864e5);
+  }
+  function sumarDiasISO(iso, n) {
+    var p = partes(iso), f = new Date(Date.UTC(p.a, p.m - 1, p.d + n));
+    return f.getUTCFullYear() + '-' + ('0' + (f.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + f.getUTCDate()).slice(-2);
+  }
+  /** iPhone: archivo .ics (lo abre Calendario). Otros: Google Calendar con el evento ya escrito. */
+  function agregarAlCalendario(a) {
+    var compacta = function (iso) { return iso.replace(/-/g, ''); };
+    var fin = a.fin || a.fecha;
+    var inicioTxt, finTxt;
+    if (a.hora) {
+      var hm = a.hora.replace(':', '') + '00';
+      var h2 = ('0' + Math.min(23, +a.hora.slice(0, 2) + 2)).slice(-2) + a.hora.slice(3, 5) + '00';
+      inicioTxt = compacta(a.fecha) + 'T' + hm; finTxt = compacta(fin) + 'T' + h2;
+    } else {
+      inicioTxt = compacta(a.fecha); finTxt = compacta(sumarDiasISO(fin, 1)); // todo el día (fin exclusivo)
+    }
+    var detalle = [a.detalle, 'Cong. Los Romeros'].filter(Boolean).join('\n');
+    if (/iphone|ipad|ipod|macintosh/i.test(navigator.userAgent) && !/android/i.test(navigator.userAgent)) {
+      var ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Cong Los Romeros//Avisos//ES', 'BEGIN:VEVENT',
+        'UID:' + encodeURIComponent(a.id) + '@los-romeros', 'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z',
+        (a.hora ? 'DTSTART;TZID=America/Santiago:' : 'DTSTART;VALUE=DATE:') + inicioTxt,
+        (a.hora ? 'DTEND;TZID=America/Santiago:' : 'DTEND;VALUE=DATE:') + finTxt,
+        'SUMMARY:' + String(a.titulo).replace(/[,;]/g, '\\$&'), 'DESCRIPTION:' + detalle.replace(/[,;]/g, '\\$&').replace(/\n/g, '\\n'),
+        a.lugar ? 'LOCATION:' + String(a.lugar).replace(/[,;]/g, '\\$&') : '', 'END:VEVENT', 'END:VCALENDAR'].filter(Boolean).join('\r\n');
+      var url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+      var l = document.createElement('a'); l.href = url; l.download = 'evento.ics'; document.body.appendChild(l); l.click(); l.remove();
+      return;
+    }
+    var g = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(a.titulo) +
+      '&dates=' + inicioTxt + '/' + finTxt + (a.hora ? '&ctz=America/Santiago' : '') +
+      '&details=' + encodeURIComponent(detalle) + (a.lugar ? '&location=' + encodeURIComponent(a.lugar) : '');
+    window.open(g, '_blank', 'noopener');
   }
 
   /* ---------- Contactos de emergencia ---------- */

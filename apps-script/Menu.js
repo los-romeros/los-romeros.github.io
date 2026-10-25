@@ -36,6 +36,8 @@ var INICIO_POR_DEFECTO = [
   ['direccion', 'Jardín Poniente 795, Concón', 'Dirección del Salón del Reino'],
   ['horaEntreSemana', '19:30', 'Hora por defecto de la reunión de entre semana'],
   ['conductorAtalaya', 'Roberto Canales', 'Conductor habitual del estudio de La Atalaya. Si una semana lo reemplaza otro, el encargado lo cambia en la app (queda en la pestaña "Conductor de La Atalaya")'],
+  ['avisoRecordarDias', '7', 'Días antes de un evento (pestaña Avisos, con "Fecha del evento") en que se envía un recordatorio y el aviso vuelve a aparecer aunque el hermano lo haya quitado'],
+  ['horaRecordatorioAvisos', '10', 'Hora del día en que se envía el recordatorio de los avisos'],
   ['horaFinSemana', '18:30', 'Hora por defecto de la reunión del fin de semana'],
   ['duracionMin', '105', 'Duración de los eventos de reunión en el calendario (minutos)'],
   ['diasPasados', '7', 'Días hacia atrás que muestra la app'],
