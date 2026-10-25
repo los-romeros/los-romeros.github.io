@@ -57,6 +57,28 @@ Acceso a Drive desde aquí: script con el token de clasp (`~/.clasprc.json`); so
 - Notificaciones: aviso del día anterior 18:00; registro de salida: aviso en app a 1 h, push desde 2 h cada 10 min.
 - Choques: no comparar predicación, aseo ni hospitalidad.
 
+## Estado actual (2026-10-25)
+- Web **v41** (pie de la app), API **@42**. Todo publicado y en `main`; el árbol de trabajo queda limpio al cerrar cada sesión.
+- En producción con los hermanos: login, programas, confirmaciones, Mis datos (registro, dirección, emergencia, pin, confirmación anual), informes, territorios, asistencia, emergencias, avisos/eventos.
+- Pasos que el usuario debe correr en la planilla tras actualizaciones: **Preparar planilla** (columnas/claves nuevas) y, para direcciones, **Ubicar direcciones en el mapa** (aún no confirmó resultado del geocodificador).
+- Sin verificar en producción (solo demo): formularios S-1/S-3/S-88 generados por script, geocodificador, planilla de emergencias, recordatorio push de avisos.
+
+## Historial resumido (para entender por qué las cosas son como son)
+1. Base: lectores de las hojas de cada responsable → Borrador → aprobación → invitaciones de Calendar; confirmación y reasignación con escritura en la hoja de origen; login Google obligatorio; diseño crema/pizarra con baldosas.
+2. Perfiles (anciano, participa, capitán, secretario) y "visible para"; Zoom; cómo llegar; hospitalidad con superintendente y auxiliar.
+3. Capitanes: registro de lo trabajado (planilla del formulario existente), avisos push; territorios; No pasar con solicitudes; mapa.
+4. Informes mensuales (desde oct-2026) con recordatorios y vista por grupo con WhatsApp "Recordar".
+5. "Mis datos" para registrar correo/teléfono/nombre; importaciones desde "Los Romeros - Registro Predicación.xlsx" (teléfonos, dirección, emergencia).
+6. Choques y sugerencias de reemplazo; mis asignaciones; filtros de predicación; conductor de La Atalaya; bosquejos jw.org (docid = 1000000 + n − 1).
+7. Mapas: PDF de 37 MB → JPG por territorio en Drive; vista "Territorio N y No pasar" con registro, manzanas sugeridas y próximas salidas.
+8. Asistencia (S-1/S-3/S-88), emergencias, confirmación anual de datos con fecha fija, pin en mapa, avisos con cuenta regresiva/calendario/quitar/recordatorio y listado de eventos.
+9. Documentación: este archivo y `docs/MANUAL-ADMIN.md` (enlazado en la app solo para admin).
+
+## Análisis entregados al usuario (para no repetirlos)
+- **Servidor pagado**: no recomendado por ahora (USD 5–25/mes + mantenimiento). Límite real a vigilar: tiempo diario de triggers en cuenta gratuita (~90 min/día); si aparecen errores de tiempo excedido en Registro, bajar `sincronizar` a cada 30 min en `asegurarTareas_`.
+- **Reutilizar en otras apps**: casi todo es reutilizable (PWA + Apps Script + Sheets, login, FCM, Calendar, escritura segura, modo demo, versión visible, WhatsApp, mapas, PDF→JPG, formularios imprimibles).
+
 ## Ideas pendientes (el usuario las pidió "a futuro")
+- **Skill "app-gratuita-google" + repositorio plantilla** (propuesto el 2026-10-25, esperando su respuesta): skill con el método, reglas y problemas resueltos (OAuth "acceso bloqueado", APIs Drive/Calendar en GCP, CORS con text/plain, update-deployment, FALSE en casillas, caché del SW); repo plantilla vacío con login, push, modo demo y planilla base. Crear la skill con la skill `skill-creator`.
 - **Generar automáticamente el programa del mes siguiente** (analizado, no desarrollado): pestañas "Habilitados · [programa]", "Reglas · [programa]" y "No disponibles"; elegir por quien lleva más tiempo sin el rol; escribir en una pestaña nueva de la hoja del responsable solo en celdas vacías. Orden sugerido: acomodación → predicación (con territorio sugerido) → fin de semana → VMC.
 - **Respaldo automático semanal** de las planillas (requiere scope `drive` completo y reautorizar). El usuario lo dejó para después.
