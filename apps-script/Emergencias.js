@@ -22,6 +22,7 @@ function listaEmergencias_() {
     return {
       nombre: texto_(p['Nombre']), grupo: +p['Grupo'] || null,
       telefono: String(p['Teléfono (WhatsApp)'] || ''), direccion: texto_(p['Dirección']), confirmadosEl: datosConfirmadosEl_(p),
+      mapa: mapaDePersona_(p), mapaContacto: limpiarDireccion_(p['Emergencia: dirección']),
       contacto: { nombre: texto_(p['Emergencia: nombre']), parentesco: texto_(p['Emergencia: parentesco']),
         direccion: texto_(p['Emergencia: dirección']), telefono: String(p['Emergencia: teléfono'] || '') }
     };

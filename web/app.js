@@ -41,7 +41,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v36'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v37'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -1146,6 +1146,11 @@
   }
 
   /* ---------- Contactos de emergencia ---------- */
+  /** Maps en las coordenadas ubicadas por el servidor; si no hay, busca el texto limpio de la dirección. */
+  function urlMapaPersona(m, direccion) {
+    if (m && m.lat != null && m.lng != null) return mapsURL(m.lat + ',' + m.lng);
+    return mapsURL((m && m.texto) || direccionMaps(direccion));
+  }
   function telURL(t) {
     var n = String(t || '').replace(/\D/g, '');
     if (n.length === 8) n = '569' + n; else if (n.length === 9 && n.charAt(0) === '9') n = '56' + n;
@@ -1190,11 +1195,11 @@
       var c = x.contacto, tieneC = c.nombre || c.telefono;
       h += '<article class="tarjeta em' + (tieneC ? '' : ' em-sin') + '">' +
         '<div class="em-cab"><div><div class="em-n">' + esc(x.nombre) + '</div>' +
-        (x.direccion ? '<a class="em-dir" target="_blank" rel="noopener" href="' + esc(mapsURL(direccionMaps(x.direccion))) + '">' + SVG_PIN + esc(x.direccion) + '</a>' : '') + '</div>' +
+        (x.direccion ? '<a class="em-dir" target="_blank" rel="noopener" href="' + esc(urlMapaPersona(x.mapa, x.direccion)) + '">' + SVG_PIN + esc(x.direccion) + '</a>' : '') + '</div>' +
         (x.telefono ? '<a class="em-btn" href="' + esc(telURL(x.telefono)) + '" aria-label="Llamar a ' + esc(x.nombre) + '">' + svg('telefono') + '</a>' : '') + '</div>' +
         (tieneC
           ? '<div class="em-c"><span class="em-et">Contacto de emergencia</span><div class="em-cn">' + esc(c.nombre || '—') + (c.parentesco ? ' <small>· ' + esc(c.parentesco) + '</small>' : '') + '</div>' +
-            (c.direccion ? '<div class="em-cd">' + esc(c.direccion) + '</div>' : '') +
+            (c.direccion ? '<a class="em-cd em-dir" target="_blank" rel="noopener" href="' + esc(mapsURL(x.mapaContacto || direccionMaps(c.direccion))) + '">' + SVG_PIN + esc(c.direccion) + '</a>' : '') +
             (c.telefono ? '<div class="em-acc"><a class="btn em-llamar" href="' + esc(telURL(c.telefono)) + '">' + svg('telefono') + 'Llamar</a>' +
               '<a class="btn wa" target="_blank" rel="noopener" href="' + esc(whatsappURL(c.telefono, '')) + '">' + svg('chat') + 'WhatsApp</a></div>' : '') + '</div>'
           : '<div class="em-c em-falta">Sin contacto de emergencia registrado</div>') +

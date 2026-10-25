@@ -5,6 +5,7 @@
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Programas')
     .addItem('Sincronizar ahora', 'menuSincronizar')
+    .addItem('Ubicar direcciones en el mapa', 'menuUbicarDirecciones')
     .addItem('Revisar respuestas y recordatorios ahora', 'menuTareasHorarias')
     .addItem('Agregar al directorio los nombres de los programas', 'armarDirectorio')
     .addItem('Crear hoja de aseo (plantilla)', 'crearPlantillaAseo')

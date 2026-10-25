@@ -95,6 +95,15 @@ function actualizarDatos_(correo, yo, p, cfg) {
     if (!yo.registrado) cambios['Correo'] = correo;
     if (!mismoTelefono_(fila['Teléfono (WhatsApp)'], telefono)) cambios['Teléfono (WhatsApp)'] = telefono;
   }
+  // Dirección nueva: se ubica en el mapa de inmediato (si falla, lo hace la tarea diaria)
+  if (cambios['Dirección'] !== undefined) {
+    try {
+      var copia = {}; for (var k in fila) copia[k] = fila[k];
+      copia['Dirección'] = cambios['Dirección'];
+      var tx = textoMapa_(copia), g = tx ? geocodificar_(tx) : null;
+      cambios['Ubicación (mapa)'] = tx ? (g ? g.lat + ',' + g.lng + (g.exacta ? '' : ' ~') : 'No encontrada') + ' | ' + tx : '';
+    } catch (e) { console.warn(e.message); }
+  }
   // Guardar "Mis datos" estando registrado cuenta como la confirmación anual (aunque no cambie nada)
   if (yo.registrado) cambios['Datos confirmados el'] = new Date();
   if (Object.keys(cambios).length) actualizarFila_('personas', fila, cambios);
