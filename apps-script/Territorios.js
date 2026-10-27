@@ -29,11 +29,16 @@ function leerRegistros_(ss) {
   if (!sh) return [];
   var v = sh.getDataRange().getValues();
   v.shift();
-  return v.filter(function (r) { return r[2] && r[3] !== '' && isoDe_(r[2]) >= '2000'; }).map(function (r) {
+  // Año mal escrito en el formulario (p. ej. 24/6/0026): se toma el año de la marca temporal
+  var fechaDe = function (r) {
+    var f = isoDe_(r[2]);
+    return f < '2000' && r[0] instanceof Date && /^\d{4}-\d{2}-\d{2}$/.test(f) ? r[0].getFullYear() + f.slice(4) : f;
+  };
+  return v.filter(function (r) { return r[2] && r[3] !== '' && fechaDe(r) >= '2000'; }).map(function (r) {
     return {
       ts: r[0] instanceof Date ? r[0].getTime() : 0,
       correo: String(r[1] || '').toLowerCase(),
-      fecha: isoDe_(r[2]),
+      fecha: fechaDe(r),
       territorio: String(r[3]).replace(/\.0$/, ''),
       manzanas: String(r[4] || '').split(',').map(function (m) { return m.trim(); }).filter(Boolean),
       notas: String(r[5] || '')
