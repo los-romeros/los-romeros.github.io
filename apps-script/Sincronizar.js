@@ -140,6 +140,7 @@ function sincronizar_(forzar) {
     limpiarCache_();
   }
   try { asegurarTareas_(); } catch (e) { /* sin permiso para crear tareas desde aquí */ }
+  try { revisarS13Editado_(cfg); } catch (e) { registrar_('Error al actualizar S-13', e.message); }
   resumen.forEach(function (x) {
     registrar_('Programa ' + (x.periodo['Estado'] === 'Borrador' ? 'detectado' : 'actualizado'),
       x.programa['Nombre'] + ' · ' + x.periodo['Periodo'] + ' · ' + x.cambios.nuevas + ' nuevas, ' + x.cambios.cambiadas + ' cambiadas, ' + x.cambios.eliminadas + ' eliminadas');

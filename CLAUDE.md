@@ -57,13 +57,13 @@ Acceso a Drive desde aquí: script con el token de clasp (`~/.clasprc.json`); so
 - Registros pendientes de todos: solo Felipe Valderrama y Maximiliano Wilson.
 - Notificaciones: aviso del día anterior 18:00; registro de salida: aviso en app a 1 h, push desde 2 h cada 10 min.
 - Choques: no comparar predicación, aseo ni hospitalidad.
-- S-13: el papel (docx "S-13_S 2023 a 2026") se cargó como filas Manual desde sep-2025 (más la última completada antes); lo demás es automático. Tolerancia: faltan ≤2 manzanas, ≥60 % trabajado y ya se repitió la mitad del territorio. Lo ven Felipe (`s13Ven`) y el responsable de predicación.
+- S-13: el papel (docx "S-13_S 2023 a 2026") se cargó como filas Manual desde sep-2025. El 2026-10-27 Maximiliano Wilson revisó el Historial: todo lo completado quedó fijo ("Manual (revisado)/(corregido)") y lo en curso como "Inicio manual". Criterio de cierre (ajustado a su revisión: coincide 11/22 exactas vs 3 con el anterior): todas las manzanas, o salida con ≥2/3 de manzanas repetidas y ≥50 % cubierto. Columna oculta "Control" detecta filas automáticas editadas. `alEditarS13` (onEdit instalado por `asegurarTareas_`) + `revisarS13Editado_` en `sincronizar_` rehacen el S-13 5 min después de editar. Lo ven Felipe (`s13Ven`) y el responsable de predicación.
 
-## Estado actual (2026-10-26)
-- Web **v42** (pie de la app), API **@44**. Todo publicado y en `main`; el árbol de trabajo queda limpio al cerrar cada sesión.
+## Estado actual (2026-10-27)
+- Web **v42** (pie de la app), API **@45**. Todo publicado y en `main`; el árbol de trabajo queda limpio al cerrar cada sesión.
 - En producción con los hermanos: login, programas, confirmaciones, Mis datos (registro, dirección, emergencia, pin, confirmación anual), informes, territorios, asistencia, emergencias, avisos/eventos.
 - Pasos que el usuario debe correr en la planilla tras actualizaciones: **Preparar planilla** (columnas/claves nuevas) y, para direcciones, **Ubicar direcciones en el mapa** (aún no confirmó resultado del geocodificador).
-- Sin verificar en producción (solo demo): formularios S-1/S-3/S-88 generados por script, geocodificador, planilla de emergencias, recordatorio push de avisos.
+- Sin verificar en producción (solo demo): que se instale el disparador `alEditarS13` y rehaga el S-13 tras editar; formularios S-1/S-3/S-88 generados por script, geocodificador, planilla de emergencias, recordatorio push de avisos.
 
 ## Historial resumido (para entender por qué las cosas son como son)
 1. Base: lectores de las hojas de cada responsable → Borrador → aprobación → invitaciones de Calendar; confirmación y reasignación con escritura en la hoja de origen; login Google obligatorio; diseño crema/pizarra con baldosas.

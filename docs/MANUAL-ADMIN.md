@@ -178,7 +178,7 @@ Separado por comas, cualquiera de: `todos`, `privilegiados` (admin y editores), 
 - **Nombre que la app no reconoce**: agregarlo en Personas ▸ "Otras formas de escribirlo".
 - **Nuevo responsable**: compartir su hoja con `congrelosromeros@gmail.com` (editor), agregar la fila en Programas con su correo.
 - **Cambiar un mapa**: reemplazar la imagen en "Mapas por territorio" con el mismo nombre. Si cambia el PDF completo, pedir que se regeneren las imágenes (`tools/pdf2jpg.swift`).
-- **S-13**: cada vuelta empieza la primera vez que se trabaja el territorio después de completado (encargado = quien dirigió esa salida, o quien la registró) y termina cuando se trabajaron todas las manzanas. Si faltan 1 o 2 y ya se volvió a trabajar la mitad del territorio, se da por completado (queda anotado en Notas). Para corregir una vuelta: editarla en "Historial" y poner **Manual** en Origen; las vueltas manuales nunca se tocan y lo automático se recalcula después de la última manual de ese territorio.
+- **S-13**: en la pestaña "Historial" se puede corregir o agregar cualquier fila; lo escrito a mano siempre se respeta (queda como "Manual"). Una fila sin fecha de término es una vuelta en curso: la app solo le completa el término ("Inicio manual"). Las pestañas S-13 se rehacen solas unos 5 a 20 minutos después de editar (y cada día). Criterio automático (el de quien lleva el S-13): una vuelta termina cuando se trabajaron todas las manzanas, o cuando una salida vuelve a trabajar sobre todo manzanas ya hechas (2 de cada 3) y ya se cubrió al menos la mitad del territorio; ahí comienza la vuelta siguiente. No borrar la columna oculta "Control".
 - **Aviso con cuenta regresiva**: llenar "Fecha del evento" (y hora). "Fijo" = no se puede quitar.
 
 ## 7. Si algo falla

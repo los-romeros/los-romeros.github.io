@@ -324,6 +324,7 @@ function asegurarTareas_() {
   if (existentes.indexOf('sincronizar') < 0) ScriptApp.newTrigger('sincronizar').timeBased().everyMinutes(15).create();
   if (existentes.indexOf('tareasHorarias') < 0) ScriptApp.newTrigger('tareasHorarias').timeBased().everyHours(1).create();
   if (existentes.indexOf('notificacionesFrecuentes') < 0) ScriptApp.newTrigger('notificacionesFrecuentes').timeBased().everyMinutes(10).create();
+  try { asegurarTareaS13_(); } catch (e) { console.warn('Tarea del S-13: ' + e.message); }
 }
 
 /**

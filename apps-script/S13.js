@@ -2,15 +2,17 @@
  * S-13 · Registro de asignación de territorio.
  *
  * Planilla propia (Inicio ▸ s13Planilla = su URL):
- *  - "Historial": una fila por vuelta completa de un territorio.
- *      Territorio | Asignado a | Fecha en que se asignó | Fecha en que se completó | Origen | Notas
- *    Las filas con Origen "Manual" se respetan siempre (S-13 en papel o correcciones a mano).
- *    Las "Automático" se recalculan con el registro de predicación, después de la última vuelta manual de cada territorio.
+ *  - "Historial": una fila por vuelta de un territorio.
+ *      Territorio | Asignado a | Fecha en que se asignó | Fecha en que se completó | Origen | Notas | Control
+ *    Lo que se escribe o corrige a mano se respeta siempre ("Manual"). Una fila a mano sin fecha de término es una
+ *    vuelta en curso: la app solo le completa el término ("Inicio manual"). Las "Automático" se recalculan con el
+ *    registro de predicación en los espacios entre lo escrito a mano. "Control" (oculta) permite saber si una fila
+ *    automática fue corregida.
  *  - "S-13 AAAA": el formulario de cada año de servicio (septiembre a agosto), listo para imprimir.
+ *    Se rehace cada día y unos minutos después de editar el Historial.
  *
  * Una vuelta empieza la primera vez que se trabaja el territorio después de completado (encargado = quien
- * dirigió esa salida) y termina cuando se trabajaron todas sus manzanas. Si faltan solo 1 o 2 manzanas y ya se
- * volvió a trabajar la mitad o más del territorio, se da por completada en la última fecha antes de repetir.
+ * dirigió esa salida) y termina según calcularVueltasS13_.
  *
  * Inicio:
  *   s13Planilla = URL de la planilla
@@ -18,10 +20,9 @@
  *   s13Desde    = primer año de servicio que se muestra
  */
 
-var TITULOS_S13 = ['Territorio', 'Asignado a', 'Fecha en que se asignó', 'Fecha en que se completó', 'Origen', 'Notas'];
+var TITULOS_S13 = ['Territorio', 'Asignado a', 'Fecha en que se asignó', 'Fecha en que se completó', 'Origen', 'Notas', 'Control (no editar)'];
 var S13_BLOQUES = 4; // vueltas por fila del formulario
-var S13_MAX_FALTAN = 2; // manzanas que pueden faltar para darlo por completado
-var S13_MIN_TRABAJADO = 0.6; // y al menos esta parte del territorio trabajada
+var S13_MINUTOS_TRAS_EDITAR = 5; // espera tras la última edición del Historial antes de rehacer los formularios
 var S13_URL = 'https://docs.google.com/spreadsheets/d/1jHDXRv-sdQgRTp6zfYyPFdbMMLzgMiy3TMWpbWI5d2U/edit'; // si Inicio aún no tiene s13Planilla
 
 function urlS13_(cfg) { return String(cfg.s13Planilla || S13_URL).trim(); }
@@ -54,7 +55,7 @@ function fechaS13_(iso) {
 function isoS13_(v) {
   if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
   var s = String(v || '').trim(), m = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(s);
-  if (m) return (m[3].length === 2 ? '20' + m[3] : m[3]) + '-' + pad2_(+m[2]) + '-' + pad2_(+m[1]);
+  if (m) return +m[2] >= 1 && +m[2] <= 12 && +m[1] >= 1 && +m[1] <= 31 ? (m[3].length === 2 ? '20' + m[3] : m[3]) + '-' + pad2_(+m[2]) + '-' + pad2_(+m[1]) : '';
   return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : '';
 }
 
@@ -80,63 +81,110 @@ function nombrePorCorreo_(correo, personas) {
   return mejor && !empate ? mejor.nombre : correo.split('@')[0];
 }
 
+/** Texto de control de una fila escrita por la app: si la fila ya no coincide, alguien la corrigió a mano. */
+function controlS13_(fila) {
+  return fila.slice(0, 6).map(function (x) { return String(x == null ? '' : x).trim(); }).join('|');
+}
+
 /**
- * Vueltas automáticas de cada territorio.
- * regs: [{ fecha, territorio, manzanas[], correo }], totales: { '8': ['A',…] },
- * manuales: [{ territorio, completado }], encargadoDe(territorio, fecha, correo) -> nombre.
- * Devuelve [{ territorio, asignado, inicio, termino ('' si sigue en curso), notas }].
+ * Clasifica las filas del Historial ([Territorio, Asignado, Asignó, Completó, Origen, Notas, Control]):
+ *  - automáticas sin tocar: se descartan (se recalculan);
+ *  - sin fecha de término (escritas a mano o "Inicio manual"): vuelta en curso que la app completa (ancla);
+ *  - el resto: vuelta fija, se respeta tal cual (si era automática y se corrigió, pasa a "Manual (corregido)").
  */
-function calcularVueltasS13_(regs, totales, manuales, encargadoDe) {
+function clasificarHistorialS13_(filas) {
+  var fijas = [], anclas = [];
+  filas.forEach(function (r) {
+    if (r[0] === '' || r[0] == null) return;
+    var texto = function (x) { return x instanceof Date ? fechaS13_(isoS13_(x)) : String(x == null ? '' : x).trim(); };
+    var seis = [String(r[0]).replace(/\.0$/, '').trim(), texto(r[1]), texto(r[2]), texto(r[3]), texto(r[4]), texto(r[5])];
+    var origen = seis[4], intacta = String(r[6] || '') === controlS13_(seis);
+    var v = { territorio: seis[0], asignado: seis[1], inicio: isoS13_(r[2]), termino: isoS13_(r[3]), origen: origen, notas: seis[5], fila: seis };
+    if (/^autom/i.test(origen) && intacta) return;
+    if (!seis[3] || (/^inicio manual/i.test(origen) && intacta)) {
+      if (v.inicio) { anclas.push(v); return; }
+    }
+    if (!/^manual/i.test(origen)) v.origen = v.fila[4] = /^(autom|inicio)/i.test(origen) ? 'Manual (corregido)' : 'Manual';
+    fijas.push(v);
+  });
+  return { fijas: fijas, anclas: anclas };
+}
+
+/**
+ * Vueltas de cada territorio calculadas con el registro de predicación, alrededor de las que se escribieron a mano.
+ * regs: [{ fecha, territorio, manzanas[], correo }], totales: { '8': ['A',…] },
+ * fijas: [{ territorio, inicio, termino }], anclas: [{ territorio, asignado, inicio }] (vueltas en curso puestas a mano),
+ * encargadoDe(territorio, fecha, correo) -> nombre.
+ * Devuelve [{ territorio, asignado, inicio, termino ('' si sigue en curso), notas, origen }].
+ *
+ * Criterio (el de quien lleva el S-13): una vuelta termina cuando se trabajaron todas las manzanas, o cuando una
+ * salida vuelve a trabajar sobre todo manzanas ya hechas en la vuelta (2 de cada 3 o más) y ya se cubrió al menos
+ * la mitad del territorio: ahí comenzó otra vuelta, y la anterior se da por completada en la salida previa.
+ */
+function calcularVueltasS13_(regs, totales, fijas, anclas, encargadoDe) {
   var out = [];
   Object.keys(totales).sort(function (a, b) { return +a - +b; }).forEach(function (t) {
     var todas = totales[t].map(function (m) { return String(m).trim().toUpperCase(); });
     if (!todas.length) return;
-    var desde = manuales.filter(function (x) { return x.territorio === t && x.completado; })
-      .reduce(function (max, x) { return x.completado > max ? x.completado : max; }, '');
     // Un día = todas las manzanas trabajadas esa fecha (puede haber varios registros)
     var dias = {};
     regs.forEach(function (g) {
-      if (g.territorio !== t || g.fecha <= desde) return;
+      if (g.territorio !== t) return;
       var ms = g.manzanas.map(function (m) { return String(m).trim().toUpperCase(); }).filter(function (m) { return todas.indexOf(m) >= 0; });
       if (!ms.length) return;
       var d = dias[g.fecha] = dias[g.fecha] || { fecha: g.fecha, manzanas: {}, correo: g.correo };
       ms.forEach(function (m) { d.manzanas[m] = true; });
     });
     var seq = Object.keys(dias).sort().map(function (f) { return { fecha: f, manzanas: Object.keys(dias[f].manzanas), correo: dias[f].correo }; });
-    var minRepetidas = Math.max(2, Math.ceil(todas.length / 2));
-    var i = 0, inicio = -1, hechas = {}, nHechas = 0, ultima = '', repetidas = {}, nRep = 0, desdeRep = -1;
-    var cerrar = function (termino, faltan) {
-      var d = seq[inicio];
-      out.push({ territorio: t, asignado: encargadoDe(t, d.fecha, d.correo), inicio: d.fecha, termino: termino,
-        notas: faltan.length ? 'Se dio por completado (faltó ' + faltan.join(', ') + ')' : '' });
-      inicio = -1;
+
+    var nueva = function (d, ancla) {
+      return { asignado: ancla ? ancla.asignado : encargadoDe(t, d.fecha, d.correo), inicio: ancla ? ancla.inicio : d.fecha,
+        origen: ancla ? 'Inicio manual' : 'Automático', hechas: {}, n: 0, ultima: '' };
     };
-    while (i < seq.length) {
-      var d = seq[i];
-      if (inicio < 0) { inicio = i; hechas = {}; nHechas = 0; repetidas = {}; nRep = 0; desdeRep = -1; }
-      var nuevas = d.manzanas.filter(function (m) { return !hechas[m]; });
-      if (!nuevas.length) {
-        // Se está repitiendo lo ya trabajado: ¿comenzó otra vuelta aunque falten 1 o 2?
-        if (desdeRep < 0) desdeRep = i;
-        d.manzanas.forEach(function (m) { if (!repetidas[m]) { repetidas[m] = true; nRep++; } });
-        var faltan = todas.filter(function (m) { return !hechas[m]; });
-        if (faltan.length <= S13_MAX_FALTAN && nHechas >= S13_MIN_TRABAJADO * todas.length && nRep >= minRepetidas) {
-          cerrar(ultima, faltan);
-          i = desdeRep;
-          continue;
+    var faltan = function (v) { return todas.filter(function (m) { return !v.hechas[m]; }); };
+    var cerrar = function (v, termino) {
+      var f = faltan(v);
+      out.push({ territorio: t, asignado: v.asignado, inicio: v.inicio, termino: termino, origen: v.origen,
+        notas: f.length ? 'Se dio por completado (faltó ' + f.join(', ') + ')' : '' });
+    };
+    /** Recorre las salidas; si cerrarAlFinal, la vuelta abierta termina en su última salida (después viene una vuelta escrita a mano). */
+    var simular = function (lista, ancla, cerrarAlFinal) {
+      var v = ancla ? nueva(null, ancla) : null, ultimo = '';
+      lista.forEach(function (d) {
+        if (!v) v = nueva(d);
+        else {
+          var rep = d.manzanas.filter(function (m) { return v.hechas[m]; }).length;
+          if (v.n && rep && rep * 3 >= d.manzanas.length * 2 && v.n * 2 >= todas.length) {
+            cerrar(v, v.ultima); ultimo = v.ultima;
+            v = nueva(d);
+          }
         }
-      } else {
-        nuevas.forEach(function (m) { hechas[m] = true; nHechas++; });
-        ultima = d.fecha; repetidas = {}; nRep = 0; desdeRep = -1;
-        if (nHechas >= todas.length) cerrar(d.fecha, []);
+        d.manzanas.forEach(function (m) { if (!v.hechas[m]) { v.hechas[m] = true; v.n++; } });
+        v.ultima = d.fecha;
+        if (v.n >= todas.length) { cerrar(v, d.fecha); ultimo = d.fecha; v = null; }
+      });
+      if (v) {
+        if (cerrarAlFinal && v.ultima) { cerrar(v, v.ultima); ultimo = v.ultima; }
+        else out.push({ territorio: t, asignado: v.asignado, inicio: v.inicio, termino: '', origen: v.origen,
+          notas: v.n ? 'En curso · faltan ' + faltan(v).join(', ') : 'En curso' });
       }
-      i++;
-    }
-    if (inicio >= 0) {
-      var pend = todas.filter(function (m) { return !hechas[m]; });
-      out.push({ territorio: t, asignado: encargadoDe(t, seq[inicio].fecha, seq[inicio].correo), inicio: seq[inicio].fecha, termino: '',
-        notas: 'En curso · faltan ' + pend.join(', ') });
-    }
+      return ultimo;
+    };
+
+    var marcas = fijas.filter(function (x) { return x.territorio === t && x.inicio; }).map(function (x) { return { fija: true, inicio: x.inicio, termino: x.termino || x.inicio }; })
+      .concat(anclas.filter(function (x) { return x.territorio === t; }).map(function (x) { return { fija: false, inicio: x.inicio, ancla: x }; }))
+      .sort(function (a, b) { return a.inicio.localeCompare(b.inicio); });
+    if (!marcas.length) { simular(seq, null, false); return; }
+    var limite = null;
+    marcas.forEach(function (m, k) {
+      var sig = marcas[k + 1];
+      // Salidas entre la vuelta anterior y esta (escrita a mano): vueltas automáticas que terminan antes de esta
+      if (limite !== null) simular(seq.filter(function (d) { return d.fecha > limite && d.fecha < m.inicio; }), null, true);
+      if (m.fija) { limite = limite && limite > m.termino ? limite : m.termino; return; }
+      var propias = seq.filter(function (d) { return d.fecha >= m.inicio && (!sig || d.fecha < sig.inicio); });
+      limite = simular(propias, m.ancla, !!sig) || (propias.length ? propias[propias.length - 1].fecha : m.inicio);
+    });
+    if (marcas[marcas.length - 1].fija) simular(seq.filter(function (d) { return d.fecha > limite; }), null, false);
   });
   return out;
 }
@@ -192,10 +240,7 @@ function actualizarS13_(cfg) {
 
   var hist = ss.getSheetByName('Historial') || ss.insertSheet('Historial', 0);
   var v = hist.getDataRange().getValues();
-  var manuales = v.slice(1).filter(function (r) { return r[0] !== '' && /^manual/i.test(String(r[4])); }).map(function (r) {
-    return { territorio: String(r[0]).replace(/\.0$/, ''), asignado: String(r[1] || ''), inicio: isoS13_(r[2]), termino: isoS13_(r[3]), notas: String(r[5] || ''), origen: String(r[4]) };
-  });
-  manuales.forEach(function (m) { m.completado = m.termino; });
+  var h = clasificarHistorialS13_(v.slice(1).map(function (r) { return r.concat(['', '', '', '', '', '', '']).slice(0, 7); }));
 
   // Encargado: quien dirigió la salida de ese día en ese territorio (programa) o, si no está, quien la registró
   var salidas = {};
@@ -210,21 +255,25 @@ function actualizarS13_(cfg) {
   });
   var personas = directorio_().personas.map(function (p) { return { nombre: p.nombre, correo: String(p.correo || '').toLowerCase() }; });
   // Quien ya no está en Personas pero aparece en el S-13 anterior también se reconoce por su correo
-  manuales.forEach(function (m) {
+  h.fijas.concat(h.anclas).forEach(function (m) {
     if (m.asignado && !personas.some(function (p) { return norm_(p.nombre) === norm_(m.asignado); })) personas.push({ nombre: m.asignado, correo: '' });
   });
   var encargadoDe = function (t, fecha, correo) { return salidas[fecha + '|' + t] || nombrePorCorreo_(correo, personas); };
 
-  var auto = calcularVueltasS13_(regs, totales, manuales, encargadoDe);
-  var todas = manuales.map(function (m) { return { territorio: m.territorio, asignado: m.asignado, inicio: m.inicio, termino: m.termino, origen: m.origen, notas: m.notas }; })
-    .concat(auto.map(function (a) { return { territorio: a.territorio, asignado: a.asignado, inicio: a.inicio, termino: a.termino, origen: 'Automático', notas: a.notas }; }))
-    .sort(function (a, b) { return (+a.territorio - +b.territorio) || a.inicio.localeCompare(b.inicio); });
+  var auto = calcularVueltasS13_(regs, totales, h.fijas, h.anclas, encargadoDe);
+  var todas = h.fijas.map(function (m) { return { territorio: m.territorio, asignado: m.asignado, inicio: m.inicio, termino: m.termino, origen: m.origen, notas: m.notas, fila: m.fila.concat(['']) }; })
+    .concat(auto.map(function (a) {
+      var seis = [a.territorio, a.asignado, fechaS13_(a.inicio), fechaS13_(a.termino), a.origen, a.notas];
+      return { territorio: a.territorio, asignado: a.asignado, inicio: a.inicio, termino: a.termino, origen: a.origen, notas: a.notas, fila: seis.concat([controlS13_(seis)]) };
+    }))
+    .sort(function (a, b) { return (+a.territorio - +b.territorio) || (a.inicio || '9').localeCompare(b.inicio || '9'); });
 
-  var filas = [TITULOS_S13].concat(todas.map(function (x) { return [x.territorio, x.asignado, fechaS13_(x.inicio), fechaS13_(x.termino), x.origen, x.notas]; }));
-  hist.getRange(1, 1, hist.getMaxRows(), TITULOS_S13.length).clearContent();
+  var filas = [TITULOS_S13].concat(todas.map(function (x) { return x.fila; }));
+  hist.getRange(1, 1, hist.getMaxRows(), Math.max(hist.getMaxColumns(), TITULOS_S13.length)).clearContent();
   hist.getRange(1, 1, filas.length, TITULOS_S13.length).setNumberFormat('@').setValues(filas);
   hist.getRange(1, 1, 1, TITULOS_S13.length).setFontWeight('bold').setBackground('#5e8499').setFontColor('#ffffff');
   hist.setFrozenRows(1);
+  hist.hideColumns(TITULOS_S13.length);
 
   var territorios = Object.keys(totales).sort(function (a, b) { return +a - +b; });
   var hoy = hoyISO_(), actualizado = fechaS13_(hoy);
@@ -232,7 +281,7 @@ function actualizarS13_(cfg) {
     escribirPaginaS13_(ss, anio, paginaS13_(anio, todas, territorios, actualizado), 2 + anio - +(cfg.s13Desde || 2026));
   }
   compartirS13_(ss, cfg);
-  registrar_('S-13 actualizado', auto.length + ' vueltas automáticas, ' + manuales.length + ' manuales');
+  registrar_('S-13 actualizado', auto.length + ' vueltas calculadas, ' + h.fijas.length + ' escritas a mano');
   return { ss: ss, vueltas: todas, territorios: territorios };
 }
 
@@ -295,6 +344,27 @@ function resumenS13_(yo, p, cfg) {
   }
   var hoy = hoyISO_();
   return { ok: true, hoy: hoy, anioActual: anioServicio_(hoy), desde: +(cfg.s13Desde || 2026), url: datos.url, territorios: datos.territorios, vueltas: datos.vueltas };
+}
+
+/** Tarea instalada en la planilla del S-13: al editar el Historial, los formularios se rehacen unos minutos después. */
+function alEditarS13(e) {
+  if (e && e.range && e.range.getSheet().getName() !== 'Historial') return;
+  PropertiesService.getScriptProperties().setProperty('S13_EDITADO', String(Date.now()));
+}
+
+/** Se llama cada 15 minutos (sincronizar): si el Historial se editó hace más de unos minutos, rehace el S-13. */
+function revisarS13Editado_(cfg) {
+  var props = PropertiesService.getScriptProperties();
+  var t = +props.getProperty('S13_EDITADO') || 0;
+  if (!t || Date.now() - t < S13_MINUTOS_TRAS_EDITAR * 60000) return;
+  props.deleteProperty('S13_EDITADO');
+  actualizarS13_(cfg);
+  CacheService.getScriptCache().remove('s13');
+}
+
+function asegurarTareaS13_() {
+  if (ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'alEditarS13'; })) return;
+  ScriptApp.newTrigger('alEditarS13').forSpreadsheet(planillaS13_(config_()).getId()).onEdit().create();
 }
 
 function menuActualizarS13() {
