@@ -194,5 +194,5 @@ function resumenTerritorios_(yo, cfg) {
   });
   var pendientes = null;
   if (puedeVerPendientesTodos_(yo, cfg)) { try { pendientes = registrosPendientesTodos_(cfg, ss); } catch (e) { console.warn(e); pendientes = []; } }
-  return { ok: true, hoy: hoy, mesActual: mesActual, mesAnterior: mesAnterior, territorios: lista, pendientes: pendientes };
+  return { ok: true, hoy: hoy, mesActual: mesActual, mesAnterior: mesAnterior, territorios: lista, pendientes: pendientes, s13: puedeVerS13_(yo, cfg) };
 }

@@ -42,6 +42,7 @@ Verificar sintaxis antes: `for f in apps-script/*.js; do node --check $f; done; 
 | `Datos.js` | "Mis datos": registro por teléfono, apodo, dirección, emergencia, confirmación anual (`fechaConfirmarDatos`), pin del mapa. |
 | `Asistencia.js` | Planilla de asistencia con S-3, S-88, S-1 por fórmulas; año de servicio sep–ago. `FORMATO_ASISTENCIA` rehace los formularios si cambia. |
 | `Emergencias.js` | Contactos de emergencia (app + planilla diaria). |
+| `S13.js` | S-13 (registro de asignación de territorio): vueltas por territorio calculadas con el registro de predicación (`calcularVueltasS13_`), filas "Manual" del Historial se respetan; formulario por año (`paginaS13_`). Planilla propia (Inicio ▸ `s13Planilla`, por defecto `S13_URL`), dueña congrelosromeros. |
 | `Ubicacion.js` | Limpieza de direcciones y geocodificación (Maps de Apps Script); "Ubicación (mapa)" = `lat,lng [~|✓] | texto`. |
 | `Menu.js` | Menú de la planilla, Inicio por defecto, importaciones. |
 
@@ -56,9 +57,10 @@ Acceso a Drive desde aquí: script con el token de clasp (`~/.clasprc.json`); so
 - Registros pendientes de todos: solo Felipe Valderrama y Maximiliano Wilson.
 - Notificaciones: aviso del día anterior 18:00; registro de salida: aviso en app a 1 h, push desde 2 h cada 10 min.
 - Choques: no comparar predicación, aseo ni hospitalidad.
+- S-13: el papel (docx "S-13_S 2023 a 2026") se cargó como filas Manual desde sep-2025 (más la última completada antes); lo demás es automático. Tolerancia: faltan ≤2 manzanas, ≥60 % trabajado y ya se repitió la mitad del territorio. Lo ven Felipe (`s13Ven`) y el responsable de predicación.
 
-## Estado actual (2026-10-25)
-- Web **v41** (pie de la app), API **@42**. Todo publicado y en `main`; el árbol de trabajo queda limpio al cerrar cada sesión.
+## Estado actual (2026-10-26)
+- Web **v42** (pie de la app), API **@43**. Todo publicado y en `main`; el árbol de trabajo queda limpio al cerrar cada sesión.
 - En producción con los hermanos: login, programas, confirmaciones, Mis datos (registro, dirección, emergencia, pin, confirmación anual), informes, territorios, asistencia, emergencias, avisos/eventos.
 - Pasos que el usuario debe correr en la planilla tras actualizaciones: **Preparar planilla** (columnas/claves nuevas) y, para direcciones, **Ubicar direcciones en el mapa** (aún no confirmó resultado del geocodificador).
 - Sin verificar en producción (solo demo): formularios S-1/S-3/S-88 generados por script, geocodificador, planilla de emergencias, recordatorio push de avisos.

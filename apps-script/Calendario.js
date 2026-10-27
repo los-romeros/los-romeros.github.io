@@ -179,6 +179,9 @@ function tareasHorarias() {
     if (hora >= 3 && PropertiesService.getScriptProperties().getProperty('EMERGENCIAS_ID') && unaVezAlDia_('EMERGENCIAS')) {
       try { planillaEmergencias_(cfg, true); } catch (e) { registrar_('Error al actualizar contactos de emergencia', e.message); }
     }
+    if (hora >= 2 && unaVezAlDia_('S13')) {
+      try { actualizarS13_(cfg); CacheService.getScriptCache().remove('s13'); } catch (e) { registrar_('Error al actualizar S-13', e.message); }
+    }
     if (hora >= 3 && PropertiesService.getScriptProperties().getProperty('ASISTENCIA_ID') && unaVezAlDia_('DATOS_S1')) {
       try { actualizarDatosS1_(cfg); } catch (e) { registrar_('Error al actualizar S-1', e.message); }
     }

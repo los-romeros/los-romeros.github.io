@@ -693,3 +693,11 @@ a.resumen-cab.enlace .chevron { width: 20px; height: 20px; color: var(--muted); 
 .aviso-todos.solo .chevron { margin-left: auto; }
 .eventos-mes { margin-top: 10px; padding-top: 8px; }
 .eventos-mes .t-h { margin: 6px 0 2px; }
+
+/* S-13 */
+.s13-btn { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; }
+.s13-btn svg { width: 18px; height: 18px; }
+.s13-v { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.s13-n small { display: block; color: var(--muted); font-size: 12px; }
+.s13-f { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); }
+.s13-v.curso .s13-f { color: var(--ink); font-weight: 600; }

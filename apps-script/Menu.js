@@ -6,6 +6,7 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('Programas')
     .addItem('Sincronizar ahora', 'menuSincronizar')
     .addItem('Ubicar direcciones en el mapa', 'menuUbicarDirecciones')
+    .addItem('Actualizar S-13 (territorios)', 'menuActualizarS13')
     .addItem('Revisar respuestas y recordatorios ahora', 'menuTareasHorarias')
     .addItem('Agregar al directorio los nombres de los programas', 'armarDirectorio')
     .addItem('Crear hoja de aseo (plantilla)', 'crearPlantillaAseo')
@@ -80,6 +81,9 @@ var INICIO_POR_DEFECTO = [
   ['noPasarAprueban', 'admin', 'Quiénes aprueban las solicitudes de No pasar (reciben el aviso)'],
   ['mapaVisiblePara', 'todos', 'Quiénes ven el mapa del territorio'],
   ['registrosPendientesVer', 'Felipe Valderrama, Maximiliano Wilson', 'Quiénes ven en Registro de territorios el listado de todas las salidas sin registrar, con botón de WhatsApp (nombres o correos separados por coma)'],
+  ['s13Planilla', 'https://docs.google.com/spreadsheets/d/1jHDXRv-sdQgRTp6zfYyPFdbMMLzgMiy3TMWpbWI5d2U/edit', 'URL de la planilla del S-13 (Registro de asignación de territorio). Se completa sola cada día con el registro de predicación'],
+  ['s13Ven', 'Felipe Valderrama', 'Quiénes ven el S-13 en la app, además del responsable del programa de predicación (nombres o correos separados por coma)'],
+  ['s13Desde', '2026', 'Primer año de servicio que se muestra en el S-13'],
   ['territoriosVisiblePara', 'anciano, capitan', 'Quiénes ven el resumen de territorios en la app'],
   ['zoomPredicacion', '', 'Enlace de Zoom de la predicación (se abre al tocar "Predicación por Zoom")'],
   ['zoomEntreSemana', '', 'Enlace de Zoom de la reunión de entre semana'],

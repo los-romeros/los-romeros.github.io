@@ -62,6 +62,7 @@ function doPost(e) {
       case 'probarAviso': return json_(probarAviso_(yo, cfg));
       case 'dispositivo': return json_(conBloqueo_(function () { return registrarDispositivo_(yo, p); }));
       case 'territorios': return json_(resumenTerritorios_(yo, cfg));
+      case 's13': return json_(resumenS13_(yo, p, cfg));
       case 'informe': return json_(conBloqueo_(function () { return guardarInforme_(yo, p, cfg); }));
       case 'informes': return json_(informesGrupos_(yo, p, cfg));
       case 'nopasar': return json_(listadoNoPasar_(yo, cfg));

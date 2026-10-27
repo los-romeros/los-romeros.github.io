@@ -54,6 +54,7 @@ Todo es gratis: GitHub Pages, Apps Script, Sheets, Calendar, Gmail (≈100 corre
 | Informes de predicación | Informes mensuales enviados en la app | — (los superintendentes los ven en la app) |
 | Asistencia a las reuniones | Registro + formularios **S-3, S-88 y S-1** listos para imprimir | Secretario (editor) |
 | Contactos de emergencia | Lista para imprimir, se actualiza cada día | Ancianos y secretario (solo ver) |
+| S-13 Registro de asignación de territorio | "Historial" (una fila por vuelta) + un formulario **S-13** por año de servicio, se completa solo cada día | Felipe y el responsable de predicación (editor) |
 | TERRITORIOS LOS ROMEROS ▸ Mapas por territorio | `General.jpg` y `Territorio N.jpg` | — |
 
 Planillas externas que la app lee: "Registro Predicación (Respuestas)" (registro de capitanes), "Listado no pasar - AAAA", formularios antiguos de informes.
@@ -116,6 +117,9 @@ Las claves nuevas aparecen al ejecutar **Programas ▸ Preparar planilla**. Si u
 | `registroPredicacion` | | URL de "Registro Predicación (Respuestas)" |
 | `territoriosVisiblePara` | anciano, capitan | Quién ve el registro de territorios |
 | `registrosPendientesVer` | Felipe Valderrama, Maximiliano Wilson | Quién ve todas las salidas sin registrar |
+| `s13Planilla` | (URL del S-13) | Planilla del S-13 |
+| `s13Ven` | Felipe Valderrama | Quién ve el S-13, además del responsable del programa de predicación |
+| `s13Desde` | 2026 | Primer año de servicio del S-13 |
 | `carpetaTerritorios`, `archivoNoPasar`, `archivoMapa` | | Dónde buscar el listado y el mapa |
 | `noPasarVisiblePara`, `noPasarSolicitan`, `noPasarAprueban`, `mapaVisiblePara` | | Permisos de No pasar y mapa |
 
@@ -130,6 +134,7 @@ Separado por comas, cualquiera de: `todos`, `privilegiados` (admin y editores), 
 |---|---|
 | **Sincronizar ahora** | Para aplicar al instante cambios de las hojas de los responsables |
 | **Ubicar direcciones en el mapa** | Después de importar direcciones, o si se corrigió "Dirección para el mapa" |
+| Actualizar S-13 (territorios) | Para rehacer el S-13 al instante (también se hace solo cada día) |
 | Revisar respuestas y recordatorios ahora | Para forzar la revisión de respuestas de calendario |
 | Agregar al directorio los nombres de los programas | Al comenzar, para crear Personas desde los programas |
 | Crear hoja de aseo (plantilla) | Para generar el programa anual de aseo |
@@ -144,7 +149,7 @@ Separado por comas, cualquiera de: `todos`, `privilegiados` (admin y editores), 
 | Tarea | Frecuencia | Qué hace |
 |---|---|---|
 | `sincronizar` | cada 15 min | Lee las hojas, detecta cambios, invita, avisa choques |
-| `tareasHorarias` | cada hora | Respuestas de calendario, recordatorios, aviso del día anterior (18:00), resumen del lunes, recordatorio de informes y de avisos (10:00), y una vez al día: ubicar direcciones, actualizar contactos de emergencia y datos del S-1 |
+| `tareasHorarias` | cada hora | Respuestas de calendario, recordatorios, aviso del día anterior (18:00), resumen del lunes, recordatorio de informes y de avisos (10:00), y una vez al día: ubicar direcciones, actualizar contactos de emergencia, datos del S-1 y el S-13 |
 | `notificacionesFrecuentes` | cada 10 min | Recordatorio a capitanes para registrar la salida (desde 2 h después; pausa 22–8) |
 
 ---
@@ -160,6 +165,7 @@ Separado por comas, cualquiera de: `todos`, `privilegiados` (admin y editores), 
 | Registro de territorio (manzanas, historial, próxima salida) | Ancianos y capitanes |
 | Informes de grupo | Superintendente y auxiliar (su grupo), secretario y admin (todos) |
 | Asistencia (S-88) | Secretario y admin |
+| S-13 (botón en Registro de territorios) | Felipe y el responsable del programa de predicación |
 | Emergencias | Ancianos y secretario (todos), superintendente y auxiliar (su grupo) |
 | Aprobar datos personales y solicitudes No pasar | Admin |
 
@@ -172,6 +178,7 @@ Separado por comas, cualquiera de: `todos`, `privilegiados` (admin y editores), 
 - **Nombre que la app no reconoce**: agregarlo en Personas ▸ "Otras formas de escribirlo".
 - **Nuevo responsable**: compartir su hoja con `congrelosromeros@gmail.com` (editor), agregar la fila en Programas con su correo.
 - **Cambiar un mapa**: reemplazar la imagen en "Mapas por territorio" con el mismo nombre. Si cambia el PDF completo, pedir que se regeneren las imágenes (`tools/pdf2jpg.swift`).
+- **S-13**: cada vuelta empieza la primera vez que se trabaja el territorio después de completado (encargado = quien dirigió esa salida, o quien la registró) y termina cuando se trabajaron todas las manzanas. Si faltan 1 o 2 y ya se volvió a trabajar la mitad del territorio, se da por completado (queda anotado en Notas). Para corregir una vuelta: editarla en "Historial" y poner **Manual** en Origen; las vueltas manuales nunca se tocan y lo automático se recalcula después de la última manual de ese territorio.
 - **Aviso con cuenta regresiva**: llenar "Fecha del evento" (y hora). "Fijo" = no se puede quitar.
 
 ## 7. Si algo falla

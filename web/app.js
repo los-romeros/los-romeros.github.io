@@ -41,7 +41,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v41'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v42'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -138,6 +138,7 @@
     var pedido = DEMO ? fetch('dev-data.json', { cache: 'no-store' }).then(function (r) { return r.json(); }) : api('datos');
     pedido.then(function (d) {
       if (!d || !d.ok) throw new Error(d && d.error || 'respuesta inválida');
+      if (DEMO && !d.territorios) d.territorios = { puedeVer: true };
       estado.datos = d;
       estado.sinConexion = false;
       if (!DEMO) guardar(CLAVE_DATOS, d);
@@ -219,6 +220,7 @@
     }
     var ruta = location.hash.replace(/^#\/?/, '');
     if (ruta === 'territorios' && estado.datos.territorios && estado.datos.territorios.puedeVer) { renderTerritorios(); return; }
+    if (ruta === 's13' && estado.datos.territorios && estado.datos.territorios.puedeVer) { renderS13(); return; }
     if (ruta === 'informes' && estado.datos.informe && estado.datos.informe.verGrupos) { renderInformes(); return; }
     var docs = estado.datos.documentos || {};
     var np = /^nopasar(?:\/(\w+))?$/.exec(ruta);
@@ -1142,6 +1144,7 @@
     } else if (t.pendientes) {
       h += '<p class="pend-ok">' + svg('check') + ' No hay salidas sin registrar.</p>';
     }
+    if (t.s13) h += '<a class="btn btn-sec s13-btn" href="#s13">' + svg('libro') + 'Ver S-13 · Registro de asignación de territorio</a>';
     var hoy = t.hoy, q = String(estado.buscarTerr || '').replace(/\D/g, ''), f = estado.filtroTerr || 'todos';
     var diasDesde = function (iso) { return iso ? Math.round((Date.parse(hoy) - Date.parse(iso)) / 864e5) : null; };
     var lista = t.territorios.filter(function (x) {
@@ -1169,6 +1172,48 @@
     });
     app.innerHTML = h;
     enlazarTerritorios();
+  }
+
+  /** S-13 (registro de asignación de territorio) del año de servicio: se completa solo con el registro de predicación. */
+  function renderS13() {
+    document.title = 'S-13 · Cong. Los Romeros';
+    var t = estado.s13Datos;
+    var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Territorios</button><h1>S-13</h1></div></div>';
+    var volver = function () { document.getElementById('volver').addEventListener('click', function () { location.hash = '#territorios'; }); };
+    if (!t) {
+      app.innerHTML = h + '<p class="vacio">Cargando el S-13…</p>';
+      volver();
+      api('s13', { recalcular: estado.s13Recalcular ? 1 : '' }).then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        estado.s13Datos = r; estado.s13Recalcular = false;
+        if (location.hash === '#s13') renderS13();
+      }).catch(function (e) { if (e.message !== 'sesion') { app.innerHTML = h + '<p class="vacio">' + esc(e.message || 'No se pudo cargar.') + '</p>'; volver(); } });
+      return;
+    }
+    var anio = estado.s13Anio || t.anioActual;
+    var ini = (anio - 1) + '-09-01', fin = anio + '-08-31';
+    var fc = function (iso) { return iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(2, 4) : ''; };
+    h += '<div class="meses-nav">';
+    for (var a = t.desde; a <= t.anioActual; a++) h += '<button type="button" class="filtro' + (a === anio ? ' activo' : '') + '" data-s13-anio="' + a + '">' + a + '</button>';
+    h += '</div><div class="as-acc"><a class="btn btn-sec" href="' + esc(t.url) + '" target="_blank" rel="noopener">Abrir planilla para imprimir (S-13)</a>' +
+      '<button type="button" class="btn btn-sec" id="s13-recalcular">Actualizar ahora</button></div>';
+    h += '<p class="ayuda-editar">Año de servicio ' + anio + ' (septiembre ' + (anio - 1) + ' a agosto ' + anio + '). Cada vuelta empieza la primera vez que se trabaja el territorio después de completado y termina cuando se trabajaron todas sus manzanas.</p>';
+    t.territorios.forEach(function (n) {
+      var propias = t.vueltas.filter(function (v) { return v.t === n; });
+      // En el año actual también se ven las vueltas que siguen en curso desde el año anterior
+      var delAnio = propias.filter(function (v) { return (v.i >= ini && v.i <= fin) || (!v.f && v.i < ini && anio === t.anioActual); });
+      var previa = propias.filter(function (v) { return v.f && v.f < ini; }).reduce(function (m, v) { return v.f > m ? v.f : m; }, '');
+      h += '<article class="terr s13"><div class="terr-cab"><span class="terr-n">' + esc(n) + '</span><div><div class="terr-t">Territorio ' + esc(n) + '</div>' +
+        '<div class="terr-u">' + (previa ? 'Completado antes del año: ' + esc(fc(previa)) : 'Sin vuelta anterior registrada') + '</div></div></div>' +
+        (delAnio.length ? delAnio.map(function (v) {
+          return '<div class="s13-v' + (v.f ? '' : ' curso') + '"><span class="s13-n">' + esc(v.a || '—') + (v.n ? '<small>' + esc(v.n) + '</small>' : '') + '</span>' +
+            '<span class="s13-f">' + esc(fc(v.i)) + ' → ' + (v.f ? esc(fc(v.f)) : 'en curso') + '</span></div>';
+        }).join('') : '<div class="terr-l">Sin asignaciones este año</div>') + '</article>';
+    });
+    app.innerHTML = h;
+    volver();
+    app.querySelectorAll('[data-s13-anio]').forEach(function (b) { b.addEventListener('click', function () { estado.s13Anio = +b.getAttribute('data-s13-anio'); renderS13(); }); });
+    document.getElementById('s13-recalcular').addEventListener('click', function () { estado.s13Datos = null; estado.s13Recalcular = true; renderS13(); });
   }
 
   function enlazarTerritorios() {
@@ -2156,7 +2201,18 @@
   /* ---------- modo demo (solo local) ---------- */
   function demoApi(accion, p) {
     var d = estado.datos;
-    if (accion === 'territorios') return fetch('dev-territorios.json').then(function (r) { return r.json(); });
+    if (accion === 'territorios') return fetch('dev-territorios.json').then(function (r) { return r.json(); }).then(function (r) { r.s13 = true; return r; });
+    if (accion === 's13') return Promise.resolve((function () {
+      var gente = (d.personas || ['Hermano Uno', 'Hermano Dos', 'Hermano Tres']).slice(0, 6), vueltas = [], terrs = [];
+      for (var n = 1; n <= 21; n++) {
+        terrs.push(String(n));
+        var f = '2025-0' + (1 + n % 8) + '-1' + (n % 9);
+        vueltas.push({ t: String(n), a: gente[n % gente.length], i: '2025-06-01', f: f < '2025-06-01' ? '2025-08-20' : f, n: '', m: true });
+        vueltas.push({ t: String(n), a: gente[(n + 1) % gente.length], i: '2025-10-0' + (1 + n % 9), f: '2026-0' + (1 + n % 7) + '-15', n: n % 4 ? '' : 'Se dio por completado (faltó C)', m: false });
+        vueltas.push({ t: String(n), a: gente[(n + 2) % gente.length], i: '2026-09-1' + (n % 9), f: n % 3 ? '' : '2026-10-20', n: n % 3 ? 'En curso · faltan A, B' : '', m: false });
+      }
+      return { ok: true, hoy: '2026-10-26', anioActual: 2027, desde: 2026, url: 'https://docs.google.com', territorios: terrs, vueltas: vueltas };
+    })());
     if (accion === 'nopasar') return fetch('dev-nopasar.json').then(function (r) { return r.json(); });
     if (accion === 'informes') return fetch('dev-informes.json').then(function (r) { return r.json(); });
     if (accion === 'mapa') return fetch('dev-mapa.pdf').then(function (r) { return r.arrayBuffer(); }).then(function (b) {
