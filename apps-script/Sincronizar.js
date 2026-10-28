@@ -332,24 +332,13 @@ function identificar_(a, dir) {
 }
 
 function avisarResponsable_(prog, per, cambios, cfg) {
-  var para = String(prog['Responsable (correo)'] || '').trim();
-  if (!para || !si_(cfg.correosActivos)) return;
+  var para = String(prog['Responsable (correo)'] || '').split(/[,;\s]+/).filter(Boolean);
   var nuevo = per['Estado'] === 'Borrador';
-  var asunto = (nuevo ? 'Programa listo para revisar: ' : 'Programa actualizado: ') + prog['Nombre'] + ' · ' + per['Periodo'];
-  var lineas = [
-    'Hola,',
-    '',
-    nuevo
-      ? 'Detectamos el programa "' + prog['Nombre'] + '" (' + per['Periodo'] + '). Revísalo y apruébalo para publicarlo y enviar las invitaciones.'
-      : 'Detectamos cambios en "' + prog['Nombre'] + '" (' + per['Periodo'] + '): ' + cambios.nuevas + ' nuevas, ' + cambios.cambiadas + ' cambiadas, ' + cambios.eliminadas + ' eliminadas.',
-    ''
-  ];
-  if (cambios.noReconocidos.length) {
-    lineas.push('Estos nombres no están en el directorio (revisa cómo están escritos o avísale al administrador):');
-    cambios.noReconocidos.forEach(function (n) { lineas.push(' • ' + n); });
-    lineas.push('');
-  }
-  if (cfg.urlApp) lineas.push('Abrir la app: ' + cfg.urlApp, '');
-  lineas.push('Mensaje automático de la app de programas.');
-  MailApp.sendEmail({ to: para, subject: asunto, body: lineas.join('\n'), name: cfg.remitente || 'Programas de la congregación' });
+  var titulo = (nuevo ? 'Programa listo para revisar: ' : 'Programa actualizado: ') + prog['Nombre'];
+  var cuerpo = per['Periodo'] + ' · ' + (nuevo ? 'revísalo y apruébalo en la app.'
+    : cambios.nuevas + ' nuevas, ' + cambios.cambiadas + ' cambiadas, ' + cambios.eliminadas + ' eliminadas.') +
+    (cambios.noReconocidos.length ? ' Nombres no reconocidos: ' + cambios.noReconocidos.join(', ') + '.' : '');
+  para.forEach(function (c) {
+    try { notificar_(cfg, c, titulo, cuerpo, './', 'programa-' + prog['ID']); } catch (e) { /* sin notificación */ }
+  });
 }

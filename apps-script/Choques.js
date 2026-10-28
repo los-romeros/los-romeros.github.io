@@ -232,15 +232,10 @@ function avisarChoquesNuevos_(asign, cfg) {
   });
   Object.keys(porCorreo).forEach(function (para) {
     var lista = porCorreo[para];
-    var lineas = lista.map(function (c) { return ' • ' + etiquetaReunion_({ fecha: c.fecha }) + ' · ' + textoChoque_(c); });
     try {
       notificar_(cfg, para, lista.length === 1 ? 'Posible choque de asignaciones' : lista.length + ' posibles choques de asignaciones',
         lista.length === 1 ? textoChoque_(lista[0]) : 'Revísalos en la app.', './', 'choques');
     } catch (e) { /* sin notificación */ }
-    enviarCorreo_(cfg, para, lista.length === 1 ? 'Posible choque de asignaciones: ' + lista[0].nombre : lista.length + ' posibles choques de asignaciones',
-      ['Hola,', '', 'Estas personas tienen dos asignaciones a la misma hora. Es solo un aviso: si está bien así, no tienes que hacer nada.', '']
-        .concat(lineas, ['', 'Para cambiar a alguien, ábrelo en la app y toca su nombre: verás sugerencias de reemplazo.'],
-          cfg.urlApp ? ['', 'Abrir la app: ' + cfg.urlApp] : [], ['', 'Mensaje automático de la app de programas.']));
   });
   registrar_('Choques avisados', nuevos.map(textoChoque_).join(' | '));
   return nuevos.length;

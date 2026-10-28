@@ -1,13 +1,14 @@
 /**
- * Fase 4: invitaciones de Google Calendar, lectura de respuestas y correos automáticos.
+ * Fase 4: invitaciones de Google Calendar y lectura de respuestas.
+ * Los únicos correos son los de Calendar (invitación y cancelación); el resto de los
+ * avisos (rechazos, recordatorios, día anterior) van como notificación de la app.
  *
  * Interruptores en la pestaña Inicio:
  *   invitacionesActivas = Sí   -> se crean eventos e invitaciones
- *   correosActivos      = Sí   -> se envían correos (rechazos, recordatorios, resúmenes)
  *   soloEstosCorreos    = a@x.com, b@y.com  -> modo prueba: solo estos destinatarios
  *
  * Tareas: las invitaciones se envían en cada sincronización (cada 15 min);
- * respuestas, recordatorios y resúmenes corren en tareasHorarias() (cada hora).
+ * respuestas y recordatorios corren en tareasHorarias() (cada hora).
  */
 
 var NOMBRE_CALENDARIO = 'Programas de la congregación';
@@ -34,16 +35,6 @@ function permitido_(cfg, correo) {
 
 function puedeInvitar_(cfg, correo) {
   return si_(cfg.invitacionesActivas) && !!correo && permitido_(cfg, correo);
-}
-
-function puedeCorreo_(cfg, correo) {
-  return si_(cfg.correosActivos) && !!correo && permitido_(cfg, correo) && MailApp.getRemainingDailyQuota() > 3;
-}
-
-function enviarCorreo_(cfg, para, asunto, lineas) {
-  if (!puedeCorreo_(cfg, para)) return false;
-  MailApp.sendEmail({ to: para, subject: asunto, name: cfg.remitente || 'Programas de la congregación', body: lineas.join('\n') });
-  return true;
 }
 
 function eliminarEvento_(id) {
@@ -166,9 +157,7 @@ function tareasHorarias() {
     cambios += recordatoriosSinRespuesta_(asign, cfg);
     var ahora = new Date();
     var hora = +Utilities.formatDate(ahora, Session.getScriptTimeZone(), 'H');
-    var dia = +Utilities.formatDate(ahora, Session.getScriptTimeZone(), 'u'); // 1 = lunes
     if (hora >= +(cfg.horaAvisoDiaAntes || 18) && unaVezAlDia_('AVISO_DIA_ANTES')) cambios += avisosDiaAntes_(asign, cfg);
-    if (dia === 1 && hora >= 8 && unaVezAlDia_('RESUMEN_SEMANAL')) resumenSemanal_(asign, cfg);
     try { recordatoriosInforme_(cfg); } catch (e) { registrar_('Error en recordatorio de informe', e.message); }
     if (hora >= +(cfg.horaRecordatorioAvisos || 10) && unaVezAlDia_('RECORDATORIO_AVISOS')) {
       try { recordatoriosAvisos_(cfg); } catch (e) { registrar_('Error en recordatorio de avisos', e.message); }
@@ -237,20 +226,15 @@ function revisarRespuestas_(asign, cfg) {
 }
 
 function avisarRechazoMemoria_(a, prog, cfg) {
-  var para = prog ? String(prog['Responsable (correo)'] || '').trim() : '';
-  var ok = enviarCorreo_(cfg, para, 'Asignación rechazada: ' + a['Nombre'] + ' · ' + a['Reunión'], [
-    'Hola,', '',
-    a['Nombre'] + ' indicó que no puede cumplir esta asignación:', '',
-    ' • ' + a['Reunión'] + (a['Hora'] ? ' · ' + a['Hora'] : ''),
-    ' • ' + a['Parte'] + ' (' + a['Rol'] + ')', '',
-    'Puedes reasignarla desde la app' + (cfg.urlApp ? ': ' + cfg.urlApp : '') + ' o en tu hoja del programa.', '',
-    'Mensaje automático de la app de programas.'
-  ]);
-  var push = notificar_(cfg, para, 'Asignación rechazada', a['Nombre'] + ' no puede: ' + nombreAsignacion_(a) + ' · ' + a['Reunión'], './', 'rechazo-' + a['Clave']);
-  if (ok || push) a['Rechazo avisado el'] = new Date();
+  var para = prog ? String(prog['Responsable (correo)'] || '').split(/[,;\s]+/).filter(Boolean) : [];
+  var push = 0;
+  para.forEach(function (c) {
+    push += notificar_(cfg, c, 'Asignación rechazada', a['Nombre'] + ' no puede: ' + nombreAsignacion_(a) + ' · ' + a['Reunión'], './', 'rechazo-' + a['Clave']);
+  });
+  if (push) a['Rechazo avisado el'] = new Date();
 }
 
-/** Recordatorio por correo a quienes no han respondido 2 días después de la invitación. */
+/** Notificación a quienes no han respondido 2 días después de la invitación. */
 function recordatoriosSinRespuesta_(asign, cfg) {
   var limite = Date.now() - 2 * 864e5, manana = sumarDias_(hoyISO_(), 1);
   var porPersona = {};
@@ -262,19 +246,14 @@ function recordatoriosSinRespuesta_(asign, cfg) {
   var n = 0;
   Object.keys(porPersona).forEach(function (correo) {
     var lista = porPersona[correo];
-    var ok = enviarCorreo_(cfg, correo, 'Recordatorio: confirma tu asignación', [
-      'Hola ' + String(lista[0]['Nombre']).split(' ')[0] + ',', '',
-      'Aún no hemos recibido tu respuesta para:', ''
-    ].concat(lista.map(lineaAsignacion_)).concat([
-      '', 'Puedes responder Sí o No en la invitación del calendario' + (cfg.urlApp ? ', o tocar "Confirmo" / "No puedo" en la app: ' + cfg.urlApp : '.'), '',
-      'Mensaje automático de la app de programas.'
-    ]));
+    var ok = notificar_(cfg, correo, 'Confirma tu asignación',
+      lista.map(function (a) { return nombreAsignacion_(a) + ' · ' + a['Reunión']; }).join(' · ') + '. Toca "Confirmo" o "No puedo" en la app.', './#mias', 'confirmar-' + correo);
     if (ok) lista.forEach(function (a) { a['Recordatorio el'] = new Date(); n++; });
   });
   return n;
 }
 
-/** Correo la tarde anterior: "Mañana tienes…". */
+/** Notificación la tarde anterior: "Mañana tienes…". */
 function avisosDiaAntes_(asign, cfg) {
   if (!si_(cfg.avisoDiaAntes || 'Sí')) return 0;
   var manana = sumarDias_(hoyISO_(), 1);
@@ -288,34 +267,9 @@ function avisosDiaAntes_(asign, cfg) {
     var lista = porPersona[correo];
     avisados += notificar_(cfg, correo, 'Mañana tienes ' + (lista.length > 1 ? lista.length + ' asignaciones' : 'una asignación'),
       lista.map(function (a) { return nombreAsignacion_(a) + (a['Hora'] ? ' · ' + a['Hora'] : ''); }).join(' · '), './', 'manana-' + correo);
-    enviarCorreo_(cfg, correo, 'Mañana tienes una asignación', [
-      'Hola ' + String(lista[0]['Nombre']).split(' ')[0] + ',', '', 'Te recordamos que mañana tienes:', ''
-    ].concat(lista.map(lineaAsignacion_)).concat(['', cfg.urlApp ? 'Ver en la app: ' + cfg.urlApp : '', '', 'Mensaje automático de la app de programas.']));
   });
   if (Object.keys(porPersona).length) registrar_('Aviso del día anterior', Object.keys(porPersona).length + ' persona(s) con asignación mañana · ' + avisados + ' notificación(es) entregadas a teléfonos');
   return 0;
-}
-
-/** Lunes en la mañana: resumen de los próximos 7 días para cada persona. */
-function resumenSemanal_(asign, cfg) {
-  if (!si_(cfg.resumenSemanal || 'Sí')) return;
-  var hoy = hoyISO_(), fin = sumarDias_(hoy, 6);
-  var porPersona = {};
-  asign.forEach(function (a) {
-    if (a['Fecha'] < hoy || a['Fecha'] > fin || !a['Correo'] || ['Rechazado', 'Eliminada', 'Borrador'].indexOf(a['Estado']) >= 0 || esConductorHabitual_(a, cfg)) return;
-    (porPersona[a['Correo']] = porPersona[a['Correo']] || []).push(a);
-  });
-  Object.keys(porPersona).forEach(function (correo) {
-    var lista = porPersona[correo].sort(function (x, y) { return (x['Fecha'] + x['Hora']).localeCompare(y['Fecha'] + y['Hora']); });
-    enviarCorreo_(cfg, correo, 'Tus asignaciones de esta semana', [
-      'Hola ' + String(lista[0]['Nombre']).split(' ')[0] + ',', '', 'Estas son tus asignaciones de los próximos 7 días:', ''
-    ].concat(lista.map(lineaAsignacion_)).concat(['', cfg.urlApp ? 'Ver en la app: ' + cfg.urlApp : '', '', 'Mensaje automático de la app de programas.']));
-  });
-}
-
-function lineaAsignacion_(a) {
-  return ' • ' + a['Reunión'] + (a['Hora'] ? ' · ' + a['Hora'] : '') + ' — ' + a['Rol'] +
-    (a['Parte'] && a['Parte'] !== a['Rol'] ? ': ' + a['Parte'] : '') + (a['Reconocido'] === 'Grupo' ? ' (' + a['Nombre'] + ')' : '');
 }
 
 /** Crea las tareas automáticas que falten. Se llama desde la sincronización. */

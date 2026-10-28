@@ -10,13 +10,13 @@ Las guías para los hermanos y los responsables están dentro de la app (`guia.h
 | Pieza | Qué hace | Dónde está |
 |---|---|---|
 | **App** | Lo que ven los hermanos en el teléfono (se instala como app). No contiene datos. | https://los-romeros.github.io · código en GitHub `los-romeros/los-romeros.github.io`, carpeta `web/` |
-| **Servidor (API)** | Lee y escribe las planillas, envía invitaciones, correos y notificaciones. | Proyecto Apps Script ligado a la **planilla central**, cuenta `congrelosromeros@gmail.com` |
+| **Servidor (API)** | Lee y escribe las planillas, envía invitaciones de Calendar y notificaciones. | Proyecto Apps Script ligado a la **planilla central**, cuenta `congrelosromeros@gmail.com` |
 | **Planilla central** | La base de datos y la configuración (pestañas abajo). | Drive de la congregación: "Programas Los Romeros" |
 | **Hojas de los responsables** | Cada responsable arma su programa en su propia hoja, como siempre. | Drive de cada responsable, compartidas con la cuenta de la congregación |
 | **Notificaciones** | Firebase Cloud Messaging (gratis). | Proyecto Firebase `programas-los-romeros` |
 | **Inicio de sesión** | Google Sign-In (cliente OAuth publicado). | Google Cloud, proyecto 444480674247 |
 
-Todo es gratis: GitHub Pages, Apps Script, Sheets, Calendar, Gmail (≈100 correos al día) y Firebase.
+Todo es gratis: GitHub Pages, Apps Script, Sheets, Calendar (sus invitaciones llegan por correo) y Firebase.
 
 ### El ciclo de un programa
 1. El responsable completa un mes en su hoja.
@@ -89,13 +89,11 @@ Las claves nuevas aparecen al ejecutar **Programas ▸ Preparar planilla**. Si u
 ### Correos, invitaciones y notificaciones
 | Clave | Qué hace |
 |---|---|
-| `correosActivos`, `invitacionesActivas`, `notificacionesActivas` | Sí/No: interruptores generales |
-| `soloEstosCorreos` | **Modo prueba**: si tiene correos, solo ellos reciben correos, invitaciones y avisos. Vacío = todos |
-| `remitente` | Nombre del remitente de los correos |
+| `invitacionesActivas`, `notificacionesActivas` | Sí/No: interruptores generales. La app ya no envía correos propios: solo llegan los de Calendar (invitación y cancelación); rechazos, recordatorios, choques y programas por revisar avisan con notificación |
+| `soloEstosCorreos` | **Modo prueba**: si tiene correos, solo ellos reciben invitaciones y avisos. Vacío = todos |
 | `firebaseProyecto` | ID del proyecto Firebase |
 | `silencioDesde` / `silencioHasta` | 22 / 8 · horas sin notificaciones |
 | `avisoDiaAntes`, `horaAvisoDiaAntes` | Recordatorio la tarde anterior (18:00) |
-| `resumenSemanal` | Correo de los lunes |
 | `avisoRecordarDias`, `horaRecordatorioAvisos` | 7 días / 10:00 · recordatorio de los avisos con fecha |
 
 ### Informes, asistencia y datos personales
@@ -173,7 +171,7 @@ Separado por comas, cualquiera de: `todos`, `privilegiados` (admin y editores), 
 
 ## 6. Tareas frecuentes
 
-- **Activar a todos**: dejar vacío `soloEstosCorreos` y en `Sí` los interruptores de correos, invitaciones y notificaciones.
+- **Activar a todos**: dejar vacío `soloEstosCorreos` y en `Sí` los interruptores de invitaciones y notificaciones.
 - **Nuevo hermano**: que entre a la app y elija su nombre ("Mis datos"). Si su teléfono coincide, queda registrado solo; si no, aparece en "Requiere tu atención".
 - **Nombre que la app no reconoce**: agregarlo en Personas ▸ "Otras formas de escribirlo".
 - **Nuevo responsable**: compartir su hoja con `congrelosromeros@gmail.com` (editor), agregar la fila en Programas con su correo.
