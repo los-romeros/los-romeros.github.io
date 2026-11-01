@@ -746,3 +746,9 @@ a.resumen-cab.enlace .chevron { width: 20px; height: 20px; color: var(--muted); 
 .ga-nueva .btn { align-self: flex-start; margin-top: 6px; }
 .ga-conteo { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 14px; margin-top: 6px; }
 .ed-fijo { padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); font-weight: 700; }
+.as-sol-item { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); }
+.as-sol-item small { display: block; color: var(--muted); font-size: 13px; }
+.as-sol-item .sol-acc { display: flex; gap: 8px; }
+a.registrar-aviso { text-decoration: none; color: inherit; box-sizing: border-box; }
+.as-sol-item > div:first-child { flex: 1 1 220px; min-width: 0; }
+.as-sol-item .as-sol-t strong { display: inline; margin: 0; }

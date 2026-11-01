@@ -313,78 +313,185 @@ function leerAsistencia_(ss) {
   return out;
 }
 
-/** Reuniones de los programas (entre semana y fin de semana) entre dos fechas: [{ fecha, hora, reunion }] */
+/**
+ * Reuniones publicadas (entre semana y fin de semana) entre dos fechas: [{ fecha, hora, reunion }].
+ * Se leen de la pestaña Datos (no solo los 7 días que trae la app) y se guardan 10 minutos.
+ */
 function reunionesAsistencia_(desde, hasta) {
-  var base = baseCacheada_(), out = [];
-  base.programas.forEach(function (p) {
-    var tipo = p.id === 'vmc' ? 'Entre semana' : p.id === 'finsemana' ? 'Fin de semana' : '';
-    if (!tipo) return;
-    p.reuniones.forEach(function (r) {
-      if (r.borrador || r.tipo === 'salida' || r.fecha < desde || r.fecha > hasta) return;
-      var asignados = 0;
-      r.secciones.forEach(function (s) { s.filas.forEach(function (f) { asignados += f.asignados.length; }); });
-      if (!asignados) return; // semana de asamblea u otra sin reunión
+  var cache = CacheService.getScriptCache(), clave = 'reu-asis:' + desde + ':' + hasta;
+  var guardado = cache.get(clave);
+  if (guardado) { try { return JSON.parse(guardado); } catch (e) { /* se recalcula */ } }
+  var aprobados = {}, out = [];
+  leerTabla_('periodos').forEach(function (p) { if (p['Estado'] === 'Aprobado') aprobados[p['Programa'] + '|' + p['Periodo']] = true; });
+  leerTabla_('datos').forEach(function (d) {
+    var tipo = d['Programa'] === 'vmc' ? 'Entre semana' : d['Programa'] === 'finsemana' ? 'Fin de semana' : '';
+    if (!tipo || !aprobados[d['Programa'] + '|' + d['Periodo']]) return;
+    var res;
+    try { res = JSON.parse(d['JSON']); } catch (e) { return; }
+    res.reuniones.forEach(function (r) {
+      if (r.tipo === 'salida' || r.fecha < desde || r.fecha > hasta) return;
+      if (!totalAsignados_(r)) return; // semana de asamblea u otra sin reunión
       out.push({ fecha: r.fecha, hora: r.hora || '', reunion: tipo });
     });
   });
-  return out.sort(function (a, b) { return (a.fecha + a.hora).localeCompare(b.fecha + b.hora); });
+  out.sort(function (a, b) { return (a.fecha + a.hora).localeCompare(b.fecha + b.hora); });
+  try { cache.put(clave, JSON.stringify(out), 600); } catch (e) { /* sin caché */ }
+  return out;
 }
 
+/** Encargados (Inicio ▸ asistenciaVen) y admin: registran directo, aprueban solicitudes y ven los formularios. */
 function puedeVerAsistencia_(yo, cfg) {
   return yo.rol === 'admin' || enAudiencia_(cfg.asistenciaVen || 'secretario', yo) && !!String(cfg.asistenciaVen || 'secretario').trim();
 }
 
-/** Puede registrar: los de Inicio ▸ asistenciaRegistran, quienes ven el resumen, o quien tiene acomodación esa fecha. */
-function puedeRegistrarAsistencia_(yo, cfg, fecha, asign) {
-  if (puedeVerAsistencia_(yo, cfg) || enAudiencia_(cfg.asistenciaRegistran || 'anciano, secretario', yo)) return true;
+/** ¿Participa en el programa de acomodación? (alguna asignación en los últimos 4 meses o próximas) */
+function esAcomodador_(yo, asign) {
+  var desde = sumarDias_(hoyISO_(), -120), n = norm_(yo.nombre);
   return (asign || leerTabla_('asignaciones')).some(function (a) {
-    return a['Programa'] === 'acomodacion' && a['Fecha'] === fecha && a['Estado'] !== 'Eliminada' && norm_(a['Nombre']) === norm_(yo.nombre);
+    return a['Programa'] === 'acomodacion' && a['Estado'] !== 'Eliminada' && String(a['Fecha']) >= desde && norm_(a['Nombre']) === n;
   });
 }
 
-/** Para el inicio: reuniones de los últimos 7 días (y la de hoy desde la mitad) sin asistencia registrada. */
+/**
+ * Cómo puede registrar: 'directo' (encargados), 'solicitud' (acomodadores y Inicio ▸ asistenciaRegistran:
+ * queda pendiente hasta que un encargado la apruebe) o '' (no puede).
+ */
+function modoAsistencia_(yo, cfg, asign) {
+  if (puedeVerAsistencia_(yo, cfg)) return 'directo';
+  var reg = String(cfg.asistenciaRegistran || '').trim();
+  if ((reg && enAudiencia_(reg, yo)) || esAcomodador_(yo, asign)) return 'solicitud';
+  return '';
+}
+
+/** Solicitudes de asistencia pendientes: [{ fila, fecha, reunion, presencial, zoom, total, notas, por, correo, tipo, antes }] */
+function solicitudesAsistencia_(soloCorreo) {
+  return leerTabla_('solicitudesAsistencia', { opcional: true }).filter(function (x) {
+    return x['Estado'] === 'Pendiente' && (!soloCorreo || String(x['Correo']).toLowerCase() === soloCorreo);
+  }).map(function (x) {
+    var pres = +x['Presencial'] || 0, zoom = +x['Zoom'] || 0;
+    return { fila: x._fila, fecha: isoDe_(x['Fecha']), reunion: x['Reunión'], presencial: pres, zoom: zoom, total: pres + zoom,
+      notas: x['Notas'] || '', por: x['Solicitado por'], correo: String(x['Correo'] || '').toLowerCase(), tipo: x['Tipo'], antes: x['Antes'] || '' };
+  }).sort(function (a, b) { return (a.fecha + a.reunion).localeCompare(b.fecha + b.reunion); });
+}
+
+/**
+ * Para el inicio. El aviso "Registra la asistencia" lo ven los encargados y el acomodador del Auditorio de esa reunión,
+ * desde que empieza la reunión hasta que se registra (o queda enviada para aprobar), hasta 30 días atrás.
+ */
 function asistenciaPendiente_(yo, cfg, asign) {
   var hoy = hoyISO_();
   var ahora = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm');
-  var reuniones = reunionesAsistencia_(sumarDias_(hoy, -7), hoy).filter(function (r) {
-    if (r.fecha === hoy && sumarMinutos_(r.hora || '19:30', MINUTOS_REGISTRO_ASISTENCIA) > ahora) return false;
-    return puedeRegistrarAsistencia_(yo, cfg, r.fecha, asign);
+  var encargado = puedeVerAsistencia_(yo, cfg), n = norm_(yo.nombre);
+  asign = asign || leerTabla_('asignaciones');
+  var reuniones = reunionesAsistencia_(sumarDias_(hoy, -30), hoy).filter(function (r) {
+    if (r.fecha === hoy && (r.hora || '19:30') > ahora) return false;
+    return encargado || asign.some(function (a) {
+      return a['Programa'] === 'acomodacion' && a['Fecha'] === r.fecha && a['Estado'] !== 'Eliminada' &&
+        /^acomodacion-auditorio/.test(String(a['Clave']).split('|')[2] || '') && norm_(a['Nombre']) === n;
+    });
   });
-  if (!reuniones.length) return { puede: true, pendientes: [] };
+  var solicitudes = solicitudesAsistencia_();
+  var out = { porAprobar: encargado ? solicitudes.length : 0, pendientes: [] };
+  if (!reuniones.length) return out;
   var hechas = {};
+  solicitudes.forEach(function (x) { hechas[x.fecha + '|' + x.reunion] = true; });
   var id = PropertiesService.getScriptProperties().getProperty('ASISTENCIA_ID');
   if (id) {
     try { leerAsistencia_(SpreadsheetApp.openById(id)).forEach(function (x) { hechas[x.fecha + '|' + x.reunion] = true; }); } catch (e) { /* aún no existe */ }
   }
-  return { puede: true, pendientes: reuniones.filter(function (r) { return !hechas[r.fecha + '|' + r.reunion]; }) };
+  out.pendientes = reuniones.filter(function (r) { return !hechas[r.fecha + '|' + r.reunion]; });
+  return out;
 }
 
-/** Acción "asistencia": guarda (o corrige) la asistencia de una reunión. */
+/** Escribe (o corrige) una reunión en la planilla de asistencia. */
+function escribirAsistencia_(ss, d, porNombre) {
+  var previo = leerAsistencia_(ss).filter(function (x) { return x.fecha === d.fecha && x.reunion === d.reunion; })[0];
+  var fila = [Utilities.parseDate(d.fecha, Session.getScriptTimeZone(), 'yyyy-MM-dd'), d.reunion, d.presencial, d.zoom, d.presencial + d.zoom,
+    mesNumero_(d.fecha), anioServicio_(d.fecha), porNombre, new Date(), texto_(d.notas || '').slice(0, 300)];
+  var sh = ss.getSheetByName('Registro');
+  if (previo) sh.getRange(previo.fila, 1, 1, fila.length).setValues([fila]);
+  else sh.appendRow(fila);
+}
+
+/** Las demás solicitudes pendientes de esa reunión dejan de valer (ya quedó registrada). */
+function reemplazarSolicitudes_(fecha, reunion, salvoFila) {
+  solicitudesAsistencia_().forEach(function (x) {
+    if (x.fecha === fecha && x.reunion === reunion && x.fila !== salvoFila) {
+      var f = leerTabla_('solicitudesAsistencia').filter(function (y) { return y._fila === x.fila; })[0];
+      if (f) actualizarFila_('solicitudesAsistencia', f, { 'Estado': 'Reemplazada', 'Revisado el': new Date() });
+    }
+  });
+}
+
+/**
+ * Acción "asistencia": los encargados guardan (o corrigen) directo; los demás envían una solicitud
+ * que se registra cuando un encargado la aprueba.
+ */
 function guardarAsistencia_(yo, p, cfg) {
   var fecha = String(p.fecha || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) throw new Error('Indica la fecha.');
   if (fecha > hoyISO_()) throw new Error('La fecha no puede ser futura.');
   var reunion = REUNIONES_ASISTENCIA.indexOf(p.reunion) >= 0 ? p.reunion : '';
   if (!reunion) throw new Error('Indica la reunión.');
-  if (!puedeRegistrarAsistencia_(yo, cfg, fecha)) throw new Error('No tienes permiso para registrar la asistencia.');
+  var modo = modoAsistencia_(yo, cfg);
+  if (!modo) throw new Error('No tienes permiso para registrar la asistencia.');
   var presencial = parseInt(p.presencial, 10), zoom = parseInt(p.zoom || 0, 10);
   if (isNaN(presencial) || presencial < 0 || presencial > 2000) throw new Error('Indica cuántos asistieron en persona.');
   if (isNaN(zoom) || zoom < 0 || zoom > 2000) throw new Error('Indica cuántos se conectaron por Zoom (0 si nadie).');
   var ss = planillaAsistencia_(cfg);
+  var d = { fecha: fecha, reunion: reunion, presencial: presencial, zoom: zoom, notas: p.notas };
+  if (modo === 'directo') {
+    escribirAsistencia_(ss, d, yo.nombre);
+    reemplazarSolicitudes_(fecha, reunion, 0);
+    registrar_('Asistencia', yo.nombre + ': ' + fecha + ' · ' + reunion + ' · ' + presencial + ' + ' + zoom + ' Zoom = ' + (presencial + zoom));
+    return { ok: true, total: presencial + zoom };
+  }
+  // Solicitud: queda pendiente (si ya había una suya para esa reunión, se reemplaza)
+  asegurarColumnas_('solicitudesAsistencia');
   var previo = leerAsistencia_(ss).filter(function (x) { return x.fecha === fecha && x.reunion === reunion; })[0];
-  if (previo && !puedeVerAsistencia_(yo, cfg) && norm_(previo.por) !== norm_(yo.nombre)) throw new Error('Esa reunión ya tiene asistencia registrada por ' + previo.por + '. Pide al secretario que la corrija.');
-  var fila = [Utilities.parseDate(fecha, Session.getScriptTimeZone(), 'yyyy-MM-dd'), reunion, presencial, zoom, presencial + zoom,
-    mesNumero_(fecha), anioServicio_(fecha), yo.nombre, new Date(), texto_(p.notas || '').slice(0, 300)];
-  var sh = ss.getSheetByName('Registro');
-  if (previo) sh.getRange(previo.fila, 1, 1, fila.length).setValues([fila]);
-  else sh.appendRow(fila);
-  registrar_('Asistencia', yo.nombre + ': ' + fecha + ' · ' + reunion + ' · ' + presencial + ' + ' + zoom + ' Zoom = ' + (presencial + zoom));
-  return { ok: true, total: presencial + zoom };
+  var valores = { 'Solicitado el': new Date(), 'Fecha': fecha, 'Reunión': reunion, 'Presencial': presencial, 'Zoom': zoom, 'Notas': texto_(p.notas || '').slice(0, 300),
+    'Solicitado por': yo.nombre, 'Correo': yo.correo, 'Tipo': previo ? 'Corrección' : 'Nueva',
+    'Antes': previo ? previo.presencial + ' + ' + previo.zoom + ' Zoom = ' + previo.total + (previo.por ? ' (' + previo.por + ')' : '') : '', 'Estado': 'Pendiente' };
+  var mia = leerTabla_('solicitudesAsistencia').filter(function (x) {
+    return x['Estado'] === 'Pendiente' && isoDe_(x['Fecha']) === fecha && x['Reunión'] === reunion && String(x['Correo']).toLowerCase() === yo.correo;
+  })[0];
+  if (mia) actualizarFila_('solicitudesAsistencia', mia, valores);
+  else agregarFilas_('solicitudesAsistencia', [valores]);
+  registrar_('Asistencia por aprobar', yo.nombre + ': ' + fecha + ' · ' + reunion + ' · ' + presencial + ' + ' + zoom + ' Zoom' + (previo ? ' (corrección)' : ''));
+  var etiqueta = etiquetaReunion_({ fecha: fecha, titulo: '' }) + ' · ' + reunion;
+  correosEnAudiencia_(cfg.asistenciaVen || 'secretario', true).forEach(function (c) {
+    try { notificar_(cfg, c, 'Asistencia por aprobar', etiqueta + ': ' + presencial + ' + ' + zoom + ' Zoom = ' + (presencial + zoom) + ' · ' + yo.nombre + (previo ? ' (corrección)' : ''), './#asistencia', 'asistencia-aprobar'); } catch (e) { /* sigue */ }
+  });
+  return { ok: true, total: presencial + zoom, pendiente: true };
+}
+
+/** Acción "resolverAsistencia" (encargados): aprobar o rechazar una solicitud. */
+function resolverAsistencia_(yo, p, cfg) {
+  if (!puedeVerAsistencia_(yo, cfg)) throw new Error('Solo los encargados de la asistencia pueden aprobar.');
+  var x = leerTabla_('solicitudesAsistencia').filter(function (y) { return y._fila === +p.fila; })[0];
+  if (!x || x['Estado'] !== 'Pendiente' || isoDe_(x['Fecha']) !== p.fecha || x['Reunión'] !== p.reunion) throw new Error('Esa solicitud ya no está pendiente. Actualiza la pantalla.');
+  var d = { fecha: isoDe_(x['Fecha']), reunion: x['Reunión'], presencial: +x['Presencial'] || 0, zoom: +x['Zoom'] || 0, notas: x['Notas'] };
+  var etiqueta = etiquetaReunion_({ fecha: d.fecha, titulo: '' }) + ' · ' + d.reunion;
+  if (p.aprobar) {
+    escribirAsistencia_(planillaAsistencia_(cfg), d, x['Solicitado por']);
+    actualizarFila_('solicitudesAsistencia', x, { 'Estado': 'Aprobada', 'Revisado por': yo.nombre, 'Revisado el': new Date() });
+    reemplazarSolicitudes_(d.fecha, d.reunion, x._fila);
+  } else {
+    actualizarFila_('solicitudesAsistencia', x, { 'Estado': 'Rechazada', 'Revisado por': yo.nombre, 'Revisado el': new Date(), 'Motivo': texto_(p.motivo || '') });
+  }
+  registrar_('Asistencia ' + (p.aprobar ? 'aprobada' : 'rechazada'), yo.nombre + ': ' + etiqueta + ' · solicitada por ' + x['Solicitado por']);
+  try {
+    notificar_(cfg, x['Correo'], p.aprobar ? 'Asistencia aprobada' : 'Asistencia no aprobada',
+      etiqueta + ': ' + (d.presencial + d.zoom) + (p.aprobar ? ' quedó registrada.' : '.' + (p.motivo ? ' ' + texto_(p.motivo) : '')), './#asistencia', 'asistencia-' + d.fecha);
+  } catch (e) { /* sin notificación */ }
+  return { ok: true };
 }
 
 /** Acción "resumenAsistencia": S-88 del año de servicio, últimas reuniones y enlace a la planilla. */
 function resumenAsistencia_(yo, p, cfg) {
-  if (!puedeVerAsistencia_(yo, cfg)) throw new Error('No tienes acceso al resumen de asistencia.');
+  var modo = modoAsistencia_(yo, cfg);
+  if (!modo) throw new Error('No tienes acceso a la asistencia.');
+  var encargado = modo === 'directo';
   var ss = planillaAsistencia_(cfg);
   var cache = CacheService.getScriptCache();
   if (!cache.get('asistencia-listas')) {
@@ -409,11 +516,15 @@ function resumenAsistencia_(yo, p, cfg) {
     var l = meses.filter(function (m) { return m[k]; });
     return l.length ? Math.round(l.reduce(function (s, m) { return s + m[k].promedio; }, 0) / l.length) : null;
   };
+  var solicitudes = solicitudesAsistencia_(encargado ? '' : yo.correo);
+  var enviada = {};
+  solicitudesAsistencia_().forEach(function (x) { enviada[x.fecha + '|' + x.reunion] = true; });
   var pendientes = reunionesAsistencia_(sumarDias_(hoyISO_(), -60), hoyISO_()).filter(function (r) {
     return !registros.some(function (x) { return x.fecha === r.fecha && x.reunion === r.reunion; });
-  });
+  }).map(function (r) { r.enviada = !!enviada[r.fecha + '|' + r.reunion]; return r; });
   return {
-    ok: true, anio: anio, anioActual: anioServicio_(hoyISO_()), url: ss.getUrl(), meses: meses,
+    ok: true, encargado: encargado, solicitudes: solicitudes,
+    anio: anio, anioActual: anioServicio_(hoyISO_()), url: encargado ? ss.getUrl() : '', meses: meses,
     promedioSemana: promedio('semana'), promedioFinde: promedio('finde'),
     recientes: registros.filter(function (x) { return anioServicio_(x.fecha) === anio; }).sort(function (a, b) { return (b.fecha + b.reunion).localeCompare(a.fecha + a.reunion); }).slice(0, 40),
     sinRegistrar: pendientes

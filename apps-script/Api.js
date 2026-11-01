@@ -59,6 +59,7 @@ function doPost(e) {
       case 'emergencias': return json_(emergencias_(yo, cfg));
       case 'asistencia': return json_(conBloqueo_(function () { return guardarAsistencia_(yo, p, cfg); }));
       case 'resumenAsistencia': return json_(resumenAsistencia_(yo, p, cfg));
+      case 'resolverAsistencia': return json_(conBloqueo_(function () { return resolverAsistencia_(yo, p, cfg); }));
       case 'probarAviso': return json_(probarAviso_(yo, cfg));
       case 'dispositivo': return json_(conBloqueo_(function () { return registrarDispositivo_(yo, p); }));
       case 'territorios': return json_(resumenTerritorios_(yo, cfg));
@@ -449,9 +450,9 @@ function datosUsuario_(yo, cfg) {
 
   // Asistencia a las reuniones
   try {
-    var asisVer = puedeVerAsistencia_(yo, cfg);
-    var asisPend = asistenciaPendiente_(yo, cfg, asign);
-    out.asistencia = { puedeVer: asisVer, pendientes: asisPend.pendientes };
+    var asisModo = modoAsistencia_(yo, cfg, asign);
+    var asisPend = asisModo ? asistenciaPendiente_(yo, cfg, asign) : { pendientes: [], porAprobar: 0 };
+    out.asistencia = { puedeVer: !!asisModo, encargado: asisModo === 'directo', pendientes: asisPend.pendientes, porAprobar: asisPend.porAprobar };
   } catch (e) { console.warn(e); out.asistencia = { puedeVer: false, pendientes: [] }; }
 
   // Informe mensual de predicación

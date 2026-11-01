@@ -43,6 +43,7 @@ Todo es gratis: GitHub Pages, Apps Script, Sheets, Calendar (sus invitaciones ll
 | **Fechas especiales** | Fechas con otra hora de reunión. | Sí |
 | **Conductor de La Atalaya** | Reemplazos del conductor habitual (lo llena la app). | Normalmente no |
 | **Casas de predicación** | Una fila por cada lugar de salida del programa de predicación (se agregan solas): familia, **dueños de casa** (reciben el aviso de la salida), **dirección para el mapa** y ubicación. Se corrige desde la app ("Corregir mapa", solo admin) o aquí. | Se puede |
+| **Solicitudes de asistencia** | Asistencia enviada por acomodadores: Pendiente → Aprobada / Rechazada / Reemplazada. Solo se registra en la planilla de asistencia al aprobarla en la app. | No |
 | **Solicitudes No pasar** | Solicitudes de los capitanes (las aprueba el admin en la app). | No |
 | **Actualizaciones de datos** | Historial de "Mis datos" (aplicadas, pendientes, aprobadas). | No |
 | **Dispositivos** | Teléfonos con avisos activados. | No |
@@ -104,8 +105,8 @@ Las claves nuevas aparecen al ejecutar **Programas ▸ Preparar planilla**. Si u
 | `informeEditableHasta` | 20 | Día límite para corregir |
 | `diasRecordatorioInforme`, `horaRecordatorioInforme` | 1,5,10 / 10 | Recordatorios del informe |
 | `informesFormularios` | | URLs de formularios antiguos que aún se usan |
-| `asistenciaRegistran` | anciano, secretario | Quién registra asistencia (además, acomodación de ese día) |
-| `asistenciaVen` | secretario | Quién ve el S-88 y la planilla |
+| `asistenciaRegistran` | (vacío) | Además de los acomodadores (todos los del programa de acomodación), quiénes ven la asistencia sin formularios y la registran o corrigen **con aprobación** |
+| `asistenciaVen` | secretario | **Encargados** de la asistencia: registran directo, aprueban las solicitudes (reciben notificación) y ven la planilla con los formularios S-1, S-3 y S-88 |
 | `congregacionNombre`, `ciudad`, `provincia`, `numeroCongregacion` | | Encabezado de S-1 y S-3 |
 | `fechaConfirmarDatos` | 01-09 | Fecha anual desde la que todos deben confirmar sus datos |
 | `emergenciasVen` | anciano, secretario | Quién ve todos los contactos de emergencia (superintendente y auxiliar ven su grupo) |
@@ -167,7 +168,9 @@ Separado por comas, cualquiera de: `todos`, `privilegiados` (admin y editores), 
 | Territorio N y No pasar (mapa y listado) | Todos |
 | Registro de territorio (manzanas, historial, próxima salida) y botón "Registrar predicación" en esa vista | Ancianos y capitanes |
 | Informes de grupo | Superintendente y auxiliar (su grupo), secretario y admin (todos) |
-| Asistencia (S-88) | Secretario y admin |
+| Asistencia (S-88): ver y registrar/corregir con aprobación | Acomodadores (cualquier asignación en acomodación en los últimos 4 meses o próxima) y `asistenciaRegistran` |
+| Asistencia: aprobar, registrar directo y formularios | `asistenciaVen` (encargados) y admin |
+| Aviso "Registra la asistencia" en el inicio (desde que empieza la reunión hasta que se registra, hasta 30 días) | Acomodador del Auditorio de esa reunión y encargados |
 | S-13 (botón en Registro de territorios) | Felipe y el responsable del programa de predicación |
 | Emergencias | Ancianos y secretario (todos), superintendente y auxiliar (su grupo) |
 | Aprobar datos personales y solicitudes No pasar | Admin |

@@ -80,6 +80,11 @@ var HOJAS = {
     titulos: ['Lugar', 'Familia', 'Dueños de casa', 'Dirección para el mapa', 'Ubicación (mapa)', 'Revisado por', 'Revisado el'],
     anchos: [300, 140, 260, 260, 300, 180, 140]
   },
+  solicitudesAsistencia: {
+    nombre: 'Solicitudes de asistencia',
+    titulos: ['Solicitado el', 'Fecha', 'Reunión', 'Presencial', 'Zoom', 'Notas', 'Solicitado por', 'Correo', 'Tipo', 'Antes', 'Estado', 'Revisado por', 'Revisado el', 'Motivo'],
+    anchos: [140, 100, 110, 90, 70, 220, 180, 200, 100, 220, 100, 180, 140, 220]
+  },
   solicitudesNoPasar: {
     nombre: 'Solicitudes No pasar',
     titulos: ['Fecha', 'Solicitado por', 'Correo', 'Territorio', 'Manzana', 'Dirección', 'Notas', 'Estado', 'Revisado por', 'Revisado el'],

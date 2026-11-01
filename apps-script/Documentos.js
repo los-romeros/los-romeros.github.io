@@ -118,18 +118,19 @@ function mapaPorTerritorio_(t) {
 /* ------------------------------------------------------------------ */
 
 /** Correos de las personas que pertenecen a una audiencia (para avisar a quienes aprueban). */
-function correosEnAudiencia_(texto) {
+/** Correos de quienes están en la audiencia. sinAdmin: el admin no entra solo por ser admin. */
+function correosEnAudiencia_(texto, sinAdmin) {
   var usuarios = {};
   leerTabla_('usuarios').forEach(function (u) { if (u['Correo']) usuarios[String(u['Correo']).trim().toLowerCase()] = String(u['Rol'] || 'lector').toLowerCase(); });
   var out = {};
   leerTabla_('personas').forEach(function (p) {
     var correo = String(p['Correo'] || '').trim().toLowerCase();
     if (!correo) return;
-    var yo = { correo: correo, nombre: p['Nombre'], rol: usuarios[correo] || '', privilegiado: !!usuarios[correo], grupo: +p['Grupo'] || null, perfiles: perfilesDe_(p) };
+    var yo = { correo: correo, nombre: p['Nombre'], rol: sinAdmin && usuarios[correo] === 'admin' ? '' : usuarios[correo] || '', privilegiado: !!usuarios[correo], grupo: +p['Grupo'] || null, perfiles: perfilesDe_(p) };
     if (enAudiencia_(texto, yo)) out[correo] = true;
   });
   Object.keys(usuarios).forEach(function (c) {
-    if (enAudiencia_(texto, { correo: c, rol: usuarios[c], privilegiado: true, grupo: null, perfiles: [] })) out[c] = true;
+    if (enAudiencia_(texto, { correo: c, rol: sinAdmin && usuarios[c] === 'admin' ? '' : usuarios[c], privilegiado: true, grupo: null, perfiles: [] })) out[c] = true;
   });
   return Object.keys(out);
 }

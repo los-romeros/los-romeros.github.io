@@ -84,6 +84,8 @@ out.solicitudesNoPasar = { puedeSolicitar: true, porAprobar: [], mias: [] };
 out.territorios = { puedeVer: true, manzanas: {} };
 try { JSON.parse(fs.readFileSync(path.join(__dirname, '../web/dev-territorios.json'), 'utf8')).territorios.forEach(t => { out.territorios.manzanas[t.territorio] = t.manzanas; }); } catch (e) { /* sin territorios de prueba */ }
 out.registrosPendientes = [];
+// Asistencia: el usuario de prueba es encargado (?demo&acomodador lo muestra como acomodador)
+out.asistencia = { puedeVer: true, encargado: true, porAprobar: 1, pendientes: [{ fecha: hoy, hora: '19:30', reunion: [0, 6].includes(ctx.diaSemana_(hoy)) ? 'Fin de semana' : 'Entre semana' }] };
 // Choques, con la misma lógica del servidor
 const filas = [];
 programas.forEach(p => p.reuniones.forEach(r => r.secciones.forEach(s => s.filas.forEach(f => f.asignados.forEach(a => {
