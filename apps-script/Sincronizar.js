@@ -18,11 +18,12 @@ function sincronizar(forzar) {
 
 var MINUTOS_ESPERA_CAMBIOS = 25; // un periodo aprobado debe quedar quieto este tiempo antes de aplicar cambios
 
-function sincronizar_(forzar) {
+/** `soloPrograma` (opcional): leer solo la hoja de ese programa (p. ej. tras generar el de acomodación). */
+function sincronizar_(forzar, soloPrograma) {
   asegurarColumnas_('periodos');
   var cfg = config_();
   var programas = leerTabla_('programas').filter(function (p) {
-    return p['ID'] && LECTORES[p['Lector']] && String(p['Hoja de origen (URL)']).indexOf('http') === 0;
+    return p['ID'] && LECTORES[p['Lector']] && String(p['Hoja de origen (URL)']).indexOf('http') === 0 && (!soloPrograma || p['ID'] === soloPrograma);
   });
   var periodos = leerTabla_('periodos');
   var datos = leerTabla_('datos');
@@ -118,6 +119,7 @@ function sincronizar_(forzar) {
   periodos.forEach(function (per) {
     if (per['Estado'] !== 'Aprobado') return;
     var prog = programas.filter(function (p) { return p['ID'] === per['Programa']; })[0];
+    if (!prog && soloPrograma) return; // solo se revisa el programa pedido
     asignaciones.forEach(function (a) {
       if (a['Programa'] === per['Programa'] && a['Periodo'] === per['Periodo'] && a['Estado'] === 'Borrador') {
         a['Estado'] = estadoInicial_(prog, a);
@@ -148,6 +150,10 @@ function sincronizar_(forzar) {
   });
   if (hubo) {
     try { avisarChoquesNuevos_(asignaciones, cfg); } catch (e) { registrar_('Error al revisar choques', e.message); }
+  }
+  // Casas nuevas del programa de predicación (dirección para el mapa y dueños de casa)
+  if (resumen.some(function (x) { return x.programa['ID'] === 'predicacion'; })) {
+    try { actualizarCasas_(10); } catch (e) { registrar_('Error al actualizar casas de predicación', e.message); }
   }
   return resumen.length;
 }

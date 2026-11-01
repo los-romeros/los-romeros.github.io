@@ -10,8 +10,9 @@ const FUENTES = {
   '02_Programa_Acomodación_Los_Romeros_2026.json': 'acomodacion',
   'Pogramas Reunion Publica.json': 'finsemana',
   'Predicación.json': 'predicacion',
+  'Predicación Noviembre 2026.json': 'predicacion',
 };
-const soloPeriodos = { finsemana: /^(sept|oct) 26$/, predicacion: /SEPTIEMBRE CAMPAÑA/, acomodacion: /Septiembre/, vmc: /./ };
+const soloPeriodos = { finsemana: /^(sept|oct) 26$/, predicacion: /SEPTIEMBRE CAMPAÑA|NOVIEMBRE 2026/, acomodacion: /Septiembre/, vmc: /./ };
 
 function display(values) {
   return values.map(r => r.map(v => v && v.$t ? v.$t : v && v.$d ? v.$d : String(v ?? '')));
@@ -19,7 +20,7 @@ function display(values) {
 const resultado = {};
 for (const [archivo, prog] of Object.entries(FUENTES)) {
   const data = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', archivo), 'utf8'));
-  resultado[prog] = [];
+  resultado[prog] = resultado[prog] || [];
   for (const sh of data.sheets) {
     if (sh.hidden || !soloPeriodos[prog].test(sh.name)) continue;
     const p = ctx.LECTORES[prog]({ name: sh.name, values: sh.values, display: display(sh.values) });

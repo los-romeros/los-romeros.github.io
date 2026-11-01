@@ -178,6 +178,8 @@ function prepararPlanilla() {
   lista_('periodos', 'Estado', ['Borrador', 'Aprobado']);
   lista_('asignaciones', 'Estado', ESTADOS);
 
+  var pe = columna_('programas', 'Pueden editar');
+  if (pe) hoja_('programas').getRange(1, pe.getColumn()).setNote('Además del responsable, quiénes pueden editar y aprobar este programa: nombres, perfiles, "grupo N" o correos, separados por coma. Ej.: Pablo Morales');
   hoja_('datos').getRange('C:C').setWrap(false);
   hoja_('inicio').getRange('B:C').setWrap(true);
   ss.setActiveSheet(hoja_('inicio'));

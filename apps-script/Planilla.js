@@ -12,8 +12,8 @@ var HOJAS = {
   },
   programas: {
     nombre: 'Programas',
-    titulos: ['ID', 'Nombre', 'Lector', 'Hoja de origen (URL)', 'Responsable (correo)', 'Requiere confirmación', 'Visible', 'Orden', 'Ícono', 'Descripción', 'Visible para', 'Estados visibles para'],
-    anchos: [110, 230, 110, 320, 220, 150, 80, 60, 70, 300]
+    titulos: ['ID', 'Nombre', 'Lector', 'Hoja de origen (URL)', 'Responsable (correo)', 'Requiere confirmación', 'Visible', 'Orden', 'Ícono', 'Descripción', 'Visible para', 'Estados visibles para', 'Pueden editar'],
+    anchos: [110, 230, 110, 320, 220, 150, 80, 60, 70, 300, 160, 160, 260]
   },
   personas: {
     nombre: 'Personas',
@@ -74,6 +74,11 @@ var HOJAS = {
     nombre: 'Conductor de La Atalaya',
     titulos: ['Fecha', 'Conductor', 'Cambiado por', 'Cambiado el'],
     anchos: [110, 220, 200, 140]
+  },
+  casas: {
+    nombre: 'Casas de predicación',
+    titulos: ['Lugar', 'Familia', 'Dueños de casa', 'Dirección para el mapa', 'Ubicación (mapa)', 'Revisado por', 'Revisado el'],
+    anchos: [300, 140, 260, 260, 300, 180, 140]
   },
   solicitudesNoPasar: {
     nombre: 'Solicitudes No pasar',

@@ -68,8 +68,7 @@ function perfil_(correo) {
     var asignado = rol === 'admin' || (rol === 'editor' && (/todos/.test(listaUsuario) || listaUsuario.split(/[,;\s]+/).indexOf(p['ID']) >= 0));
     if (esResponsable || asignado) editables.push(p['ID']);
   });
-  if (!rol && editables.length) rol = 'editor';
-  return {
+  var yo = {
     correo: correo,
     registrado: !!(persona || usuario),
     nombre: persona ? persona['Nombre'] : usuario ? usuario['Nombre'] || correo : correo,
@@ -80,6 +79,13 @@ function perfil_(correo) {
     privilegiado: !!rol,
     editables: editables
   };
+  // Programas ▸ "Pueden editar": permiso por nombre, perfil, grupo o correo (p. ej. "Pablo Morales" en Aseo)
+  programas.forEach(function (p) {
+    if (!persona || editables.indexOf(p['ID']) >= 0 || !texto_(p['Pueden editar'])) return;
+    if (enAudiencia_(p['Pueden editar'], yo)) editables.push(p['ID']);
+  });
+  if (!yo.rol && editables.length) { yo.rol = 'editor'; yo.privilegiado = true; }
+  return yo;
 }
 
 /**

@@ -157,13 +157,20 @@ function tareasHorarias() {
     cambios += recordatoriosSinRespuesta_(asign, cfg);
     var ahora = new Date();
     var hora = +Utilities.formatDate(ahora, Session.getScriptTimeZone(), 'H');
-    if (hora >= +(cfg.horaAvisoDiaAntes || 18) && unaVezAlDia_('AVISO_DIA_ANTES')) cambios += avisosDiaAntes_(asign, cfg);
+    if (hora >= +(cfg.horaAvisoDiaAntes || 18) && unaVezAlDia_('AVISO_DIA_ANTES')) {
+      cambios += avisosDiaAntes_(asign, cfg);
+      try { avisosCasas_(cfg, 1); } catch (e) { registrar_('Error en aviso a dueños de casa', e.message); }
+    }
+    if (hora >= +(cfg.horaRecordatorioAvisos || 10) && unaVezAlDia_('AVISO_CASAS_7')) {
+      try { avisosCasas_(cfg, 7); } catch (e) { registrar_('Error en aviso a dueños de casa', e.message); }
+    }
     try { recordatoriosInforme_(cfg); } catch (e) { registrar_('Error en recordatorio de informe', e.message); }
     if (hora >= +(cfg.horaRecordatorioAvisos || 10) && unaVezAlDia_('RECORDATORIO_AVISOS')) {
       try { recordatoriosAvisos_(cfg); } catch (e) { registrar_('Error en recordatorio de avisos', e.message); }
     }
     if (hora >= 3 && unaVezAlDia_('UBICAR_DIRECCIONES')) {
       try { ubicarDirecciones_(40); } catch (e) { registrar_('Error al ubicar direcciones', e.message); }
+      try { actualizarCasas_(30); } catch (e) { registrar_('Error al actualizar casas de predicación', e.message); }
     }
     if (hora >= 3 && PropertiesService.getScriptProperties().getProperty('EMERGENCIAS_ID') && unaVezAlDia_('EMERGENCIAS')) {
       try { planillaEmergencias_(cfg, true); } catch (e) { registrar_('Error al actualizar contactos de emergencia', e.message); }

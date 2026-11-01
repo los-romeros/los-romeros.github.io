@@ -265,23 +265,31 @@ function parseVMC(sheet) {
 /* Acomodación, micrófonos, plataforma, audio y video                   */
 /* ------------------------------------------------------------------ */
 
-function parseAcomodacion(sheet) {
-  var out = { periodo: sheet.name, reuniones: [], avisos: [] };
-  var hdr = -1, grupos = [];
-  for (var r = 0; r < sheet.values.length && hdr < 0; r++) {
-    var t = (sheet.values[r] || []).map(function (v) { return norm_(texto_(v)); });
+/** Fila de títulos y columnas de la hoja de acomodación: { hdr, colDia, colFecha, grupos } (hdr = -1 si no está). */
+function columnasAcomodacion_(values) {
+  var out = { hdr: -1, colDia: -1, colFecha: -1, grupos: [] };
+  for (var r = 0; r < values.length && out.hdr < 0; r++) {
+    var t = (values[r] || []).map(function (v) { return norm_(texto_(v)); });
     if (t.indexOf('fecha') >= 0 && t.some(function (x) { return /acomod/.test(x); })) {
-      hdr = r;
+      out.hdr = r;
+      out.colFecha = t.indexOf('fecha');
+      out.colDia = t.indexOf('dia');
       t.forEach(function (x, c) {
-        if (/acomod/.test(x)) grupos.push({ col: c, tipo: 'etiquetado', titulo: 'Acomodación', slot: 'acomodacion' });
-        else if (/audio/.test(x)) grupos.push({ col: c, tipo: 'etiquetado', titulo: 'Audio y video', slot: 'av' });
-        else if (/microfono/.test(x)) grupos.push({ col: c, tipo: 'filas', titulo: /plataforma/.test(x) ? 'Micrófonos y plataforma' : 'Micrófonos', slot: 'microfono' });
-        else if (/plataforma/.test(x)) grupos.push({ col: c, tipo: 'unico', titulo: 'Plataforma', slot: 'plataforma' });
+        if (/acomod/.test(x)) out.grupos.push({ col: c, tipo: 'etiquetado', titulo: 'Acomodación', slot: 'acomodacion' });
+        else if (/audio/.test(x)) out.grupos.push({ col: c, tipo: 'etiquetado', titulo: 'Audio y video', slot: 'av' });
+        else if (/microfono/.test(x)) out.grupos.push({ col: c, tipo: 'filas', titulo: /plataforma/.test(x) ? 'Micrófonos y plataforma' : 'Micrófonos', slot: 'microfono' });
+        else if (/plataforma/.test(x)) out.grupos.push({ col: c, tipo: 'unico', titulo: 'Plataforma', slot: 'plataforma' });
       });
     }
   }
+  return out;
+}
+
+function parseAcomodacion(sheet) {
+  var out = { periodo: sheet.name, reuniones: [], avisos: [] };
+  var cols = columnasAcomodacion_(sheet.values);
+  var hdr = cols.hdr, grupos = cols.grupos, colFecha = cols.colFecha, r;
   if (hdr < 0) { out.avisos.push('No encontré la fila de títulos (Día, Fecha, Acomodación…).'); return out; }
-  var colFecha = (sheet.values[hdr] || []).map(function (v) { return norm_(texto_(v)); }).indexOf('fecha');
 
   for (r = hdr + 1; r < sheet.values.length; r++) {
     var f = fecha_(celda_(sheet, r, colFecha));

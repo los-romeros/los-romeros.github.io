@@ -41,7 +41,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v42'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v43'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -114,6 +114,8 @@
       ' (o respóndeme por aquí si te resulta más fácil). ¡Muchas gracias!';
   }
   function mapsURL(q) { return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q); }
+  // ubic = "lat,lng" corregido por el admin (Casas de predicación); si no, se limpia el texto
+  function urlLugar(lugar, ubic) { return mapsURL(ubic || direccionMaps(lugar)); }
   function mayuscula(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
   function primerNombre(n) { return String(n || '').split(' ')[0]; }
   function leer(clave) { try { return JSON.parse(localStorage.getItem(clave) || 'null'); } catch (e) { return null; } }
@@ -629,7 +631,7 @@
       '<span class="ms">' + MESES_CORTOS[p.m - 1] + '</span></div><div class="mia-cuerpo">' +
       '<div class="mia-prog">' + esc(x.programaNombre) + ' · ' + esc(cuando(x.fecha, hoy)) + (x.hora ? ' · ' + esc(x.hora) : '') + '</div>' +
       tituloResumen(x) +
-      (x.lugar ? lugarResumen(x.lugar) : '');
+      (x.lugar ? lugarResumen(x.lugar, x.ubic) : '');
     if (x.puedeResponder && (x.estado === 'Confirmado' || x.estado === 'Rechazado') && estado.cambiando !== x.clave) {
       h += '<div class="mia-acc">' + (x.estado === 'Confirmado'
         ? '<span class="estado ok">' + svg('check') + ' Confirmado</span>'
@@ -686,11 +688,11 @@
     return '<div class="mia-rol">' + esc(principal) + '</div>' + (secundario ? '<div class="mia-parte">' + esc(secundario) + '</div>' : '');
   }
 
-  function lugarResumen(lugar) {
+  function lugarResumen(lugar, ubic) {
     var z = estado.datos.inicio.zoom && estado.datos.inicio.zoom.predicacion;
     if (/zoom/i.test(lugar) && z) return '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(z) + '">' + svg('video') + '<span>Entrar a Zoom</span></a>';
     if (/tel[eé]fono|cartas/i.test(lugar)) return '<div class="lugar">' + SVG_PIN + '<span>' + esc(lugar) + '</span></div>';
-    return '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(mapsURL(direccionMaps(lugar))) + '">' + SVG_PIN + '<span>' + esc(lugar) + '</span></a>';
+    return '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(urlLugar(lugar, ubic)) + '">' + SVG_PIN + '<span>' + esc(lugar) + '</span></a>';
   }
 
   function pastilla(e) {
@@ -807,6 +809,14 @@
         '<span><i class="punto rech"></i> Rechazado</span><span><i class="punto manual"></i> Avisar a mano</span></p>';
     }
     if (prog.editable) h += '<p class="ayuda-editar">Toca un nombre para cambiar el asignado o su estado.</p>';
+    // Acomodación: generar el programa del mes siguiente (cuando entre semana y fin de semana están aprobados)
+    var ga = prog.id === 'acomodacion' && d.generarAcomodacion;
+    if (ga) {
+      h += '<section class="gen-acom"><div class="gen-t">Programa de ' + esc(ga.nombre) + '</div>' +
+        '<div class="gen-d">' + (ga.listo ? 'Las reuniones de entre semana y del fin de semana ya están aprobadas. Se arma solo, sin choques y repartido parejo; luego lo revisas y apruebas.'
+          : 'Se podrá generar cuando esté aprobada la ' + esc(ga.faltan.join(' y la ').toLowerCase()) + ' de ' + esc(ga.nombre.split(' ')[0]) + '.') + '</div>' +
+        '<button type="button" class="btn" id="gen-acom"' + (ga.listo ? '' : ' disabled') + '>Generar programa de ' + esc(ga.nombre.split(' ')[0]) + '</button></section>';
+    }
     if (anteriores.length && !estado.verAnteriores && !q) {
       h += '<button class="btn btn-sec" type="button" id="anteriores">Ver fechas anteriores (' + anteriores.length + ')</button>';
     }
@@ -853,6 +863,11 @@
     app.querySelectorAll('[data-editar]').forEach(function (b) {
       b.addEventListener('click', function () { abrirEditor(prog, b.getAttribute('data-editar')); });
     });
+    app.querySelectorAll('[data-casa]').forEach(function (b) {
+      b.addEventListener('click', function () { abrirCasa(b.getAttribute('data-casa'), b.getAttribute('data-familia')); });
+    });
+    var bg = document.getElementById('gen-acom');
+    if (bg) bg.addEventListener('click', function () { abrirGenerarAcomodacion(d.generarAcomodacion); });
     if (estado.abrirClave) {
       var c = estado.abrirClave;
       estado.abrirClave = '';
@@ -889,8 +904,14 @@
       var zoomPred = /zoom/i.test(r.lugar) && estado.datos.inicio.zoom && estado.datos.inicio.zoom.predicacion;
       if (zoomPred) h += '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(zoomPred) + '">' + svg('video') + '<span>' + esc(r.lugar) + ' · Entrar</span></a>';
       else h += esDireccion
-        ? '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(mapsURL(direccionMaps(r.lugar))) + '">' + SVG_PIN + '<span>' + esc(r.lugar) + '</span></a>'
+        ? '<a class="lugar lugar-link" target="_blank" rel="noopener" href="' + esc(urlLugar(r.lugar, r.ubic)) + '">' + SVG_PIN + '<span>' + esc(r.lugar) + '</span></a>'
         : '<div class="lugar">' + SVG_PIN + '<span>' + esc(r.lugar) + '</span></div>';
+      // Solo el admin: corregir dónde queda la casa en el mapa y quiénes viven ahí
+      if (esDireccion && !zoomPred && prog.id === 'predicacion' && estado.datos.usuario.rol === 'admin') {
+        var fam = '';
+        r.secciones.forEach(function (s) { s.filas.forEach(function (f) { var m = /^Familia ([^·]+)/.exec(f.detalle || ''); if (m && !fam) fam = m[1].trim(); }); });
+        h += '<button type="button" class="lugar-editar" data-casa="' + esc(r.lugar) + '" data-familia="' + esc(fam) + '">' + SVG_PIN + 'Corregir mapa' + (r.ubic ? '' : ' · sin ubicar') + '</button>';
+      }
     }
     if (r.nota) h += '<div class="nota">' + esc(r.nota) + '</div>';
     var docsP = estado.datos.documentos || {};
@@ -989,15 +1010,20 @@
       '<form class="editor" role="dialog" aria-modal="true" aria-labelledby="ed-t">' +
       '<div class="editor-cab"><div id="ed-t" class="editor-t">' + esc(x.f.texto || x.a.rol) + '</div>' +
       '<div class="editor-d">' + esc(fechaLarga(x.r.fecha)) + (x.r.hora ? ' · ' + esc(x.r.hora) : '') + ' · ' + esc(x.a.rol) + '</div></div>' +
-      '<label for="ed-nombre">Asignado</label>' +
-      '<input id="ed-nombre" list="ed-personas" value="' + esc(x.a.nombre) + '" autocomplete="off">' +
-      '<datalist id="ed-personas">' + (d.personas || []).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>' +
+      (x.a.grupo && (d.grupos || []).length
+        // Aseo y hospitalidad: se elige el grupo
+        ? '<label for="ed-nombre">Grupo asignado</label><select id="ed-nombre">' + d.grupos.map(function (g) {
+          return '<option value="Grupo ' + g + '"' + (+g === +x.a.grupo ? ' selected' : '') + '>Grupo ' + g + '</option>';
+        }).join('') + '</select>'
+        : '<label for="ed-nombre">Asignado</label>' +
+          '<input id="ed-nombre" list="ed-personas" value="' + esc(x.a.nombre) + '" autocomplete="off">' +
+          '<datalist id="ed-personas">' + (d.personas || []).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>') +
       (choqueDe(clave) ? '<p class="editor-choque">⚠ ' + esc(primerNombre(x.a.nombre)) + ' también tiene ' + esc(choqueDe(clave)) + ' a esa hora.</p>' : '') +
       (x.a.grupo ? '' : '<div class="sugerencias" id="ed-sug"><span class="sug-t">Buscando a quién sugerir…</span></div>') +
       (est && est !== 'Borrador' ? '<label for="ed-estado">Estado</label><select id="ed-estado">' + opciones + '</select>' : '') +
       ((d.telefonos || {})[x.a.nombre] ? '<a class="btn wa" target="_blank" rel="noopener" href="' + esc(whatsappURL(d.telefonos[x.a.nombre],
         mensajeAsignacion(x.a.nombre, x.f.texto && !/^(asignado|titular|ayudante)$/i.test(x.a.rol) ? x.a.rol : (x.f.texto || x.a.rol).replace(/^\d+\.\s*/, '').replace(/\s*\(\d+ ?mins?\.?\)/i, ''), x.r.fecha, x.r.hora, prog.nombre))) + '">' + svg('chat') + 'Escribir por WhatsApp a ' + esc(primerNombre(x.a.nombre)) + '</a>' : '') +
-      '<p class="editor-nota">Si cambias el nombre, también se cambia en la hoja oficial del programa y la asignación vuelve a quedar pendiente.</p>' +
+      '<p class="editor-nota">Si cambias ' + (x.a.grupo ? 'el grupo' : 'el nombre') + ', también se cambia en la hoja oficial del programa y la asignación vuelve a quedar pendiente.</p>' +
       '<p class="editor-msg" id="ed-msg" role="status"></p>' +
       '<div class="editor-acc"><button type="button" class="btn btn-sec" id="ed-cancelar">Cancelar</button><button type="submit" class="btn" id="ed-guardar">Guardar</button></div>' +
       '</form>';
@@ -1050,44 +1076,245 @@
     document.getElementById('ed-nombre').focus();
   }
 
-  /* ---------- registro de predicación (capitanes) ---------- */
-  function abrirRegistro(pend) {
-    var d = estado.datos, mz = (d.territorios && d.territorios.manzanas) || {};
-    var terrs = Object.keys(mz).sort(function (a, b) { return +a - +b; });
-    var terr = pend && pend.territorios[0] ? pend.territorios[0] : terrs[0];
+  /* ---------- casa de predicación (admin): dirección para el mapa y dueños de casa ---------- */
+  function claveCasa(l) { return norm(l).replace(/\s+/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim(); }
+  function abrirCasa(lugar, familia) {
+    var d = estado.datos;
+    var c = (d.casas || []).filter(function (x) { return claveCasa(x.lugar) === claveCasa(lugar); })[0] ||
+      { lugar: lugar, familia: familia, duenos: [], direccion: '', texto: '', lat: null, lng: null };
+    var duenos = c.duenos.slice();
+    var automatico = c.texto && !c.direccion ? c.texto : direccionMaps(lugar);
     var cont = document.createElement('div');
     cont.className = 'editor-fondo';
     cont.innerHTML =
-      '<form class="editor" role="dialog" aria-modal="true" aria-labelledby="rg-t">' +
-      '<div class="editor-cab"><div id="rg-t" class="editor-t">Registrar predicación</div>' +
-      '<div class="editor-d">' + (pend ? esc(pend.lugar || '') : 'Lo que se trabajó del territorio') + '</div></div>' +
-      '<div class="rg-fila"><div><label for="rg-fecha">Fecha</label><input id="rg-fecha" type="date" value="' + esc(pend ? pend.fecha : hoyISO()) + '" max="' + hoyISO() + '" required></div>' +
-      '<div><label for="rg-terr">Territorio</label><select id="rg-terr">' + terrs.map(function (t) { return '<option' + (t === terr ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></div></div>' +
+      '<form class="editor" role="dialog" aria-modal="true" aria-labelledby="cs-t">' +
+      '<div class="editor-cab"><div id="cs-t" class="editor-t">Ubicación en el mapa</div>' +
+      '<div class="editor-d">' + esc(lugar) + (c.familia || familia ? ' · Familia ' + esc(c.familia || familia) : '') + '</div></div>' +
+      '<label for="cs-dir">Dirección para el mapa</label>' +
+      '<input id="cs-dir" autocomplete="off" value="' + esc(c.direccion) + '" placeholder="' + esc(automatico.replace(/, Chile$/, '')) + '">' +
+      '<p class="editor-nota">Solo calle, número y comuna (sin depto. ni block). Vacío = se usa la dirección del programa. Sirve para todas las salidas desde esta casa.</p>' +
+      '<div id="cs-mapa" class="dt-mapa cs-mapa" aria-label="Mapa con la ubicación de la casa"></div>' +
+      '<p class="editor-nota" id="cs-nota">Cargando el mapa…</p>' +
+      '<a class="cs-probar" id="cs-probar" target="_blank" rel="noopener" href="' + esc(urlLugar(lugar, c.lat != null ? c.lat + ',' + c.lng : '')) + '">' + SVG_PIN + 'Probar en Google Maps</a>' +
+      '<label for="cs-nuevo">Dueños de casa</label><div class="cs-duenos" id="cs-duenos"></div>' +
+      '<div class="cs-agregar"><input id="cs-nuevo" list="cs-personas" autocomplete="off" placeholder="Agregar a alguien que vive ahí">' +
+      '<button type="button" class="btn btn-sec" id="cs-mas">Agregar</button></div>' +
+      '<datalist id="cs-personas">' + (d.personas || []).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>' +
+      '<p class="editor-nota">Los dueños de casa ven la salida en sus asignaciones y reciben un aviso 7 días antes y el día anterior.</p>' +
+      '<p class="editor-msg" id="cs-msg" role="status"></p>' +
+      '<div class="editor-acc"><button type="button" class="btn btn-sec" id="cs-cancelar">Cancelar</button><button type="submit" class="btn" id="cs-guardar">Guardar</button></div></form>';
+    document.body.appendChild(cont);
+    var cerrar = function () { cont.remove(); };
+    cont.addEventListener('click', function (e) { if (e.target === cont) cerrar(); });
+    document.getElementById('cs-cancelar').addEventListener('click', cerrar);
+    var msg = document.getElementById('cs-msg');
+    var pintarDuenos = function () {
+      document.getElementById('cs-duenos').innerHTML = duenos.length ? duenos.map(function (n, i) {
+        return '<span class="cs-dueno">' + esc(n) + '<button type="button" data-quitar-dueno="' + i + '" aria-label="Quitar a ' + esc(n) + '">✕</button></span>';
+      }).join('') : '<span class="sug-t">Nadie todavía: no se avisará a nadie de esta casa.</span>';
+      cont.querySelectorAll('[data-quitar-dueno]').forEach(function (b) {
+        b.addEventListener('click', function () { duenos.splice(+b.getAttribute('data-quitar-dueno'), 1); pintarDuenos(); });
+      });
+    };
+    pintarDuenos();
+    var agregar = function () {
+      var n = document.getElementById('cs-nuevo').value.trim();
+      if (!n) return;
+      if ((d.personas || []).length && d.personas.indexOf(n) < 0) { msg.textContent = 'Elige el nombre de la lista.'; return; }
+      if (duenos.indexOf(n) < 0) duenos.push(n);
+      document.getElementById('cs-nuevo').value = '';
+      msg.textContent = '';
+      pintarDuenos();
+    };
+    document.getElementById('cs-mas').addEventListener('click', agregar);
+    document.getElementById('cs-nuevo').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); agregar(); } });
+
+    // Mapa con pin que se puede mover (OpenStreetMap)
+    var pin = { marker: null, movido: false };
+    var nota = function (t) { var el = document.getElementById('cs-nota'); if (el) el.textContent = t; };
+    var probar = function (ll) { document.getElementById('cs-probar').href = mapsURL(ll.lat.toFixed(6) + ',' + ll.lng.toFixed(6)); };
+    cargarLeaflet().then(function () {
+      var caja = document.getElementById('cs-mapa');
+      if (!caja) return;
+      var mapa = L.map(caja).setView([-32.93, -71.52], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mapa);
+      var poner = function (lat, lng, zoom) {
+        if (!pin.marker) {
+          pin.marker = L.marker([lat, lng], { draggable: true, autoPan: true }).addTo(mapa);
+          pin.marker.on('dragend', function () { pin.movido = true; probar(pin.marker.getLatLng()); nota('Listo: se guardará esta ubicación exacta.'); });
+        } else pin.marker.setLatLng([lat, lng]);
+        mapa.setView([lat, lng], zoom || 17);
+        probar({ lat: lat, lng: lng });
+      };
+      mapa.on('click', function (e) { poner(e.latlng.lat, e.latlng.lng, mapa.getZoom()); pin.movido = true; nota('Listo: se guardará esta ubicación exacta.'); });
+      var buscar = function (texto, primera) {
+        nota('Buscando la dirección…');
+        api('geocodificar', { texto: texto }).then(function (g) {
+          if (!g.ok) throw new Error(g.error);
+          if (!g.encontrada) { nota('Google no encuentra esa dirección. Toca el mapa o arrastra el pin hasta la casa.'); return; }
+          poner(g.lat, g.lng);
+          pin.movido = false;
+          nota(g.exacta ? 'Así la encuentra Google. Si el pin no está en la casa, arrástralo.' : 'Google encontró la calle, pero quizás no el número: arrastra el pin hasta la casa.');
+        }).catch(function () { nota(primera ? 'Toca el mapa para marcar la casa.' : 'No se pudo buscar la dirección.'); });
+      };
+      if (c.lat != null) { poner(c.lat, c.lng); nota(c.confirmada ? 'Esta es la ubicación marcada. Arrastra el pin si hay que corregirla.' : 'Así la ubica Google hoy. Si no está en la casa, arrastra el pin o corrige la dirección.'); }
+      else buscar(c.direccion || lugar, true);
+      document.getElementById('cs-dir').addEventListener('change', function (e) { buscar(e.target.value.trim() || lugar, false); });
+      setTimeout(function () { mapa.invalidateSize(); }, 200);
+    }).catch(function () { nota('No se pudo cargar el mapa. Puedes guardar la dirección igual.'); });
+
+    cont.querySelector('form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var pendiente = document.getElementById('cs-nuevo').value.trim();
+      if (pendiente) { agregar(); if (msg.textContent) return; }
+      var datos = { lugar: lugar, familia: c.familia || familia || '', direccion: document.getElementById('cs-dir').value.trim(), duenos: duenos };
+      if (pin.movido && pin.marker) { var ll = pin.marker.getLatLng(); datos.ubicacion = { lat: ll.lat, lng: ll.lng }; }
+      document.getElementById('cs-guardar').disabled = true;
+      msg.textContent = 'Guardando…';
+      api('guardarCasa', datos).then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        d.casas = (d.casas || []).filter(function (x) { return claveCasa(x.lugar) !== claveCasa(lugar); }).concat([r.casa]);
+        cerrar();
+        aviso(r.casa.lat != null ? 'Guardado. El enlace al mapa ya lleva a la casa.' : 'Guardado, pero Google no encontró la dirección: marca la casa en el mapa.', r.casa.lat == null);
+        cargar();
+      }).catch(function (err) {
+        if (err.message === 'sesion') { cerrar(); return; }
+        msg.textContent = err.message && err.message !== 'red' ? err.message : 'No se pudo guardar. Revisa tu conexión.';
+        document.getElementById('cs-guardar').disabled = false;
+      });
+    });
+  }
+
+  /* ---------- generar el programa de acomodación del mes ---------- */
+  var AYUDA_CONDICION = {
+    'No asignar en': 'Acomodación, Micrófonos, Plataforma, Audio o Video', 'Solo asignar en': 'Acomodación, Micrófonos, Plataforma, Audio o Video',
+    'Máximo al mes': 'Un número, por ejemplo 1', 'No disponible': 'Fechas, por ejemplo 10 al 20 de diciembre'
+  };
+  function abrirGenerarAcomodacion(ga) {
+    var mesN = ga.nombre.split(' ')[0];
+    var cont = document.createElement('div');
+    cont.className = 'editor-fondo';
+    cont.innerHTML = '<div class="editor" role="dialog" aria-modal="true" aria-labelledby="ga-t"><div class="editor-cab">' +
+      '<div id="ga-t" class="editor-t">Generar acomodación · ' + esc(ga.nombre) + '</div>' +
+      '<div class="editor-d">Usa la lista de quiénes pueden participar de la hoja de acomodación: no asigna a quien tiene parte en la reunión de ese día, reparte parejo y respeta las condiciones.</div></div>' +
+      '<div class="ga-cuerpo" id="ga-cuerpo"><p class="sug-t">Cargando…</p></div></div>';
+    document.body.appendChild(cont);
+    var cerrar = function () { cont.remove(); };
+    cont.addEventListener('click', function (e) { if (e.target === cont) cerrar(); });
+    var cuerpo = document.getElementById('ga-cuerpo');
+    var error = function (e) {
+      if (e.message === 'sesion') { cerrar(); return; }
+      var m = document.getElementById('ga-msg');
+      var t = e.message && e.message !== 'red' ? e.message : 'No se pudo conectar. Revisa tu conexión.';
+      if (m) m.textContent = t; else cuerpo.innerHTML = '<p class="editor-msg">' + esc(t) + '</p><div class="editor-acc"><button type="button" class="btn btn-sec" id="ga-cerrar">Cerrar</button></div>';
+      var b = document.getElementById('ga-cerrar'); if (b) b.addEventListener('click', cerrar);
+      cuerpo.querySelectorAll('button').forEach(function (x) { x.disabled = false; });
+    };
+    var pedir = function (datos) {
+      return api('acomodacion', Object.assign({ mes: ga.mes }, datos)).then(function (r) { if (!r.ok) throw new Error(r.error); return r; });
+    };
+    var pintar = function (r, abierta) {
+      var h = '<label>Reuniones de ' + esc(mesN) + '</label><div class="ga-reus">' + r.reuniones.map(function (x) {
+        return '<span class="ga-reu' + (x.especial ? ' esp' : '') + '">' + esc(fechaCorta(x.fecha)) + (x.especial ? ' · ' + esc(x.especial.toLowerCase()) : '') + '</span>';
+      }).join('') + '</div>';
+      h += '<label>Condiciones</label>' + (r.condiciones.length ? '<div class="ga-conds">' + r.condiciones.map(function (c, i) {
+        return '<div class="ga-cond"><span><strong>' + esc(c.nombre) + '</strong> · ' + esc(c.condicion) + (c.detalle ? ': ' + esc(c.detalle) : '') + '</span>' +
+          '<button type="button" class="ga-quitar" data-quitar="' + i + '" aria-label="Quitar condición de ' + esc(c.nombre) + '">✕</button></div>';
+      }).join('') + '</div>' : '<p class="sug-t">Sin condiciones. Por ejemplo: Patricio Quiroz · Solo fin de semana.</p>');
+      h += '<details class="ga-nueva"' + (abierta ? ' open' : '') + '><summary>Agregar condición</summary>' +
+        '<label for="ga-nombre">Hermano</label><input id="ga-nombre" list="ga-lista" autocomplete="off" placeholder="Nombre">' +
+        '<datalist id="ga-lista">' + r.habilitados.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>' +
+        '<label for="ga-cond">Condición</label><select id="ga-cond">' + r.tipos.map(function (t) { return '<option>' + esc(t) + '</option>'; }).join('') + '</select>' +
+        '<div id="ga-det-c" hidden><label for="ga-det">Detalle</label><input id="ga-det" autocomplete="off"></div>' +
+        '<button type="button" class="btn btn-sec" id="ga-agregar">Agregar condición</button></details>';
+      h += '<p class="editor-nota">Las condiciones quedan en la pestaña «Condiciones» de la hoja de acomodación (<a href="' + esc(r.url) + '" target="_blank" rel="noopener">abrir</a>) y se usan todos los meses.</p>' +
+        '<p class="editor-msg" id="ga-msg" role="status"></p>' +
+        '<div class="editor-acc"><button type="button" class="btn btn-sec" id="ga-cerrar">Cancelar</button><button type="button" class="btn" id="ga-generar">Generar programa</button></div>';
+      cuerpo.innerHTML = h;
+      document.getElementById('ga-cerrar').addEventListener('click', cerrar);
+      var sel = document.getElementById('ga-cond');
+      var ayuda = function () {
+        var a = AYUDA_CONDICION[sel.value];
+        document.getElementById('ga-det-c').hidden = !a;
+        document.getElementById('ga-det').placeholder = a || '';
+      };
+      sel.addEventListener('change', ayuda);
+      ayuda();
+      document.getElementById('ga-agregar').addEventListener('click', function (e) {
+        var nombre = document.getElementById('ga-nombre').value.trim();
+        if (!nombre) { document.getElementById('ga-msg').textContent = 'Escribe el nombre del hermano.'; return; }
+        e.target.disabled = true;
+        pedir({ op: 'agregarCondicion', nombre: nombre, condicion: sel.value, detalle: AYUDA_CONDICION[sel.value] ? document.getElementById('ga-det').value.trim() : '' })
+          .then(function (r2) { pintar(r2, false); aviso('Condición agregada.'); }).catch(error);
+      });
+      cuerpo.querySelectorAll('[data-quitar]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var c = r.condiciones[+b.getAttribute('data-quitar')];
+          b.disabled = true;
+          pedir({ op: 'quitarCondicion', fila: c.fila, nombre: c.nombre, condicion: c.condicion }).then(function (r2) { pintar(r2, false); }).catch(error);
+        });
+      });
+      document.getElementById('ga-generar').addEventListener('click', function (e) {
+        e.target.disabled = true;
+        document.getElementById('ga-msg').textContent = 'Generando… puede tardar hasta un minuto.';
+        pedir({ op: 'generar' }).then(resultado).catch(error);
+      });
+    };
+    var resultado = function (r) {
+      var h = '<p>Listo: se creó la pestaña <strong>«' + esc(r.pestana) + '»</strong> en la hoja de acomodación, con ' + r.reuniones + ' reuniones. ' +
+        'Quedó como <strong>borrador</strong>: revísalo en la app (puedes cambiar nombres tocándolos) y apruébalo para enviar las invitaciones.</p>';
+      if (r.vacios.length) h += '<p class="editor-choque">⚠ No hubo a quién asignar en: ' + esc(r.vacios.map(function (v) { return fechaCorta(v.fecha) + ' ' + v.rol; }).join(', ')) + '. Complétalo en la hoja o en la app.</p>';
+      if (r.sinReconocer.length) h += '<p class="editor-choque">Estos nombres de la lista no están en el directorio (se escribieron tal cual): ' + esc(r.sinReconocer.join(', ')) + '.</p>';
+      h += '<details class="ga-nueva"><summary>Asignaciones por hermano</summary><div class="ga-conteo">' + r.conteo.map(function (c) {
+        return '<span>' + esc(c.nombre) + '</span><b>' + c.n + '</b>';
+      }).join('') + '</div></details>' +
+        '<div class="editor-acc"><a class="btn btn-sec" href="' + esc(r.url) + '" target="_blank" rel="noopener">Abrir la hoja</a><button type="button" class="btn" id="ga-ok">Ver borrador</button></div>';
+      cuerpo.innerHTML = h;
+      document.getElementById('ga-ok').addEventListener('click', function () { cerrar(); cargar(); });
+    };
+    pedir({ op: 'estado' }).then(function (r) { pintar(r, false); }).catch(error);
+  }
+
+  /* ---------- registro de predicación (capitanes) ---------- */
+  /** Campos del registro. terrFijo: el territorio ya está decidido (vista del territorio). conMapa: muestra el mapa del territorio elegido. */
+  function camposRegistroHTML(terrs, terr, fecha, terrFijo, conMapa) {
+    return '<div class="rg-fila' + (terrFijo ? ' una' : '') + '"><div><label for="rg-fecha">Fecha</label><input id="rg-fecha" type="date" value="' + esc(fecha) + '" max="' + hoyISO() + '" required></div>' +
+      (terrFijo ? '<input type="hidden" id="rg-terr" value="' + esc(terr) + '">'
+        : '<div><label for="rg-terr">Territorio</label><select id="rg-terr">' + terrs.map(function (t) { return '<option' + (t === terr ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></div>') + '</div>' +
+      (conMapa ? '<div class="rg-mapa"><p class="mensaje mapa-msg" id="rg-mapa-msg"></p><div id="rg-mapa"></div></div>' : '') +
       '<label>Manzanas trabajadas</label><div class="manzanas" id="rg-mz"></div>' +
       '<label class="rg-check"><input type="checkbox" id="rg-no"> No se predicó</label>' +
       '<label for="rg-notas">Notas</label><textarea id="rg-notas" rows="3" placeholder="Opcional"></textarea>' +
       '<p class="editor-msg" id="rg-msg" role="status"></p>' +
-      '<div class="editor-acc"><button type="button" class="btn btn-sec" id="rg-cancelar">Cancelar</button><button type="submit" class="btn" id="rg-guardar">Guardar</button></div></form>';
-    document.body.appendChild(cont);
+      '<div class="editor-acc"><button type="button" class="btn btn-sec" id="rg-cancelar">Cancelar</button><button type="submit" class="btn" id="rg-guardar">Guardar</button></div>';
+  }
+
+  /** Conecta el formulario: manzanas (y mapa) del territorio elegido, y guardar. */
+  function enlazarRegistro(form, conMapa, alCancelar, alGuardar) {
+    var mz = (estado.datos.territorios && estado.datos.territorios.manzanas) || {};
+    var mapaDe = '';
     var pintar = function () {
       var t = document.getElementById('rg-terr').value;
       document.getElementById('rg-mz').innerHTML = (mz[t] || []).map(function (m) {
         return '<label class="mz"><input type="checkbox" value="' + esc(m) + '"><span>' + esc(m) + '</span></label>';
       }).join('') || '<span class="sin-nombre">Sin manzanas registradas</span>';
+      if (conMapa && t !== mapaDe) {
+        mapaDe = t;
+        mostrarMapaTerritorio(t, document.getElementById('rg-mapa'), document.getElementById('rg-mapa-msg'),
+          function () { return mapaDe === t && document.body.contains(form); });
+      }
     };
     pintar();
     document.getElementById('rg-terr').addEventListener('change', pintar);
     document.getElementById('rg-no').addEventListener('change', function (e) { document.getElementById('rg-mz').classList.toggle('apagado', e.target.checked); });
-    var cerrar = function () { cont.remove(); };
-    cont.addEventListener('click', function (e) { if (e.target === cont) cerrar(); });
-    document.getElementById('rg-cancelar').addEventListener('click', cerrar);
-    cont.querySelector('form').addEventListener('submit', function (e) {
+    document.getElementById('rg-cancelar').addEventListener('click', alCancelar);
+    form.addEventListener('submit', function (e) {
       e.preventDefault();
       var msg = document.getElementById('rg-msg');
       var datos = {
         fecha: document.getElementById('rg-fecha').value,
         territorio: document.getElementById('rg-terr').value,
-        manzanas: Array.prototype.map.call(cont.querySelectorAll('#rg-mz input:checked'), function (i) { return i.value; }),
+        manzanas: Array.prototype.map.call(form.querySelectorAll('#rg-mz input:checked'), function (i) { return i.value; }),
         noSePredico: document.getElementById('rg-no').checked,
         notas: document.getElementById('rg-notas').value
       };
@@ -1096,14 +1323,53 @@
       msg.textContent = 'Guardando…';
       api('registrar', datos).then(function (r) {
         if (!r.ok) throw new Error(r.error);
-        cerrar();
         aviso('Registro guardado. ¡Gracias!');
         estado.territoriosDatos = null;
-        cargar();
+        alGuardar(datos);
       }).catch(function (err) {
-        if (err.message === 'sesion') { cerrar(); return; }
+        if (err.message === 'sesion') { alCancelar(); return; }
         msg.textContent = err.message && err.message !== 'red' ? err.message : 'No se pudo guardar. Revisa tu conexión.';
         document.getElementById('rg-guardar').disabled = false;
+      });
+    });
+  }
+
+  function abrirRegistro(pend) {
+    var d = estado.datos, mz = (d.territorios && d.territorios.manzanas) || {};
+    var terrs = Object.keys(mz).sort(function (a, b) { return +a - +b; });
+    var terr = pend && pend.territorios[0] ? pend.territorios[0] : terrs[0];
+    var conMapa = !!(d.documentos && d.documentos.mapa);
+    var cont = document.createElement('div');
+    cont.className = 'editor-fondo';
+    cont.innerHTML =
+      '<form class="editor" role="dialog" aria-modal="true" aria-labelledby="rg-t">' +
+      '<div class="editor-cab"><div id="rg-t" class="editor-t">Registrar predicación</div>' +
+      '<div class="editor-d">' + (pend ? esc(pend.lugar || '') : 'Lo que se trabajó del territorio') + '</div></div>' +
+      camposRegistroHTML(terrs, terr, pend ? pend.fecha : hoyISO(), false, conMapa) + '</form>';
+    document.body.appendChild(cont);
+    var cerrar = function () { cont.remove(); };
+    cont.addEventListener('click', function (e) { if (e.target === cont) cerrar(); });
+    enlazarRegistro(cont.querySelector('form'), conMapa, cerrar, function () { cerrar(); cargar(); });
+  }
+
+  /** Mapa de un territorio (guardado en el teléfono; se revisa si hay versión nueva). vigente() = la vista sigue abierta. */
+  function mostrarMapaTerritorio(t, cont, msg, vigente, alMostrar) {
+    var mostrar = function (blob) {
+      if (!vigente()) return;
+      if (alMostrar) alMostrar(blob);
+      dibujarMapa(blob, cont, msg, '');
+    };
+    cont.innerHTML = '';
+    msg.textContent = 'Abriendo el mapa…';
+    mapaGuardado(t).then(function (g) {
+      if (g) mostrar(g.blob);
+      else if (vigente()) msg.textContent = 'Descargando el mapa del territorio…';
+      return actualizarMapa(g, t).then(function (nuevo) {
+        if (nuevo) mostrar(nuevo);
+        else if (nuevo === false && !g && vigente()) msg.textContent = 'El mapa de este territorio aún no está disponible.';
+      }).catch(function (e) {
+        if (!g && vigente() && e.message !== 'sesion') msg.textContent = e.message && e.message !== 'red' && e.message !== 'Failed to fetch'
+          ? 'No se pudo mostrar el mapa: ' + e.message : 'No se pudo obtener el mapa. Revisa tu conexión.';
       });
     });
   }
@@ -1517,7 +1783,9 @@
     document.title = 'Territorio ' + t + ' · Cong. Los Romeros';
     var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Volver</button><h1>Territorio ' + esc(t) + '</h1></div></div>';
     if (docs.mapa) h += '<section class="t-bloque"><div class="mapa-acc" id="mapa-acc"></div><p class="mensaje mapa-msg" id="mapa-estado">Abriendo el mapa…</p><div class="mapa-paginas" id="mapa-paginas"></div></section>';
-    if (verRegistro) h += '<section class="t-bloque" id="t-registro"><h2 class="t-h">Registro</h2><p class="vacio">Cargando registro…</p></section>';
+    if (verRegistro) h += '<section class="t-bloque" id="t-registro"><div class="t-h-fila"><h2 class="t-h">Registro</h2>' +
+      '<button type="button" class="t-registrar" id="t-registrar" aria-expanded="false">+ Registrar predicación</button></div>' +
+      '<div id="t-reg-form"></div><div id="t-reg-cuerpo"><p class="vacio">Cargando registro…</p></div></section>';
     if (docs.noPasar) h += '<section class="t-bloque" id="t-nopasar"><h2 class="t-h">No pasar</h2><p class="vacio">Cargando listado…</p></section>';
     if (sn.puedeSolicitar) h += '<button type="button" class="btn" id="solicitar-np">Solicitar agregar una dirección</button>';
     app.innerHTML = h;
@@ -1529,35 +1797,22 @@
 
     // Mapa del territorio (guardado en el teléfono; se revisa si hay versión nueva)
     if (docs.mapa) {
-      var mostrar = function (blob, nota) {
-        if (!aqui()) return;
+      mostrarMapaTerritorio(t, document.getElementById('mapa-paginas'), document.getElementById('mapa-estado'), aqui, function (blob) {
         var url = URL.createObjectURL(blob);
         document.getElementById('mapa-acc').innerHTML = '<a class="btn btn-sec" href="' + url + '" target="_blank" rel="noopener">Pantalla completa</a>' +
           '<button type="button" class="btn btn-sec" id="mapa-guardar">Guardar</button>';
         document.getElementById('mapa-guardar').addEventListener('click', function () { guardarMapa(blob, url); });
-        dibujarMapa(blob, document.getElementById('mapa-paginas'), document.getElementById('mapa-estado'), nota);
-      };
-      mapaGuardado(t).then(function (g) {
-        if (g) mostrar(g.blob, '');
-        else if (aqui()) document.getElementById('mapa-estado').textContent = 'Descargando el mapa del territorio…';
-        return actualizarMapa(g, t).then(function (nuevo) {
-          if (nuevo) mostrar(nuevo, '');
-          else if (nuevo === false && !g && aqui()) document.getElementById('mapa-estado').textContent = 'El mapa de este territorio aún no está disponible.';
-        }).catch(function (e) {
-          if (!g && aqui() && e.message !== 'sesion') document.getElementById('mapa-estado').textContent = e.message && e.message !== 'red' && e.message !== 'Failed to fetch'
-            ? 'No se pudo mostrar el mapa: ' + e.message : 'No se pudo obtener el mapa. Revisa tu conexión.';
-        });
       });
     }
 
     // Registro: solo ancianos y capitanes
     if (verRegistro) {
       var pintarRegistro = function () {
-        var cont = document.getElementById('t-registro');
+        var cont = document.getElementById('t-reg-cuerpo');
         if (!cont || !aqui()) return;
         var td = estado.territoriosDatos, x = td && td.territorios.filter(function (y) { return y.territorio === String(t); })[0];
         var proximas = proximasSalidas(t, hoy);
-        var hh = '<h2 class="t-h">Registro</h2>';
+        var hh = '';
         if (!x) hh += '<p class="vacio">No hay registro para este territorio.</p>';
         else {
           var mesN = function (ym) { return MESES[+ym.slice(5, 7) - 1]; };
@@ -1584,14 +1839,41 @@
         }
         cont.innerHTML = hh;
       };
+      var traerRegistro = function () {
+        api('territorios').then(function (r) {
+          if (!r.ok) throw new Error(r.error);
+          estado.territoriosDatos = r;
+          pintarRegistro();
+        }).catch(function (e) {
+          var c = document.getElementById('t-reg-cuerpo');
+          if (c && !estado.territoriosDatos && e.message !== 'sesion') c.innerHTML = '<p class="vacio">' + esc(e.message || 'No se pudo cargar.') + '</p>';
+        });
+      };
       if (estado.territoriosDatos) pintarRegistro();
-      api('territorios').then(function (r) {
-        if (!r.ok) throw new Error(r.error);
-        estado.territoriosDatos = r;
-        pintarRegistro();
-      }).catch(function (e) {
-        var c = document.getElementById('t-registro');
-        if (c && !estado.territoriosDatos && e.message !== 'sesion') c.innerHTML = '<h2 class="t-h">Registro</h2><p class="vacio">' + esc(e.message || 'No se pudo cargar.') + '</p>';
+      traerRegistro();
+
+      // Registrar aquí mismo: el formulario se abre bajo el título, sin tapar el mapa
+      var btnReg = document.getElementById('t-registrar');
+      var cerrarForm = function () {
+        document.getElementById('t-reg-form').innerHTML = '';
+        btnReg.textContent = '+ Registrar predicación';
+        btnReg.setAttribute('aria-expanded', 'false');
+      };
+      btnReg.addEventListener('click', function () {
+        var caja = document.getElementById('t-reg-form');
+        if (caja.firstChild) { cerrarForm(); return; }
+        // Si hay una salida pendiente de registrar en este territorio, se propone su fecha
+        var pend = (d.registrosPendientes || []).filter(function (p) { return p.territorios.indexOf(String(t)) >= 0; })[0];
+        caja.innerHTML = '<form class="editor t-form" aria-label="Registrar predicación del territorio ' + esc(t) + '">' +
+          camposRegistroHTML([], String(t), pend ? pend.fecha : hoyISO(), true, false) + '</form>';
+        btnReg.textContent = 'Cerrar formulario';
+        btnReg.setAttribute('aria-expanded', 'true');
+        enlazarRegistro(caja.querySelector('form'), false, cerrarForm, function (datos) {
+          cerrarForm();
+          d.registrosPendientes = (d.registrosPendientes || []).filter(function (p) { return !(p.fecha === datos.fecha && p.territorios.indexOf(datos.territorio) >= 0); });
+          traerRegistro();
+        });
+        document.getElementById('rg-fecha').focus();
       });
     }
 
@@ -2239,6 +2521,18 @@
     if (accion === 'sugerencias') return Promise.resolve({ ok: true, tipo: 'Micrófono', sugerencias: (d.personas || []).slice(3, 7).map(function (n, i) {
       return { nombre: n, ultima: i === 0 ? '' : '2026-0' + (9 - i) + '-1' + i, proxima: i === 3 ? '2026-11-20' : '' };
     }) });
+    if (accion === 'guardarCasa') return Promise.resolve({ ok: true, casa: { lugar: p.lugar, familia: p.familia, duenos: p.duenos, direccion: p.direccion, texto: p.direccion || direccionMaps(p.lugar),
+      lat: p.ubicacion ? p.ubicacion.lat : -32.9301, lng: p.ubicacion ? p.ubicacion.lng : -71.5201, confirmada: !!p.ubicacion, revisado: true } });
+    if (accion === 'acomodacion') return Promise.resolve((function () {
+      var c = estado.demoCondiciones = estado.demoCondiciones || [{ fila: 2, nombre: 'Patricio Quiroz', condicion: 'Solo fin de semana', detalle: '' }];
+      if (p.op === 'agregarCondicion') c.push({ fila: c.length + 2, nombre: p.nombre, condicion: p.condicion, detalle: p.detalle });
+      if (p.op === 'quitarCondicion') c.splice(c.map(function (x) { return x.fila; }).indexOf(p.fila), 1);
+      if (p.op === 'generar') return { ok: true, pestana: 'Noviembre 2026', url: 'https://docs.google.com', reuniones: 9,
+        conteo: (d.personas || []).slice(0, 30).map(function (n, i) { return { nombre: n, n: i < 22 ? 2 : 1 }; }), vacios: [{ fecha: '2026-11-21', rol: 'Video' }], sinReconocer: ['Max Wilson'] };
+      return { ok: true, condiciones: c, tipos: ['Solo fin de semana', 'Solo entre semana', 'No asignar en', 'Solo asignar en', 'Máximo al mes', 'No disponible', 'No asignar'],
+        habilitados: (d.personas || []).slice(0, 30), url: 'https://docs.google.com',
+        reuniones: ['2026-11-05', '2026-11-07', '2026-11-12', '2026-11-14', '2026-11-19', '2026-11-21', '2026-11-26', '2026-11-28'].map(function (f) { return { fecha: f, especial: f === '2026-11-14' ? 'ASAMBLEA DE CIRCUITO' : '' }; }) };
+    })());
     if (accion === 'responder' || accion === 'estado') { if (d.estados) d.estados[p.clave] = p.respuesta || p.estado; }
     if (accion === 'aprobar') d.programas.forEach(function (x) {
       if (x.id === p.programa) { x.borradores = []; x.reuniones.forEach(function (r) { r.borrador = false; }); }

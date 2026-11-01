@@ -60,6 +60,30 @@ const out = {
   enlaces: [{ titulo: 'Ejemplo: formulario de informe', url: 'https://forms.google.com', descripcion: 'Enlace de ejemplo', privilegiado: false },
             { titulo: 'Ejemplo: contenido para ancianos', url: 'https://drive.google.com', descripcion: 'Solo con privilegios', privilegiado: true }]
 };
+// Grupos (para elegir el grupo de aseo) y casas de predicación (admin); el usuario de prueba es dueño de las casas de su familia
+out.grupos = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const apellido = ctx.norm_(yo).split(' ').pop(), casas = {};
+programas.filter(p => p.id === 'predicacion').forEach(p => p.reuniones.forEach(r => {
+  if (!r.lugar || /zoom|tel[eé]fono|cartas/i.test(r.lugar)) return;
+  const f = r.secciones[0] && r.secciones[0].filas[0], fam = ((f && f.detalle || '').match(/^Familia ([^·]+)/) || [])[1] || '';
+  const mia = ctx.norm_(fam).trim() === apellido;
+  casas[r.lugar] = casas[r.lugar] || { lugar: r.lugar, familia: fam.trim(), duenos: mia ? [yo] : [], direccion: '', texto: '', lat: null, lng: null, confirmada: false, revisado: false };
+  if (mia && r.fecha >= hoy) {
+    const enc = f.asignados.map(a => a.nombre).join(', '), det = f.detalle.split(' · ').filter(x => !/^Familia /.test(x)).join(' · ');
+    (r.fecha <= fin ? [resumen, misAsignaciones] : [misAsignaciones]).forEach(l => l.push({ clave: 'casa|' + r.fecha + '|' + r.hora, programa: 'predicacion', programaNombre: 'Predicación',
+      fecha: r.fecha, hora: r.hora, titulo: r.titulo, lugar: r.lugar, ubic: '', parte: ['Encargado: ' + enc, det].filter(Boolean).join(' · '), detalle: '',
+      rol: 'Salida desde tu casa', sala: '', grupo: null, estado: '', puedeResponder: false, casa: true }));
+  }
+}));
+out.casas = Object.values(casas);
+[resumen, misAsignaciones].forEach(l => l.sort((a, b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || ''))));
+out.generarAcomodacion = { mes: '2026-11', nombre: 'noviembre 2026', listo: true, faltan: [] };
+// Territorios, mapa y No pasar (con las manzanas de web/dev-territorios.json si existe)
+out.documentos = { noPasar: true, mapa: true };
+out.solicitudesNoPasar = { puedeSolicitar: true, porAprobar: [], mias: [] };
+out.territorios = { puedeVer: true, manzanas: {} };
+try { JSON.parse(fs.readFileSync(path.join(__dirname, '../web/dev-territorios.json'), 'utf8')).territorios.forEach(t => { out.territorios.manzanas[t.territorio] = t.manzanas; }); } catch (e) { /* sin territorios de prueba */ }
+out.registrosPendientes = [];
 // Choques, con la misma lógica del servidor
 const filas = [];
 programas.forEach(p => p.reuniones.forEach(r => r.secciones.forEach(s => s.filas.forEach(f => f.asignados.forEach(a => {

@@ -496,6 +496,7 @@ a { color: var(--primary-ink); }
 .mz input:checked + span { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .mz input:focus-visible + span { outline: 3px solid var(--primary); outline-offset: 2px; }
 .editor .rg-check { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: 16px; color: var(--ink); font-weight: 600; }
+.editor .rg-check input { width: 22px; height: 22px; flex: none; margin: 0; padding: 0; }
 .editor { max-height: 92vh; overflow-y: auto; }
 
 /* ---------- Territorios ---------- */
@@ -701,3 +702,46 @@ a.resumen-cab.enlace .chevron { width: 20px; height: 20px; color: var(--muted); 
 .s13-n small { display: block; color: var(--muted); font-size: 12px; }
 .s13-f { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); }
 .s13-v.curso .s13-f { color: var(--ink); font-weight: 600; }
+
+/* Corregir el mapa de una casa de predicación (solo admin) */
+.lugar-editar { appearance: none; border: 0; background: none; padding: 2px 0; margin-top: 2px; display: inline-flex; gap: 4px; align-items: center; align-self: flex-start; color: var(--muted); font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.lugar-editar svg { width: 13px; height: 13px; }
+.cs-mapa { height: 230px; }
+.cs-probar { display: inline-flex; gap: 5px; align-items: center; align-self: flex-start; color: var(--primary-ink); font-size: 14px; }
+.cs-probar svg { width: 15px; height: 15px; }
+.cs-duenos { display: flex; flex-wrap: wrap; gap: 6px; }
+.cs-dueno { display: inline-flex; align-items: center; gap: 4px; padding: 5px 6px 5px 12px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-ink); font-weight: 600; font-size: 14px; }
+.cs-dueno button { appearance: none; border: 0; background: none; color: inherit; font-size: 13px; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; }
+.cs-agregar { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.cs-agregar .btn { align-self: stretch; }
+
+/* Registrar predicación dentro de la vista del territorio */
+.t-h-fila { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.t-registrar { appearance: none; border: 1px solid var(--line); background: var(--surface); color: var(--primary-ink); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.t-registrar[aria-expanded="true"] { background: var(--primary-soft); }
+.editor.t-form { width: 100%; max-height: none; overflow: visible; border-radius: var(--radius); border: 1px solid var(--line); padding: 14px; }
+.rg-fila.una { grid-template-columns: 1fr; }
+.rg-mapa { display: flex; flex-direction: column; gap: 6px; }
+.rg-mapa .mapa-msg:empty { display: none; }
+.rg-mapa .mapa-pagina { border-radius: 10px; border: 1px solid var(--line); }
+#rg-mapa { display: flex; flex-direction: column; gap: 8px; }
+
+/* Generar el programa de acomodación */
+.gen-acom { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 6px; box-shadow: var(--sombra); }
+.gen-t { font-weight: 700; font-size: 17px; }
+.gen-d { color: var(--muted); font-size: 14px; line-height: 1.35; }
+.gen-acom .btn { align-self: flex-start; margin-top: 4px; }
+.gen-acom .btn:disabled { opacity: .45; cursor: not-allowed; }
+.ga-cuerpo { display: flex; flex-direction: column; gap: 8px; }
+.ga-cuerpo > p { margin: 0; }
+.ga-reus { display: flex; flex-wrap: wrap; gap: 6px; }
+.ga-reu { padding: 4px 10px; border-radius: 999px; background: var(--pill); font-size: 13px; font-weight: 600; }
+.ga-reu.esp { background: var(--aviso-bg); color: var(--aviso-ink); }
+.ga-conds { display: flex; flex-direction: column; gap: 6px; }
+.ga-cond { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; }
+.ga-quitar { appearance: none; border: 0; background: none; color: var(--muted); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; flex: none; }
+.ga-nueva { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+.ga-nueva summary { font-weight: 700; color: var(--primary-ink); cursor: pointer; }
+.ga-nueva[open] { display: flex; }
+.ga-nueva .btn { align-self: flex-start; margin-top: 6px; }
+.ga-conteo { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 14px; margin-top: 6px; }

@@ -10,7 +10,7 @@
  *   { accion: 'aprobar', token, programa, periodo }            (con privilegios)
  */
 
-var CACHE_BASE = 'base-v2';
+var CACHE_BASE = 'base-v3';
 var ESTADOS_EDITABLES = ['Pendiente', 'Confirmado', 'Rechazado', 'Sin confirmación', 'Avisar manualmente'];
 
 function doGet(e) {
@@ -71,6 +71,9 @@ function doPost(e) {
       case 'solicitarNoPasar': return json_(conBloqueo_(function () { return solicitarNoPasar_(yo, p, cfg); }));
       case 'resolverDatos': return json_(conBloqueo_(function () { return resolverDatos_(yo, p, cfg); }));
       case 'resolverNoPasar': return json_(conBloqueo_(function () { return resolverNoPasar_(yo, p, cfg); }));
+      case 'guardarCasa': return json_(conBloqueo_(function () { return guardarCasa_(yo, p); }));
+      case 'acomodacion':
+        return json_(p.op === 'estado' ? accionAcomodacion_(yo, p, cfg) : conBloqueo_(function () { return accionAcomodacion_(yo, p, cfg); }));
       default: return json_({ ok: false, error: 'Acción desconocida' });
     }
   } catch (err) {
@@ -136,6 +139,13 @@ function construirBase_() {
     var t = [g['Superintendente'], g['Auxiliar']].filter(Boolean).join(' · ');
     if (t) grupos[+g['Grupo']] = t;
   });
+  // Ubicación corregida de las casas de predicación (para abrir Maps en el lugar exacto)
+  var casas = casasPorClave_();
+  var ubicDe = function (lugar) {
+    var c = esDireccionCasa_(lugar) && casas[claveCasa_(lugar)];
+    var x = c ? casaParaApp_(c) : null;
+    return x && x.lat != null ? x.lat + ',' + x.lng : '';
+  };
   var nombres = {};
   leerTabla_('asignaciones').forEach(function (a) { if (a['Estado'] !== 'Eliminada') nombres[a['Clave']] = a['Nombre']; });
 
@@ -156,6 +166,7 @@ function construirBase_() {
       if (!borrador && (r.fecha < desde || r.fecha > hasta)) return;
       lista.push({
         fecha: r.fecha, hora: r.hora, titulo: r.titulo, nota: r.nota, lugar: r.lugar, tipo: r.tipo || '',
+        ubic: d['Programa'] === 'predicacion' && r.lugar ? ubicDe(r.lugar) : '',
         borrador: borrador, periodo: d['Periodo'],
         secciones: r.secciones.map(function (s) {
           return {
@@ -322,12 +333,26 @@ function datosUsuario_(yo, cfg) {
     var estado = estados[clave] || '';
     resumen.push({
       clave: clave, programa: x.programa.id, programaNombre: x.programa.nombre,
-      fecha: r.fecha, hora: r.hora, titulo: r.titulo, lugar: r.lugar,
+      fecha: r.fecha, hora: r.hora, titulo: r.titulo, lugar: r.lugar, ubic: r.ubic || '',
       parte: x.fila.texto, detalle: x.fila.detalle, rol: a.rol, sala: a.sala, grupo: a.grupo,
       estado: estado,
       puedeResponder: !a.grupo && x.programa.confirmacion && ['Pendiente', 'Confirmado', 'Rechazado'].indexOf(estado) >= 0
     });
   });
+  // Dueños de casa: las salidas de predicación desde su hogar (solo aviso, sin confirmar)
+  var casas = {};
+  try {
+    casas = casasPorClave_();
+    salidasDesdeCasa_(yo.nombre, base, casas).forEach(function (x) {
+      var r = x.reunion;
+      resumen.push({
+        clave: 'casa|' + r.fecha + '|' + (r.hora || '') + '|' + claveCasa_(r.lugar), programa: 'predicacion', programaNombre: 'Predicación',
+        fecha: r.fecha, hora: r.hora, titulo: r.titulo, lugar: r.lugar, ubic: r.ubic || '',
+        parte: [x.encargado ? 'Encargado: ' + x.encargado : '', x.detalle].filter(Boolean).join(' · '), detalle: '',
+        rol: 'Salida desde tu casa', sala: '', grupo: null, estado: '', puedeResponder: false, casa: true
+      });
+    });
+  } catch (e) { console.warn(e); }
   resumen.sort(function (a, b) { return (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')); });
   // Todas mis asignaciones futuras (ver todas) y las de los próximos 7 días (inicio)
   var misAsignaciones = resumen;
@@ -447,7 +472,12 @@ function datosUsuario_(yo, cfg) {
   }
   if (yo.editables.length) {
     out.personas = leerTabla_('personas').map(function (p) { return p['Nombre']; }).filter(Boolean);
+    out.grupos = leerTabla_('grupos').map(function (g) { return +g['Grupo']; }).filter(Boolean);
   }
+  // Admin: casas de predicación (para corregir la dirección del mapa y los dueños)
+  if (yo.rol === 'admin') out.casas = Object.keys(casas).map(function (k) { return casaParaApp_(casas[k]); });
+  // Responsable de acomodación (y admin): generar el programa del mes siguiente
+  try { out.generarAcomodacion = estadoGenerarAcomodacion_(yo, base); } catch (e) { console.warn(e); out.generarAcomodacion = null; }
   return out;
 }
 
