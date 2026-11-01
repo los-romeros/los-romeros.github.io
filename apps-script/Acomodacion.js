@@ -336,8 +336,9 @@ function accionAcomodacion_(yo, p, cfg) {
     if (!nombre || CONDICIONES_ACOM.indexOf(cond) < 0) throw new Error('Elige la persona y la condición.');
     if (/en$|al mes|disponible/i.test(cond) && !texto_(p.detalle)) throw new Error('Completa el detalle de la condición.');
     var persona = reconocerLista_(nombre, directorio_());
-    hojaCondiciones_(h.ss).appendRow([persona || nombre, cond, texto_(p.detalle), yo.nombre]);
-    registrar_('Condición de acomodación', yo.nombre + ': ' + (persona || nombre) + ' · ' + cond + (p.detalle ? ' · ' + p.detalle : ''));
+    if (!persona) throw new Error('No encontré a «' + nombre + '» en el directorio. Elige el nombre completo de la lista.');
+    hojaCondiciones_(h.ss).appendRow([persona, cond, texto_(p.detalle), yo.nombre]);
+    registrar_('Condición de acomodación', yo.nombre + ': ' + persona + ' · ' + cond + (p.detalle ? ' · ' + p.detalle : ''));
   } else if (p.op === 'quitarCondicion') {
     var sh = h.ss.getSheetByName(HOJA_CONDICIONES);
     var fila = +p.fila;

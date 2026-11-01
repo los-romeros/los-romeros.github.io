@@ -41,7 +41,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v46'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v47'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -1238,7 +1238,7 @@
         '<label for="ga-cond">Condición</label><select id="ga-cond">' + r.tipos.map(function (t) { return '<option>' + esc(t) + '</option>'; }).join('') + '</select>' +
         '<div id="ga-det-c" hidden><label for="ga-det">Detalle</label><input id="ga-det" autocomplete="off"></div>' +
         '<button type="button" class="btn btn-sec" id="ga-agregar">Agregar condición</button></details>';
-      h += '<p class="editor-nota">Las condiciones quedan en la pestaña «Condiciones» de la hoja de acomodación (<a href="' + esc(r.url) + '" target="_blank" rel="noopener">abrir</a>) y se usan todos los meses.</p>' +
+      h += '<p class="editor-nota"><a href="guia-responsables.html#condiciones" target="_blank" rel="noopener">¿Qué significa cada condición?</a> Quedan en la pestaña «Condiciones» de la hoja de acomodación (<a href="' + esc(r.url) + '" target="_blank" rel="noopener">abrir</a>) y se usan todos los meses.</p>' +
         (ga.listo ? '' : '<p class="editor-choque">Podrás generar el programa cuando esté aprobada la ' + esc(ga.faltan.join(' y la ').toLowerCase()) + ' de ' + esc(mesN) + '. Las condiciones ya se pueden agregar.</p>') +
         '<p class="editor-msg" id="ga-msg" role="status"></p>' +
         '<div class="editor-acc"><button type="button" class="btn btn-sec" id="ga-cerrar">' + (ga.listo ? 'Cancelar' : 'Cerrar') + '</button>' +
