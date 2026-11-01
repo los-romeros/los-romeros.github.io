@@ -33,7 +33,7 @@ Todo es gratis: GitHub Pages, Apps Script, Sheets, Calendar (sus invitaciones ll
 | Pestaña | Para qué | ¿Se edita a mano? |
 |---|---|---|
 | **Inicio** | Configuración (ver sección 3). | Sí |
-| **Programas** | Un programa por fila: ID, lector, URL de la hoja del responsable, correo del responsable, si requiere confirmación, quién lo ve y **Pueden editar** (otras personas, por nombre, que pueden editar y aprobar ese programa; p. ej. en Aseo). | Sí, con cuidado |
+| **Programas** | Un programa por fila: ID, lector, URL de la hoja del responsable, correo del responsable, si requiere confirmación, quién lo ve, **Pueden editar** (otras personas, por nombre, que pueden editar y aprobar ese programa; p. ej. en Aseo) y **Pueden confirmar** (ven los estados y marcan Confirmado/Pendiente/etc., sin cambiar al asignado). | Sí, con cuidado |
 | **Personas** | El directorio: nombre, otras formas de escribirlo, correo, teléfono, grupo, perfiles (Anciano, Participa, Capitán, Secretario), servicio, dirección, contacto de emergencia, confirmación de datos y ubicación en el mapa. | Sí |
 | **Grupos** | Superintendente y auxiliar de cada grupo. | Sí |
 | **Usuarios** | Quién edita programas: Rol `admin` (todo) o `editor` + lista de programas. El correo del responsable en Programas ya da permiso de edición. | Sí |
@@ -160,6 +160,7 @@ Separado por comas, cualquiera de: `todos`, `privilegiados` (admin y editores), 
 | Programas, mis asignaciones, avisos, eventos, mis datos, informe | Todos los registrados |
 | Estados (confirmado/pendiente) de un programa | Responsables y "Estados visibles para" |
 | Por aprobar, reasignar, choques, sugerencias, avisar por WhatsApp | Responsable del programa / editores / admin / "Pueden editar" del programa |
+| Ver estados y marcar si confirmaron (sin cambiar al asignado), y "Avisar por WhatsApp" de ese programa | "Pueden confirmar" del programa |
 | Generar el programa de acomodación del mes (cuando entre semana y fin de semana están aprobados) | Responsable de acomodación y admin |
 | "Corregir mapa" de una casa de predicación y sus dueños | Admin |
 | Salida desde tu casa (en Mis asignaciones + aviso 7 días antes y el día anterior) | Dueños de casa (pestaña Casas de predicación) |
@@ -182,6 +183,8 @@ Separado por comas, cualquiera de: `todos`, `privilegiados` (admin y editores), 
 - **Cambiar un mapa**: reemplazar la imagen en "Mapas por territorio" con el mismo nombre. Si cambia el PDF completo, pedir que se regeneren las imágenes (`tools/pdf2jpg.swift`).
 - **S-13**: en la pestaña "Historial" se puede corregir o agregar cualquier fila; lo escrito a mano siempre se respeta (queda como "Manual"). Una fila sin fecha de término es una vuelta en curso: la app solo le completa el término ("Inicio manual"). Las pestañas S-13 se rehacen solas unos 5 a 20 minutos después de editar (y cada día). Criterio automático (el de quien lleva el S-13): una vuelta termina cuando se trabajaron todas las manzanas, o cuando una salida vuelve a trabajar sobre todo manzanas ya hechas (2 de cada 3) y ya se cubrió al menos la mitad del territorio; ahí comienza la vuelta siguiente. No borrar la columna oculta "Control".
 - **Dar permiso a alguien para cambiar un programa** (p. ej. el grupo de aseo): en Programas ▸ "Pueden editar" escribir su nombre completo (o varios separados por coma). Ejecutar antes **Preparar planilla** si la columna no está.
+- **Que alguien confirme a los participantes de un programa sin poder cambiarlos** (p. ej. Santiago Acevedo en la reunión de entre semana): Programas ▸ "Pueden confirmar" del programa, con su nombre completo.
+- **Dar acceso a la Asistencia a alguien por nombre** (p. ej. Daniel Gaete): Inicio ▸ `asistenciaVen` = `secretario, Daniel Gaete`. Además de ver la sección, queda como editor de la planilla de asistencia (se comparte en la siguiente tarea diaria).
 - **Dirección de una salida que Google Maps no encuentra**: en el programa de Predicación, tocar "Corregir mapa" bajo la dirección, escribir solo calle, número y comuna, o mover el pin a la casa. Sirve para todas las salidas desde esa casa. Ahí mismo se corrigen los **dueños de casa** (la app los adivina con el apellido de la columna Familia y la dirección de Personas).
 - **Programa de acomodación automático**: el responsable lo genera desde la app (botón en el programa). Lee la pestaña ACOMODADORES de su hoja (plataforma = ANCIANOS + SIERVOS MINISTERIALES, o una columna PLATAFORMA si se agrega) y la pestaña **Condiciones** (Solo fin de semana, Solo entre semana, No asignar en, Solo asignar en, Máximo al mes, No disponible, No asignar). Crea la pestaña "Mes AAAA" copiando el formato de la última y queda como borrador. Si un nombre de la lista no está en el directorio, se avisa al generar: agregarlo en Personas ▸ "Otras formas de escribirlo".
 - **Aviso con cuenta regresiva**: llenar "Fecha del evento" (y hora). "Fijo" = no se puede quitar.

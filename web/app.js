@@ -41,7 +41,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v43'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v44'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -809,6 +809,7 @@
         '<span><i class="punto rech"></i> Rechazado</span><span><i class="punto manual"></i> Avisar a mano</span></p>';
     }
     if (prog.editable) h += '<p class="ayuda-editar">Toca un nombre para cambiar el asignado o su estado.</p>';
+    else if (prog.confirmable) h += '<p class="ayuda-editar">Toca un nombre para escribirle por WhatsApp o marcar si confirmó (no cambia al asignado).</p>';
     // Acomodación: generar el programa del mes siguiente (cuando entre semana y fin de semana están aprobados)
     var ga = prog.id === 'acomodacion' && d.generarAcomodacion;
     if (ga) {
@@ -966,7 +967,7 @@
       esc(a.nombre) + (extra.length ? '<small>' + esc(extra.join(' · ')) + '</small>' : '') +
       (est && est !== 'Sin confirmación' && est !== 'Borrador' ? ' <i class="punto ' + (CLASE_ESTADO[est] || 'neutro') + '" title="' + esc(est) + '"></i>' : '');
     var enc = a.sub ? '<span class="encargados">' + esc(a.sub) + '</span>' : '';
-    if (prog.editable && a.clave) {
+    if ((prog.editable || prog.confirmable) && a.clave) {
       return '<span class="persona-bloque"><button type="button" class="' + clase + ' editable" data-editar="' + esc(a.clave) + '">' + contenido + '</button>' + enc + '</span>';
     }
     return '<span class="persona-bloque"><span class="' + clase + '">' + contenido + '</span>' + enc + '</span>';
@@ -1003,6 +1004,7 @@
     var x = buscarAsignado(prog, clave);
     if (!x) return;
     var d = estado.datos, est = (d.estados || {})[clave] || '';
+    var soloEstado = !prog.editable; // "Pueden confirmar": cambia el estado, no al asignado
     var opciones = ESTADOS_EDITABLES.map(function (e) { return '<option' + (e === est ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('');
     var cont = document.createElement('div');
     cont.className = 'editor-fondo';
@@ -1010,7 +1012,8 @@
       '<form class="editor" role="dialog" aria-modal="true" aria-labelledby="ed-t">' +
       '<div class="editor-cab"><div id="ed-t" class="editor-t">' + esc(x.f.texto || x.a.rol) + '</div>' +
       '<div class="editor-d">' + esc(fechaLarga(x.r.fecha)) + (x.r.hora ? ' · ' + esc(x.r.hora) : '') + ' · ' + esc(x.a.rol) + '</div></div>' +
-      (x.a.grupo && (d.grupos || []).length
+      (soloEstado ? '<label>Asignado</label><div class="dt-fijo ed-fijo">' + esc(x.a.nombre) + '</div>'
+      : x.a.grupo && (d.grupos || []).length
         // Aseo y hospitalidad: se elige el grupo
         ? '<label for="ed-nombre">Grupo asignado</label><select id="ed-nombre">' + d.grupos.map(function (g) {
           return '<option value="Grupo ' + g + '"' + (+g === +x.a.grupo ? ' selected' : '') + '>Grupo ' + g + '</option>';
@@ -1019,11 +1022,12 @@
           '<input id="ed-nombre" list="ed-personas" value="' + esc(x.a.nombre) + '" autocomplete="off">' +
           '<datalist id="ed-personas">' + (d.personas || []).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>') +
       (choqueDe(clave) ? '<p class="editor-choque">⚠ ' + esc(primerNombre(x.a.nombre)) + ' también tiene ' + esc(choqueDe(clave)) + ' a esa hora.</p>' : '') +
-      (x.a.grupo ? '' : '<div class="sugerencias" id="ed-sug"><span class="sug-t">Buscando a quién sugerir…</span></div>') +
+      (x.a.grupo || soloEstado ? '' : '<div class="sugerencias" id="ed-sug"><span class="sug-t">Buscando a quién sugerir…</span></div>') +
       (est && est !== 'Borrador' ? '<label for="ed-estado">Estado</label><select id="ed-estado">' + opciones + '</select>' : '') +
       ((d.telefonos || {})[x.a.nombre] ? '<a class="btn wa" target="_blank" rel="noopener" href="' + esc(whatsappURL(d.telefonos[x.a.nombre],
         mensajeAsignacion(x.a.nombre, x.f.texto && !/^(asignado|titular|ayudante)$/i.test(x.a.rol) ? x.a.rol : (x.f.texto || x.a.rol).replace(/^\d+\.\s*/, '').replace(/\s*\(\d+ ?mins?\.?\)/i, ''), x.r.fecha, x.r.hora, prog.nombre))) + '">' + svg('chat') + 'Escribir por WhatsApp a ' + esc(primerNombre(x.a.nombre)) + '</a>' : '') +
-      '<p class="editor-nota">Si cambias ' + (x.a.grupo ? 'el grupo' : 'el nombre') + ', también se cambia en la hoja oficial del programa y la asignación vuelve a quedar pendiente.</p>' +
+      '<p class="editor-nota">' + (soloEstado ? 'Puedes marcar el estado (por ejemplo, Confirmado). Para cambiar al asignado, avisa al responsable del programa.'
+        : 'Si cambias ' + (x.a.grupo ? 'el grupo' : 'el nombre') + ', también se cambia en la hoja oficial del programa y la asignación vuelve a quedar pendiente.') + '</p>' +
       '<p class="editor-msg" id="ed-msg" role="status"></p>' +
       '<div class="editor-acc"><button type="button" class="btn btn-sec" id="ed-cancelar">Cancelar</button><button type="submit" class="btn" id="ed-guardar">Guardar</button></div>' +
       '</form>';
@@ -1033,7 +1037,7 @@
     document.getElementById('ed-cancelar').addEventListener('click', cerrar);
     cont.querySelector('form').addEventListener('submit', function (e) {
       e.preventDefault();
-      var nombre = document.getElementById('ed-nombre').value.trim();
+      var nombre = soloEstado ? x.a.nombre : document.getElementById('ed-nombre').value.trim();
       var sel = document.getElementById('ed-estado');
       var nuevoEstado = sel ? sel.value : est;
       var msg = document.getElementById('ed-msg');
@@ -1054,7 +1058,7 @@
         document.getElementById('ed-guardar').disabled = false;
       });
     });
-    if (!x.a.grupo) {
+    if (!x.a.grupo && !soloEstado) {
       var cajaSug = document.getElementById('ed-sug');
       api('sugerencias', { clave: clave }).then(function (r) {
         if (!r.ok) throw new Error(r.error);
@@ -1073,7 +1077,8 @@
         });
       }).catch(function (e) { if (cajaSug) cajaSug.innerHTML = e.message === 'sesion' ? '' : '<span class="sug-t">No se pudieron cargar sugerencias.</span>'; });
     }
-    document.getElementById('ed-nombre').focus();
+    var foco = document.getElementById('ed-nombre') || document.getElementById('ed-estado');
+    if (foco) foco.focus();
   }
 
   /* ---------- casa de predicación (admin): dirección para el mapa y dueños de casa ---------- */

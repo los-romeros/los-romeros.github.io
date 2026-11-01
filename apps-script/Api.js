@@ -374,11 +374,12 @@ function datosUsuario_(yo, cfg) {
       }).filter(function (s) { return s.filas.length; });
       return copia;
     });
+    var confirmable = !editable && (yo.confirmables || []).indexOf(p.id) >= 0;
     return {
       id: p.id, nombre: p.nombre, icono: p.icono, descripcion: p.descripcion, confirmacion: p.confirmacion,
-      editable: editable,
+      editable: editable, confirmable: confirmable,
       borradores: editable ? p.borradores : [],
-      verEstados: editable || enAudiencia_(p.estadosPara, yo),
+      verEstados: editable || confirmable || enAudiencia_(p.estadosPara, yo),
       reuniones: reuniones
     };
   });
@@ -389,7 +390,7 @@ function datosUsuario_(yo, cfg) {
     ok: true,
     generado: base.generado,
     hoy: hoy,
-    usuario: { nombre: yo.nombre, apodo: yo.apodo || '', correo: yo.correo, rol: yo.rol, privilegiado: yo.privilegiado, editables: yo.editables, grupo: yo.grupo },
+    usuario: { nombre: yo.nombre, apodo: yo.apodo || '', correo: yo.correo, rol: yo.rol, privilegiado: yo.privilegiado, editables: yo.editables, confirmables: yo.confirmables || [], grupo: yo.grupo },
     inicio: (function () {
       var ini = JSON.parse(JSON.stringify(base.inicio));
       ini.avisos = (ini.avisos || []).filter(function (a) { return enAudiencia_(a.visiblePara, yo); });
@@ -415,15 +416,16 @@ function datosUsuario_(yo, cfg) {
     try { out.choques = choques_(asign, cfg, function (a) { return yo.editables.indexOf(a['Programa']) >= 0; }, true); } catch (e) { console.warn(e); out.choques = []; }
   }
 
-  // Avisar por WhatsApp: asignaciones de personas sin correo en los programas que el usuario edita
-  if (yo.editables.length) {
+  // Avisar por WhatsApp: asignaciones de personas sin correo en los programas que el usuario edita o confirma
+  var gestiona = yo.editables.concat(yo.confirmables || []);
+  if (gestiona.length) {
     var dirW = directorio_();
     var tel = {};
     dirW.personas.forEach(function (x) { if (x.telefono) tel[x.nombre] = String(x.telefono); });
     out.telefonos = tel;
     var hasta30 = sumarDias_(hoy, 30);
     out.avisarManual = asign.filter(function (a) {
-      return a['Estado'] === 'Avisar manualmente' && a['Fecha'] >= hoy && a['Fecha'] <= hasta30 && yo.editables.indexOf(a['Programa']) >= 0;
+      return a['Estado'] === 'Avisar manualmente' && a['Fecha'] >= hoy && a['Fecha'] <= hasta30 && gestiona.indexOf(a['Programa']) >= 0;
     }).map(function (a) {
       return { clave: a['Clave'], programa: a['Programa'], programaNombre: nombresProg[a['Programa']] || a['Programa'], fecha: a['Fecha'], hora: a['Hora'],
         rol: a['Rol'], parte: a['Parte'], nombre: a['Nombre'], telefono: tel[a['Nombre']] || '', asignacion: nombreAsignacion_(a), reunion: a['Reunión'] };
@@ -512,7 +514,7 @@ function responder_(yo, p, cfg) {
 
 function cambiarEstado_(yo, p) {
   var fila = filaAsignacion_(p.clave);
-  puedeEditar_(yo, fila['Programa']);
+  if ((yo.confirmables || []).indexOf(fila['Programa']) < 0) puedeEditar_(yo, fila['Programa']);
   if (ESTADOS_EDITABLES.indexOf(p.estado) < 0) throw new Error('Estado inválido');
   actualizarFila_('asignaciones', fila, { 'Estado': p.estado, 'Actualizado': new Date() });
   registrar_('Estado cambiado', yo.nombre + ' → ' + p.estado + ' · ' + fila['Nombre'] + ' · ' + fila['Reunión']);

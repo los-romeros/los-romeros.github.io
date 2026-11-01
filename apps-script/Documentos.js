@@ -125,7 +125,7 @@ function correosEnAudiencia_(texto) {
   leerTabla_('personas').forEach(function (p) {
     var correo = String(p['Correo'] || '').trim().toLowerCase();
     if (!correo) return;
-    var yo = { correo: correo, rol: usuarios[correo] || '', privilegiado: !!usuarios[correo], grupo: +p['Grupo'] || null, perfiles: perfilesDe_(p) };
+    var yo = { correo: correo, nombre: p['Nombre'], rol: usuarios[correo] || '', privilegiado: !!usuarios[correo], grupo: +p['Grupo'] || null, perfiles: perfilesDe_(p) };
     if (enAudiencia_(texto, yo)) out[correo] = true;
   });
   Object.keys(usuarios).forEach(function (c) {

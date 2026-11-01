@@ -180,6 +180,8 @@ function prepararPlanilla() {
 
   var pe = columna_('programas', 'Pueden editar');
   if (pe) hoja_('programas').getRange(1, pe.getColumn()).setNote('Además del responsable, quiénes pueden editar y aprobar este programa: nombres, perfiles, "grupo N" o correos, separados por coma. Ej.: Pablo Morales');
+  var pc = columna_('programas', 'Pueden confirmar');
+  if (pc) hoja_('programas').getRange(1, pc.getColumn()).setNote('Quiénes ven los estados de este programa y marcan si cada uno confirmó, sin poder cambiar al asignado: nombres, perfiles, "grupo N" o correos. Ej.: Santiago Acevedo');
   hoja_('datos').getRange('C:C').setWrap(false);
   hoja_('inicio').getRange('B:C').setWrap(true);
   ss.setActiveSheet(hoja_('inicio'));

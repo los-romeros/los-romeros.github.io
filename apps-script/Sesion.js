@@ -77,12 +77,18 @@ function perfil_(correo) {
     apodo: persona ? String(persona['Cómo le dicen'] || '') : '',
     rol: rol,
     privilegiado: !!rol,
-    editables: editables
+    editables: editables,
+    confirmables: []
   };
   // Programas ▸ "Pueden editar": permiso por nombre, perfil, grupo o correo (p. ej. "Pablo Morales" en Aseo)
   programas.forEach(function (p) {
     if (!persona || editables.indexOf(p['ID']) >= 0 || !texto_(p['Pueden editar'])) return;
     if (enAudiencia_(p['Pueden editar'], yo)) editables.push(p['ID']);
+  });
+  // Programas ▸ "Pueden confirmar": ven los estados y los cambian (confirmado, pendiente…), sin cambiar al asignado
+  programas.forEach(function (p) {
+    if (!persona || editables.indexOf(p['ID']) >= 0 || !texto_(p['Pueden confirmar'])) return;
+    if (enAudiencia_(p['Pueden confirmar'], yo)) yo.confirmables.push(p['ID']);
   });
   if (!yo.rol && editables.length) { yo.rol = 'editor'; yo.privilegiado = true; }
   return yo;

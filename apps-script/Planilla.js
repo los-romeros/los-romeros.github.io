@@ -12,8 +12,8 @@ var HOJAS = {
   },
   programas: {
     nombre: 'Programas',
-    titulos: ['ID', 'Nombre', 'Lector', 'Hoja de origen (URL)', 'Responsable (correo)', 'Requiere confirmación', 'Visible', 'Orden', 'Ícono', 'Descripción', 'Visible para', 'Estados visibles para', 'Pueden editar'],
-    anchos: [110, 230, 110, 320, 220, 150, 80, 60, 70, 300, 160, 160, 260]
+    titulos: ['ID', 'Nombre', 'Lector', 'Hoja de origen (URL)', 'Responsable (correo)', 'Requiere confirmación', 'Visible', 'Orden', 'Ícono', 'Descripción', 'Visible para', 'Estados visibles para', 'Pueden editar', 'Pueden confirmar'],
+    anchos: [110, 230, 110, 320, 220, 150, 80, 60, 70, 300, 160, 160, 260, 260]
   },
   personas: {
     nombre: 'Personas',

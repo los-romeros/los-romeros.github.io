@@ -745,3 +745,4 @@ a.resumen-cab.enlace .chevron { width: 20px; height: 20px; color: var(--muted); 
 .ga-nueva[open] { display: flex; }
 .ga-nueva .btn { align-self: flex-start; margin-top: 6px; }
 .ga-conteo { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 14px; margin-top: 6px; }
+.ed-fijo { padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); font-weight: 700; }
