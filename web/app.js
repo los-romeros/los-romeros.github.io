@@ -41,7 +41,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v45'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v46'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -821,8 +821,8 @@
     if (ga) {
       h += '<section class="gen-acom"><div class="gen-t">Programa de ' + esc(ga.nombre) + '</div>' +
         '<div class="gen-d">' + (ga.listo ? 'Las reuniones de entre semana y del fin de semana ya están aprobadas. Se arma solo, sin choques y repartido parejo; luego lo revisas y apruebas.'
-          : 'Se podrá generar cuando esté aprobada la ' + esc(ga.faltan.join(' y la ').toLowerCase()) + ' de ' + esc(ga.nombre.split(' ')[0]) + '.') + '</div>' +
-        '<button type="button" class="btn" id="gen-acom"' + (ga.listo ? '' : ' disabled') + '>Generar programa de ' + esc(ga.nombre.split(' ')[0]) + '</button></section>';
+          : 'Se podrá generar cuando esté aprobada la ' + esc(ga.faltan.join(' y la ').toLowerCase()) + ' de ' + esc(ga.nombre.split(' ')[0]) + '. Mientras tanto puedes agregar condiciones.') + '</div>' +
+        '<button type="button" class="btn' + (ga.listo ? '' : ' btn-sec') + '" id="gen-acom">' + (ga.listo ? 'Generar programa de ' + esc(ga.nombre.split(' ')[0]) : 'Ver y agregar condiciones') + '</button></section>';
     }
     if (anteriores.length && !estado.verAnteriores && !q) {
       h += '<button class="btn btn-sec" type="button" id="anteriores">Ver fechas anteriores (' + anteriores.length + ')</button>';
@@ -1225,9 +1225,9 @@
       return api('acomodacion', Object.assign({ mes: ga.mes }, datos)).then(function (r) { if (!r.ok) throw new Error(r.error); return r; });
     };
     var pintar = function (r, abierta) {
-      var h = '<label>Reuniones de ' + esc(mesN) + '</label><div class="ga-reus">' + r.reuniones.map(function (x) {
+      var h = '<label>Reuniones de ' + esc(mesN) + '</label><div class="ga-reus">' + (r.reuniones.map(function (x) {
         return '<span class="ga-reu' + (x.especial ? ' esp' : '') + '">' + esc(fechaCorta(x.fecha)) + (x.especial ? ' · ' + esc(x.especial.toLowerCase()) : '') + '</span>';
-      }).join('') + '</div>';
+      }).join('') || '<span class="sug-t">Aparecerán cuando estén aprobados los programas de ' + esc(mesN) + '.</span>') + '</div>';
       h += '<label>Condiciones</label>' + (r.condiciones.length ? '<div class="ga-conds">' + r.condiciones.map(function (c, i) {
         return '<div class="ga-cond"><span><strong>' + esc(c.nombre) + '</strong> · ' + esc(c.condicion) + (c.detalle ? ': ' + esc(c.detalle) : '') + '</span>' +
           '<button type="button" class="ga-quitar" data-quitar="' + i + '" aria-label="Quitar condición de ' + esc(c.nombre) + '">✕</button></div>';
@@ -1239,8 +1239,10 @@
         '<div id="ga-det-c" hidden><label for="ga-det">Detalle</label><input id="ga-det" autocomplete="off"></div>' +
         '<button type="button" class="btn btn-sec" id="ga-agregar">Agregar condición</button></details>';
       h += '<p class="editor-nota">Las condiciones quedan en la pestaña «Condiciones» de la hoja de acomodación (<a href="' + esc(r.url) + '" target="_blank" rel="noopener">abrir</a>) y se usan todos los meses.</p>' +
+        (ga.listo ? '' : '<p class="editor-choque">Podrás generar el programa cuando esté aprobada la ' + esc(ga.faltan.join(' y la ').toLowerCase()) + ' de ' + esc(mesN) + '. Las condiciones ya se pueden agregar.</p>') +
         '<p class="editor-msg" id="ga-msg" role="status"></p>' +
-        '<div class="editor-acc"><button type="button" class="btn btn-sec" id="ga-cerrar">Cancelar</button><button type="button" class="btn" id="ga-generar">Generar programa</button></div>';
+        '<div class="editor-acc"><button type="button" class="btn btn-sec" id="ga-cerrar">' + (ga.listo ? 'Cancelar' : 'Cerrar') + '</button>' +
+        (ga.listo ? '<button type="button" class="btn" id="ga-generar">Generar programa</button>' : '') + '</div>';
       cuerpo.innerHTML = h;
       document.getElementById('ga-cerrar').addEventListener('click', cerrar);
       var sel = document.getElementById('ga-cond');
@@ -1265,7 +1267,7 @@
           pedir({ op: 'quitarCondicion', fila: c.fila, nombre: c.nombre, condicion: c.condicion }).then(function (r2) { pintar(r2, false); }).catch(error);
         });
       });
-      document.getElementById('ga-generar').addEventListener('click', function (e) {
+      if (ga.listo) document.getElementById('ga-generar').addEventListener('click', function (e) {
         e.target.disabled = true;
         document.getElementById('ga-msg').textContent = 'Generando… puede tardar hasta un minuto.';
         pedir({ op: 'generar' }).then(resultado).catch(error);
