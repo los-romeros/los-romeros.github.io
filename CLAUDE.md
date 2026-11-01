@@ -20,7 +20,8 @@ App gratuita de la congregación **Los Romeros (Concón, Chile)**: programas de 
 ## Publicar
 ```bash
 cd apps-script && clasp push -f && clasp update-deployment AKfycbycdU7MzXKNd2xFniRK3w3CECTjyeDE73fE_cW-7OBffwLWLADeD9O7dN61ogjCM3Vn -d "descripción"
-cd .. && git add -A && git commit -m "…" && git push      # publica la web
+cd .. && git add -A && git commit -m "…"
+gh auth switch --user los-romeros && git -c credential.helper= -c credential.helper='!gh auth git-credential' push; gh auth switch --user aidevfelipe-commits   # publica la web (la cuenta activa da 403)
 ```
 Verificar sintaxis antes: `for f in apps-script/*.js; do node --check $f; done; node --check web/app.js`.
 
@@ -65,11 +66,17 @@ Acceso a Drive desde aquí: script con el token de clasp (`~/.clasprc.json`); so
 - S-13: el papel (docx "S-13_S 2023 a 2026") se cargó como filas Manual desde sep-2025. El 2026-10-27 Maximiliano Wilson revisó el Historial: todo lo completado quedó fijo ("Manual (revisado)/(corregido)") y lo en curso como "Inicio manual". Criterio de cierre (ajustado a su revisión: coincide 11/22 exactas vs 3 con el anterior): todas las manzanas, o salida con ≥2/3 de manzanas repetidas y ≥50 % cubierto. Columna oculta "Control" detecta filas automáticas editadas. `alEditarS13` (onEdit instalado por `asegurarTareas_`) + `revisarS13Editado_` en `sincronizar_` rehacen el S-13 5 min después de editar. Lo ven Felipe (`s13Ven`) y el responsable de predicación.
 
 ## Estado actual (2026-11-01)
-- Web **v47** (pie de la app), API **@50**. v47: explicación de las condiciones en la Guía para responsables (#condiciones), enlazada desde la ventana; @50: las condiciones solo aceptan nombres del directorio. v46: la ventana de condiciones de acomodación se abre aunque el mes no esté aprobado. v44: "Pueden confirmar" y nombres en audiencias que comparten planillas (asistenciaVen). v45: asistencia con aprobación (acomodadores envían, encargados aprueban). v43: aseo editable por grupo + "Pueden editar"; "Corregir mapa" de casas (admin); dueños de casa con aviso; registrar predicación dentro del territorio y mapa en el formulario; generar acomodación del mes. Todo publicado y en `main`; el árbol de trabajo queda limpio al cerrar cada sesión.
+- Web **v47** (pie de la app), API **@50**. Todo publicado y en `main`; el árbol de trabajo queda limpio al cerrar cada sesión.
 - En producción con los hermanos: login, programas, confirmaciones, Mis datos (registro, dirección, emergencia, pin, confirmación anual), informes, territorios, asistencia, emergencias, avisos/eventos.
-- Pasos que el usuario debe correr en la planilla tras actualizaciones: **Preparar planilla** (columnas/claves nuevas) y, para direcciones, **Ubicar direcciones en el mapa** (aún no confirmó resultado del geocodificador).
-- Tras v43–v45 el usuario debe correr **Preparar planilla** (columnas "Pueden editar" y "Pueden confirmar", pestañas "Casas de predicación" y "Solicitudes de asistencia"; las casas se llenan solas en la siguiente sincronización de predicación o tarea diaria).
-- Sin verificar en producción (solo demo y pruebas locales con fixtures): generar acomodación en la hoja real (copia de pestaña, título, merges), casas/dueños/avisos de dueños de casa, que se instale el disparador `alEditarS13` y rehaga el S-13 tras editar; formularios S-1/S-3/S-88 generados por script, geocodificador, planilla de emergencias, recordatorio push de avisos.
+- **Pasos pendientes del usuario en la planilla central (pedidos el 2026-11-01, sin confirmar que los hizo):**
+  1. **Preparar planilla**: crea columnas "Pueden editar" y "Pueden confirmar" (Programas) y pestañas "Casas de predicación" y "Solicitudes de asistencia".
+  2. Inicio ▸ `asistenciaVen` = `secretario, Daniel Gaete`; revisar `asistenciaRegistran` (probablemente "anciano, secretario": vaciarla si solo deben registrar los acomodadores).
+  3. Programas ▸ fila `vmc` ▸ "Pueden confirmar" = `Santiago Acevedo`.
+  4. Acomodación: el 2026-11-01 se cambió la "Hoja de origen (URL)" a un Google Sheet nuevo (id `11rZ9Kq-pnS_tI-2sDpmn3j0Ttj7MAL2hLU2k6RYnpOA`, compartido como Editor con congrelosromeros). **Revisado el mismo día**: el servidor lo abre y escribe (se guardaron condiciones "Patricio Quiroz · Solo fin de semana" y "Roberto Canales · Solo entre semana"), sin errores de acceso, y los periodos Julio–Agosto, Septiembre–Octubre y Noviembre 2026 quedaron con la misma huella (lectura idéntica al archivo anterior). Queda una condición mal escrita "Patr" (13:22, antes de validar nombres) que no tiene efecto: pedir que la quite con la ✕.
+  5. Para direcciones, **Ubicar direcciones en el mapa** (aún no confirmó resultado del geocodificador).
+- Sin verificar en producción (solo demo y pruebas locales con fixtures): generar acomodación en la hoja real (copia de pestaña, título, merges), casas/dueños/avisos de dueños de casa, asistencia con aprobación (solicitud → push a encargados → aprobar), que se instale el disparador `alEditarS13` y rehaga el S-13 tras editar; formularios S-1/S-3/S-88 generados por script, geocodificador, planilla de emergencias, recordatorio push de avisos.
+- **Publicar la web**: `git push` con la cuenta activa `aidevfelipe-commits` da 403. Hay que usar la cuenta `los-romeros` de `gh` (ver "Publicar"); el clasificador de permisos exige que el usuario lo autorice explícitamente en cada mensaje ("Sí, publícala").
+- **Revisar archivos desde aquí**: la planilla central se exporta con `~/.claude/skills/programa-predicacion/scripts/drive.sh <id> salida.xlsx` y se lee con `/usr/local/bin/python3` (tiene openpyxl; el `python3 -I` del PATH no). Hojas de responsables no creadas por la app (p. ej. la nueva de acomodación) dan 403 con ese token y el conector de Sheets tampoco las ve: revisar lo que deja el servidor en Registro y Periodos.
 
 ## Historial resumido (para entender por qué las cosas son como son)
 1. Base: lectores de las hojas de cada responsable → Borrador → aprobación → invitaciones de Calendar; confirmación y reasignación con escritura en la hoja de origen; login Google obligatorio; diseño crema/pizarra con baldosas.
@@ -81,6 +88,7 @@ Acceso a Drive desde aquí: script con el token de clasp (`~/.clasprc.json`); so
 7. Mapas: PDF de 37 MB → JPG por territorio en Drive; vista "Territorio N y No pasar" con registro, manzanas sugeridas y próximas salidas.
 8. Asistencia (S-1/S-3/S-88), emergencias, confirmación anual de datos con fecha fija, pin en mapa, avisos con cuenta regresiva/calendario/quitar/recordatorio y listado de eventos.
 9. Documentación: este archivo y `docs/MANUAL-ADMIN.md` (enlazado en la app solo para admin).
+10. 2026-11-01 (v43–v47): aseo editable por grupo y permisos por nombre ("Pueden editar", "Pueden confirmar" con estado y WhatsApp); casas de predicación (corregir mapa, dueños de casa con aviso 7 y 1 día antes); registrar predicación dentro del territorio y mapa en el formulario; generador del programa de acomodación con condiciones (explicadas en la Guía para responsables #condiciones); asistencia con aprobación (acomodadores envían, encargados `asistenciaVen` aprueban; aviso al acomodador del Auditorio desde el inicio de la reunión).
 
 ## Análisis entregados al usuario (para no repetirlos)
 - **Servidor pagado**: no recomendado por ahora (USD 5–25/mes + mantenimiento). Límite real a vigilar: tiempo diario de triggers en cuenta gratuita (~90 min/día); si aparecen errores de tiempo excedido en Registro, bajar `sincronizar` a cada 30 min en `asegurarTareas_`.
