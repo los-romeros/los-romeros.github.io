@@ -41,7 +41,7 @@
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v47'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v48'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -1476,12 +1476,12 @@
     for (var a = t.desde; a <= t.anioActual; a++) h += '<button type="button" class="filtro' + (a === anio ? ' activo' : '') + '" data-s13-anio="' + a + '">' + a + '</button>';
     h += '</div><div class="as-acc"><a class="btn btn-sec" href="' + esc(t.url) + '" target="_blank" rel="noopener">Abrir planilla para imprimir (S-13)</a>' +
       '<button type="button" class="btn btn-sec" id="s13-recalcular">Actualizar ahora</button></div>';
-    h += '<p class="ayuda-editar">Año de servicio ' + anio + ' (septiembre ' + (anio - 1) + ' a agosto ' + anio + '). Cada vuelta empieza la primera vez que se trabaja el territorio después de completado y termina cuando se trabajaron todas sus manzanas.</p>';
+    h += '<p class="ayuda-editar">Año de servicio ' + anio + ' (septiembre ' + (anio - 1) + ' a agosto ' + anio + '). Cada vuelta empieza la primera vez que se trabaja el territorio después de completado y termina cuando se trabajaron todas sus manzanas (o cuando se vuelve a trabajar sobre manzanas ya hechas, con más de la mitad cubierta).</p>';
     t.territorios.forEach(function (n) {
       var propias = t.vueltas.filter(function (v) { return v.t === n; });
       // En el año actual también se ven las vueltas que siguen en curso desde el año anterior
       var delAnio = propias.filter(function (v) { return (v.i >= ini && v.i <= fin) || (!v.f && v.i < ini && anio === t.anioActual); });
-      var previa = propias.filter(function (v) { return v.f && v.f < ini; }).reduce(function (m, v) { return v.f > m ? v.f : m; }, '');
+      var previa = propias.filter(function (v) { return v.f && v.i < ini; }).reduce(function (m, v) { return v.f > m ? v.f : m; }, '');
       h += '<article class="terr s13"><div class="terr-cab"><span class="terr-n">' + esc(n) + '</span><div><div class="terr-t">Territorio ' + esc(n) + '</div>' +
         '<div class="terr-u">' + (previa ? 'Completado antes del año: ' + esc(fc(previa)) : 'Sin vuelta anterior registrada') + '</div></div></div>' +
         (delAnio.length ? delAnio.map(function (v) {

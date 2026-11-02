@@ -164,6 +164,8 @@ function calcularVueltasS13_(regs, totales, fijas, anclas, encargadoDe) {
         if (v.n >= todas.length) { cerrar(v, d.fecha); ultimo = d.fecha; v = null; }
       });
       if (v) {
+        // Entre dos vueltas escritas a mano, unas salidas sueltas que no alcanzan la mitad del territorio no son una vuelta
+        if (cerrarAlFinal && !ancla && v.n * 2 < todas.length) return ultimo;
         if (cerrarAlFinal && v.ultima) { cerrar(v, v.ultima); ultimo = v.ultima; }
         else out.push({ territorio: t, asignado: v.asignado, inicio: v.inicio, termino: '', origen: v.origen,
           notas: v.n ? 'En curso · faltan ' + faltan(v).join(', ') : 'En curso' });
@@ -212,7 +214,8 @@ function paginaS13_(anio, vueltas, territorios, actualizado) {
     var propias = vueltas.filter(function (v) { return v.territorio === t; });
     var delAnio = propias.filter(function (v) { return v.inicio >= ini && v.inicio <= fin; })
       .sort(function (a, b) { return a.inicio.localeCompare(b.inicio); });
-    var previa = propias.filter(function (v) { return v.termino && v.termino < ini; })
+    // Última vez completado de lo que no está en esta página (vueltas asignadas antes, aunque terminaran ya en este año)
+    var previa = propias.filter(function (v) { return v.termino && v.inicio < ini; })
       .reduce(function (max, v) { return v.termino > max ? v.termino : max; }, '');
     var grupos = [];
     for (var k = 0; k < Math.max(1, delAnio.length); k += S13_BLOQUES) grupos.push(delAnio.slice(k, k + S13_BLOQUES));
