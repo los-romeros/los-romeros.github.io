@@ -226,3 +226,20 @@ function si_(v) {
 function hoyISO_() {
   return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
+
+/**
+ * Abre una planilla cuyo id quedó guardado en las propiedades (INFORMES_ID, ASISTENCIA_ID…).
+ * - Sin id guardado: devuelve null (quien llama la crea).
+ * - Con id: reintenta varias veces. Si Google falla un momento NO se crea otra planilla
+ *   (el 2026-11-05 pasó con informes: se creó una vacía y la app pareció "reseteada"); se avisa que intente de nuevo.
+ */
+function abrirGuardada_(prop, nombre) {
+  var id = PropertiesService.getScriptProperties().getProperty(prop);
+  if (!id) return null;
+  var error;
+  for (var i = 0; i < 4; i++) {
+    try { return SpreadsheetApp.openById(id); } catch (e) { error = e; Utilities.sleep(800 * (i + 1)); }
+  }
+  console.warn('No se pudo abrir ' + nombre + ' (' + id + '): ' + error.message);
+  throw new Error('Google no respondió al abrir la planilla de ' + nombre + '. Intenta de nuevo en unos minutos.');
+}

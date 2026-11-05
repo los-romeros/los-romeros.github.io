@@ -12,20 +12,48 @@ var MESES_LARGOS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Juli
 var TITULOS_INFORMES = ['Marca temporal', 'Correo', 'Nombre', 'Grupo', 'Mes', 'Servicio', 'Participó', 'Estudios', 'Horas', 'Comentarios', 'Ingresado por', 'Horas otros servicios'];
 var SERVICIOS = ['Publicador', 'Precursor Auxiliar', 'Precursor Regular'];
 
+// El 2026-11-05 a las 12:22 Google falló un momento al abrir la planilla de informes y la app creó otra vacía.
+// Se vuelve a la original y se traspasa lo que haya llegado a la nueva.
+var INFORMES_ORIGINAL = '1bfM2n78u9b84fw8JLzzLEYxVaxLyr7TS1dVjOuBC4E4';
+var INFORMES_POR_ERROR = '1nFIxQJ2oWl2Y7z1x0ldp51lxqLVSCQg_edudfzWg_oo';
+
+function repararInformes_(props) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    if (props.getProperty('INFORMES_ID') !== INFORMES_POR_ERROR) return;
+    var original = SpreadsheetApp.openById(INFORMES_ORIGINAL).getSheetByName('Informes');
+    var n = 0;
+    try {
+      var v = SpreadsheetApp.openById(INFORMES_POR_ERROR).getSheetByName('Informes').getDataRange().getValues();
+      v.shift();
+      v = v.filter(function (r) { return r[2] && r[4]; });
+      if (v.length) {
+        var ancho = Math.min(v[0].length, TITULOS_INFORMES.length);
+        var filas = v.map(function (r) { return r.slice(0, ancho); });
+        var desde = original.getLastRow() + 1;
+        original.getRange(desde, 5, filas.length, 1).setNumberFormat('@');
+        original.getRange(desde, 1, filas.length, ancho).setValues(filas);
+        n = filas.length;
+      }
+    } catch (e) { console.warn('No se pudo leer la planilla creada por error: ' + e.message); }
+    props.setProperty('INFORMES_ID', INFORMES_ORIGINAL);
+    registrar_('Planilla de informes restaurada', 'Se volvió a la original' + (n ? ' y se traspasaron ' + n + ' informe(s)' : '') + '. La creada por error (' + INFORMES_POR_ERROR + ') ya no se usa.');
+  } finally { lock.releaseLock(); }
+}
+
 function planillaInformes_() {
   var props = PropertiesService.getScriptProperties();
-  var id = props.getProperty('INFORMES_ID');
-  if (id) {
-    try {
-      var existente = SpreadsheetApp.openById(id);
-      var hoja = existente.getSheetByName('Informes');
-      // El mes se guarda como texto ('2026-09'); si no, Sheets lo convierte en fecha
-      if (hoja && hoja.getRange('E2').getNumberFormat() !== '@') hoja.getRange('E:E').setNumberFormat('@');
-      if (hoja && hoja.getLastColumn() < TITULOS_INFORMES.length) {
-        hoja.getRange(1, 1, 1, TITULOS_INFORMES.length).setValues([TITULOS_INFORMES]).setFontWeight('bold').setBackground('#5e8499').setFontColor('#ffffff');
-      }
-      return existente;
-    } catch (e) { /* se vuelve a crear */ }
+  if (props.getProperty('INFORMES_ID') === INFORMES_POR_ERROR) repararInformes_(props);
+  var existente = abrirGuardada_('INFORMES_ID', 'informes');
+  if (existente) {
+    var hoja = existente.getSheetByName('Informes');
+    // El mes se guarda como texto ('2026-09'); si no, Sheets lo convierte en fecha
+    if (hoja && hoja.getRange('E2').getNumberFormat() !== '@') hoja.getRange('E:E').setNumberFormat('@');
+    if (hoja && hoja.getLastColumn() < TITULOS_INFORMES.length) {
+      hoja.getRange(1, 1, 1, TITULOS_INFORMES.length).setValues([TITULOS_INFORMES]).setFontWeight('bold').setBackground('#5e8499').setFontColor('#ffffff');
+    }
+    return existente;
   }
   var ss = SpreadsheetApp.create('Informes de predicación');
   var sh = ss.getSheets()[0];

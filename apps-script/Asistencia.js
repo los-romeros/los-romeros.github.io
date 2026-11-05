@@ -32,9 +32,7 @@ function mesNumero_(iso) { return +String(iso).slice(0, 4) * 100 + +String(iso).
 
 function planillaAsistencia_(cfg) {
   var props = PropertiesService.getScriptProperties();
-  var id = props.getProperty('ASISTENCIA_ID');
-  var ss = null;
-  if (id) { try { ss = SpreadsheetApp.openById(id); } catch (e) { ss = null; } }
+  var ss = abrirGuardada_('ASISTENCIA_ID', 'asistencia');
   if (!ss) {
     ss = SpreadsheetApp.create('Asistencia a las reuniones');
     props.setProperty('ASISTENCIA_ID', ss.getId());

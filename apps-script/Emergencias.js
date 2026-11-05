@@ -50,8 +50,7 @@ function emergencias_(yo, cfg) {
 /** Planilla para imprimir. Con `actualizar`, rehace la tabla desde Personas. */
 function planillaEmergencias_(cfg, actualizar) {
   var props = PropertiesService.getScriptProperties();
-  var id = props.getProperty('EMERGENCIAS_ID'), ss = null;
-  if (id) { try { ss = SpreadsheetApp.openById(id); } catch (e) { ss = null; } }
+  var ss = abrirGuardada_('EMERGENCIAS_ID', 'contactos de emergencia');
   if (!ss) {
     ss = SpreadsheetApp.create('Contactos de emergencia');
     props.setProperty('EMERGENCIAS_ID', ss.getId());
