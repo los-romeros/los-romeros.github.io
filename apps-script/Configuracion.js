@@ -9,7 +9,7 @@
  */
 
 var SECCIONES_CONFIG = [
-  ['General', ['congregacion', 'mensaje', 'aviso', 'direccion', 'comoLlegar', 'urlApp', 'diasPasados', 'diasFuturos', 'diasParaAprobar']],
+  ['General', ['congregacion', 'mensaje', 'aviso', 'avisosPublican', 'direccion', 'comoLlegar', 'urlApp', 'diasPasados', 'diasFuturos', 'diasParaAprobar']],
   ['Reuniones', ['horaEntreSemana', 'horaFinSemana', 'duracionMin', 'conductorAtalaya', 'zoomEntreSemana', 'zoomFinSemana']],
   ['Avisos y notificaciones', ['notificacionesActivas', 'silencioDesde', 'silencioHasta', 'avisoDiaAntes', 'horaAvisoDiaAntes', 'avisoRecordarDias', 'horaRecordatorioAvisos', 'invitacionesActivas', 'soloEstosCorreos']],
   ['Informes', ['informesVen', 'informesDesde', 'informeEditableHasta', 'diasRecordatorioInforme', 'horaRecordatorioInforme', 'diasRecordatorioInformeGrupo', 'mesesActivo', 'informesFormularios']],

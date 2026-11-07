@@ -12,6 +12,7 @@ function onOpen() {
     .addItem('Crear hoja de aseo (plantilla)', 'crearPlantillaAseo')
     .addItem('Importar personas (grupo y servicio) desde una planilla', 'importarPersonas')
     .addItem('Reparar pestaña Personas (ordenar y unir duplicados)', 'repararPersonas')
+    .addItem('Informes: importar historial (Registro Predicación)', 'importarHistorialInformes')
     .addItem('Informes: traspasar formularios antiguos y armar historial', 'traspasarInformesAntiguos')
     .addSeparator()
     .addItem('Reiniciar prueba de invitaciones', 'reiniciarPruebaInvitaciones')
@@ -71,6 +72,7 @@ var INICIO_POR_DEFECTO = [
   ['numeroCongregacion', '', 'Número de la congregación (formulario S-1)'],
   ['informesVen', 'secretario, Daniel Gaete', 'Quiénes ven los informes de todos los grupos y los reportes de la congregación (S-1, precursores, actividad), además del admin'],
   ['diasRecordatorioInformeGrupo', '3,5,7,10,15+', 'Días del mes en que se avisa al superintendente y al auxiliar de cada grupo cuántos informes faltan. "15+" = desde el día 15, todos los días hasta que el grupo complete'],
+  ['avisosPublican', 'Felipe González, Hermes Moraga', 'Quiénes publican y quitan avisos importantes desde la app (además del admin)'],
   ['mesesActivo', '6', 'Un publicador es activo si informó haber participado al menos una vez en estos últimos meses (S-1 y reportes)'],
   ['informesDesde', '2026-10', 'Primer mes cuyo informe se pide en la app (AAAA-MM). Los meses anteriores no se piden ni se recuerdan'],
   ['informeEditableHasta', '20', 'Día del mes hasta el que se puede corregir el informe del mes anterior'],

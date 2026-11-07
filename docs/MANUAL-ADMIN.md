@@ -107,6 +107,7 @@ Las claves nuevas aparecen al ejecutar **Programas ▸ Preparar planilla**. Si u
 | `informesFormularios` | | URLs de formularios antiguos (se leen como informes y sirven para el traspaso) |
 | `informesVen` | secretario, Daniel Gaete | Ven los informes de todos los grupos y los reportes S-1, Actividad y Precursores de toda la congregación |
 | `diasRecordatorioInformeGrupo` | 3,5,7,10,15+ | Días en que se avisa al superintendente y al auxiliar cuántos informes faltan en su grupo; "15+" = desde el 15, cada día hasta que el grupo complete (no cuentan los inactivos) |
+| `avisosPublican` | Felipe González, Hermes Moraga | Publican y quitan avisos importantes desde la app (Eventos y avisos), además del admin. Quitar pone "Mostrar hasta" en ayer (la fila queda) |
 | `mesesActivo` | 6 | Publicador activo = informó haber participado al menos una vez en estos últimos meses |
 | `asistenciaRegistran` | (vacío) | Además de los acomodadores (todos los del programa de acomodación), quiénes ven la asistencia sin formularios y la registran o corrigen **con aprobación** |
 | `asistenciaVen` | secretario | **Encargados** de la asistencia: registran directo, aprueban las solicitudes (reciben notificación) y ven la planilla con los formularios S-1, S-3 y S-88 |
@@ -143,6 +144,7 @@ Separado por comas, cualquiera de: `todos`, `privilegiados` (admin y editores), 
 | Crear hoja de aseo (plantilla) | Para generar el programa anual de aseo |
 | Importar personas… | Completar datos desde una planilla (solo llena lo vacío) |
 | Reparar pestaña Personas | Ordena y une duplicados |
+| **Informes: importar historial (Registro Predicación)** | Una vez: pasa a la planilla de informes todos los meses del archivo "Los Romeros - Registro Predicación" (sep 2025–sep 2026; publicador sin horas = no participó), el total 2026 de cada precursor regular con crédito y el Historial. Se puede repetir sin duplicar |
 | **Informes: traspasar formularios antiguos y armar historial** | Con `informesFormularios` lleno: copia a la planilla de informes los meses desde septiembre 2026, llena "Historial" con el último mes informado de cada persona y calcula "Precursores regulares". Se puede repetir sin duplicar |
 | Reiniciar prueba de invitaciones | Borra eventos e invitaciones de prueba |
 | **Preparar planilla** | Después de cada actualización: crea pestañas, columnas y claves nuevas |
@@ -173,8 +175,10 @@ Separado por comas, cualquiera de: `todos`, `privilegiados` (admin y editores), 
 | Registro de territorio (manzanas, historial, próxima salida) y botón "Registrar predicación" en esa vista | Ancianos y capitanes |
 | Informes de grupo (Quién falta, Actividad, Precursores) | Superintendente, auxiliar y Grupos ▸ "Pueden ver informes" (su grupo); secretario, `informesVen` y admin (todos) |
 | Informe S-1 en la app | Secretario, `informesVen` y admin |
-| Configuración (todas las claves de Inicio, permisos de programas y grupos) | Admin |
-| Permisos: "Pueden editar"/"Pueden confirmar" de su programa | Responsable del programa o editor asignado en Usuarios (no quien solo figura en "Pueden editar") |
+| Configuración (tuerca arriba a la derecha del inicio: claves de Inicio, permisos de programas y grupos) | Admin |
+| Análisis de mi grupo (enlace arriba en Informes: gráfico de 12 meses, activos/irregulares/inactivos, a quién prestar atención, precursores, puntualidad) | Quien ve informes de ese grupo; quien ve todos elige el grupo |
+| Publicar y quitar avisos importantes | Admin y `avisosPublican` |
+| Permisos (tuerca): "Pueden editar"/"Pueden confirmar" de su programa | Responsable del programa o editor asignado en Usuarios (no quien solo figura en "Pueden editar") |
 | Permisos: "Pueden ver informes" de su grupo | Superintendente y auxiliar del grupo |
 | Asistencia (S-88): ver y registrar/corregir con aprobación | Acomodadores (cualquier asignación en acomodación en los últimos 4 meses o próxima) y `asistenciaRegistran` |
 | Asistencia: aprobar, registrar directo y formularios | `asistenciaVen` (encargados) y admin |
