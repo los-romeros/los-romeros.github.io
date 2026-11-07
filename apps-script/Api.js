@@ -66,6 +66,8 @@ function doPost(e) {
       case 's13': return json_(resumenS13_(yo, p, cfg));
       case 'informe': return json_(conBloqueo_(function () { return guardarInforme_(yo, p, cfg); }));
       case 'informes': return json_(informesGrupos_(yo, p, cfg));
+      case 'reportes': return json_(reportesInformes_(yo, p, cfg));
+      case 'config': return json_(p.op === 'leer' ? configuracion_(yo, p, cfg) : conBloqueo_(function () { return configuracion_(yo, p, cfg); }));
       case 'nopasar': return json_(listadoNoPasar_(yo, cfg));
       case 'mapa':
         try { return json_(mapaTerritorio_(yo, cfg, p)); } catch (e) { registrar_('Error en mapa', yo.nombre + ' · territorio ' + (p.territorio || 'general') + ': ' + e.message); throw e; }
@@ -457,6 +459,8 @@ function datosUsuario_(yo, cfg) {
 
   // Informe mensual de predicación
   try { out.informe = estadoInforme_(yo, cfg); } catch (e) { console.warn(e); out.informe = null; }
+  // Configuración (admin) y permisos (encargados de programas y de grupos)
+  try { out.config = accesoConfig_(yo); } catch (e) { console.warn(e); out.config = { admin: false, permisos: false }; }
 
   // Registro de predicación pendiente y acceso al resumen de territorios
   try {

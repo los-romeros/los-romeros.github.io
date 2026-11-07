@@ -24,8 +24,8 @@ var HOJAS = {
   },
   grupos: {
     nombre: 'Grupos',
-    titulos: ['Grupo', 'Superintendente', 'Auxiliar'],
-    anchos: [80, 220, 220]
+    titulos: ['Grupo', 'Superintendente', 'Auxiliar', 'Pueden ver informes'],
+    anchos: [80, 220, 220, 260]
   },
   usuarios: {
     nombre: 'Usuarios',

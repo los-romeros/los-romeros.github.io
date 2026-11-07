@@ -165,6 +165,7 @@ function tareasHorarias() {
       try { avisosCasas_(cfg, 7); } catch (e) { registrar_('Error en aviso a dueños de casa', e.message); }
     }
     try { recordatoriosInforme_(cfg); } catch (e) { registrar_('Error en recordatorio de informe', e.message); }
+    try { recordatoriosInformeGrupos_(cfg); } catch (e) { registrar_('Error en recordatorio de informes a grupos', e.message); }
     if (hora >= +(cfg.horaRecordatorioAvisos || 10) && unaVezAlDia_('RECORDATORIO_AVISOS')) {
       try { recordatoriosAvisos_(cfg); } catch (e) { registrar_('Error en recordatorio de avisos', e.message); }
     }
@@ -177,6 +178,9 @@ function tareasHorarias() {
     }
     if (hora >= 2 && unaVezAlDia_('S13')) {
       try { actualizarS13_(cfg); CacheService.getScriptCache().remove('s13'); } catch (e) { registrar_('Error al actualizar S-13', e.message); }
+    }
+    if (hora >= 3 && PropertiesService.getScriptProperties().getProperty('INFORMES_ID') && unaVezAlDia_('PRECURSORES')) {
+      try { actualizarPrecursores_(cfg); } catch (e) { registrar_('Error al actualizar precursores regulares', e.message); }
     }
     if (hora >= 3 && PropertiesService.getScriptProperties().getProperty('ASISTENCIA_ID') && unaVezAlDia_('DATOS_S1')) {
       try { actualizarDatosS1_(cfg); } catch (e) { registrar_('Error al actualizar S-1', e.message); }

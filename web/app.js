@@ -34,14 +34,16 @@
     video: '<rect x="2.5" y="6" width="13" height="12" rx="2"/><path d="m15.5 10.5 6-3.5v10l-6-3.5"/>',
     telefono: '<path d="M5 3.5h3.5l1.8 4.5-2.3 1.4a11 11 0 0 0 5.6 5.6l1.4-2.3 4.5 1.8V18a2.5 2.5 0 0 1-2.5 2.5A15.5 15.5 0 0 1 2.5 6 2.5 2.5 0 0 1 5 3.5z"/>',
     cruz: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 7.5v9M7.5 12h9"/>',
-    conteo: '<rect x="3.5" y="3" width="17" height="18" rx="2"/><path d="M7.5 8h2M7.5 12h2M7.5 16h2M12.5 8h4M12.5 12h4M12.5 16h4"/>'
+    conteo: '<rect x="3.5" y="3" width="17" height="18" rx="2"/><path d="M7.5 8h2M7.5 12h2M7.5 16h2M12.5 8h4M12.5 12h4M12.5 16h4"/>',
+    ajustes: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+    llave: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l2 2M15 8l2 2"/>'
   };
 
   function svg(nombre, extra) {
     var p = ICONOS[nombre] || ICONOS.calendario;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + p + '</svg>';
   }
-  var VERSION_APP = 'v48'; // igual que VERSION en sw.js
+  var VERSION_APP = 'v49'; // igual que VERSION en sw.js
   var SVG_CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   var SVG_ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
   var SVG_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -141,6 +143,9 @@
     pedido.then(function (d) {
       if (!d || !d.ok) throw new Error(d && d.error || 'respuesta inválida');
       if (DEMO && !d.territorios) d.territorios = { puedeVer: true };
+      if (DEMO && !d.config) d.config = /permisos/.test(location.search) ? { admin: false, permisos: true } : { admin: true, permisos: true }; // ?demo&permisos
+      if (DEMO && !d.informe) d.informe = { mes: '2026-10', mesNombre: 'Octubre 2026', enviado: { servicio: 'Publicador', participo: 'Sí', estudios: 1, horas: '' }, editable: true, editableHasta: '2026-11-20', servicio: 'Publicador', verGrupos: true, pedir: true };
+      if (DEMO && d.informe && d.informe.verTodos == null) d.informe.verTodos = !/permisos/.test(location.search);
       if (DEMO && d.asistencia && /acomodador/.test(location.search)) { d.asistencia.encargado = false; d.asistencia.porAprobar = 0; } // ?demo&acomodador
       estado.datos = d;
       estado.sinConexion = false;
@@ -225,6 +230,8 @@
     if (ruta === 'territorios' && estado.datos.territorios && estado.datos.territorios.puedeVer) { renderTerritorios(); return; }
     if (ruta === 's13' && estado.datos.territorios && estado.datos.territorios.puedeVer) { renderS13(); return; }
     if (ruta === 'informes' && estado.datos.informe && estado.datos.informe.verGrupos) { renderInformes(); return; }
+    if (ruta === 'config' && estado.datos.config && estado.datos.config.admin) { renderConfig(); return; }
+    if (ruta === 'permisos' && estado.datos.config && estado.datos.config.permisos) { renderConfig(); return; }
     var docs = estado.datos.documentos || {};
     var np = /^nopasar(?:\/(\w+))?$/.exec(ruta);
     if (np && docs.noPasar) { renderNoPasar(np[1] || ''); return; }
@@ -469,6 +476,13 @@
       h += '<a class="baldosa" href="#territorios"><span class="baldosa-top"><span class="circulo">' + svg('mapa') + '</span>' + SVG_CHEVRON + '</span>' +
         '<span class="baldosa-nombre">Registro de territorios</span><span class="baldosa-det">Resumen de lo trabajado</span>' +
         '<span class="baldosa-fecha">' + svg('calendario') + 'Registrar y revisar</span></a>';
+    }
+    if (d.config && (d.config.admin || d.config.permisos)) {
+      h += d.config.admin
+        ? '<a class="baldosa" href="#config"><span class="baldosa-top"><span class="circulo beige">' + svg('ajustes') + '</span>' + SVG_CHEVRON + '</span>' +
+          '<span class="baldosa-nombre">Configuración</span><span class="baldosa-det">Ajustes y permisos de la app</span><span class="baldosa-fecha">' + svg('llave') + 'Solo administrador</span></a>'
+        : '<a class="baldosa" href="#permisos"><span class="baldosa-top"><span class="circulo beige">' + svg('llave') + '</span>' + SVG_CHEVRON + '</span>' +
+          '<span class="baldosa-nombre">Permisos</span><span class="baldosa-det">Quién más ve o edita lo tuyo</span><span class="baldosa-fecha">' + svg('grupo') + 'Dar o quitar acceso</span></a>';
     }
     h += '</nav></section>';
 
@@ -2194,15 +2208,32 @@
     });
   }
 
+  var VISTAS_INFORMES = [['falta', 'Quién falta'], ['actividad', 'Actividad'], ['precursores', 'Precursores'], ['s1', 'S-1']];
+  function pestanasInformes(vista) {
+    var todos = estado.datos.informe.verTodos;
+    return '<div class="filtros vistas-inf" role="tablist" aria-label="Tipo de informe">' + VISTAS_INFORMES.filter(function (v) { return v[0] !== 's1' || todos; }).map(function (v) {
+      return '<button type="button" role="tab" class="filtro' + (v[0] === vista ? ' activo' : '') + '" aria-selected="' + (v[0] === vista) + '" data-vista="' + v[0] + '">' + v[1] + '</button>';
+    }).join('') + '</div>';
+  }
+  function enlazarPestanas() {
+    app.querySelectorAll('[data-vista]').forEach(function (b) {
+      b.addEventListener('click', function () { estado.informesVista = b.getAttribute('data-vista'); renderInformes(); });
+    });
+  }
+
   function renderInformes() {
+    var vista = estado.informesVista || 'falta';
+    if (vista === 's1' && !estado.datos.informe.verTodos) vista = 'falta';
+    if (vista !== 'falta') { renderReporte(vista); return; }
     document.title = 'Informes · Cong. Los Romeros';
     var t = estado.informesDatos;
     var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Inicio</button>' +
-      '<h1>Informes' + (t ? ' de ' + esc(t.mesNombre) : '') + '</h1></div></div>';
+      '<h1>Informes' + (t ? ' de ' + esc(t.mesNombre) : '') + '</h1></div></div>' + pestanasInformes('falta');
     var mesPedido = estado.informesMes || estado.datos.informe.mes;
     if (!t || t.mes !== mesPedido) {
       app.innerHTML = h + '<p class="vacio">Cargando informes…</p>';
       document.getElementById('volver').addEventListener('click', function () { location.hash = ''; });
+      enlazarPestanas();
       api('informes', { mes: mesPedido }).then(function (r) {
         if (!r.ok) throw new Error(r.error);
         estado.informesDatos = r;
@@ -2230,6 +2261,7 @@
     if (!t.grupos.length) h += '<p class="vacio">No hay personas con grupo asignado en el directorio.</p>';
     app.innerHTML = h;
     document.getElementById('volver').addEventListener('click', function () { location.hash = ''; });
+    enlazarPestanas();
     app.querySelectorAll('[data-mes]').forEach(function (b) {
       b.addEventListener('click', function () { estado.informesMes = b.getAttribute('data-mes'); renderInformes(); });
     });
@@ -2240,6 +2272,254 @@
         abrirInforme(m, t.mes, function () { estado.informesDatos = null; renderInformes(); if (norm(nombre) === norm(estado.datos.usuario.nombre)) cargar(); });
       });
     });
+  }
+
+  /* ---------- Reportes de informes (actividad, precursores, S-1) ---------- */
+  function mesNombre(ym) { return mayuscula(MESES[+String(ym).slice(5, 7) - 1]) + ' ' + String(ym).slice(0, 4); }
+  function mesSumar(ym, n) { var d = new Date(+ym.slice(0, 4), +ym.slice(5, 7) - 1 + n, 1); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); }
+
+  function renderReporte(vista) {
+    document.title = 'Informes · Cong. Los Romeros';
+    var inf = estado.datos.informe;
+    var mes = estado.reporteMes || inf.mes, anio = estado.reporteAnio || 0;
+    var clave = vista + '|' + (vista === 'precursores' ? anio : mes);
+    estado.reportes = estado.reportes || {};
+    var r = estado.reportes[clave];
+    var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Inicio</button><h1>Informes</h1></div></div>' + pestanasInformes(vista);
+    var fin = function () {
+      app.innerHTML = h;
+      document.getElementById('volver').addEventListener('click', function () { location.hash = ''; });
+      enlazarPestanas();
+    };
+    if (!r) {
+      h += '<p class="vacio">Cargando…</p>';
+      fin();
+      api('reportes', vista === 'precursores' ? { tipo: vista, anio: anio || '' } : { tipo: vista, mes: mes }).then(function (x) {
+        if (!x.ok) throw new Error(x.error);
+        estado.reportes[clave] = x;
+        if (location.hash === '#informes' && (estado.informesVista || 'falta') === vista) renderReporte(vista);
+      }).catch(function (e) {
+        if (e.message === 'sesion') return;
+        estado.informesVista = 'falta';
+        aviso(e.message || 'No se pudo cargar.', true);
+        if (location.hash === '#informes') renderInformes();
+      });
+      return;
+    }
+    var navMes = function () {
+      return '<div class="meses-nav"><button type="button" class="filtro" data-rmes="' + mesSumar(r.mes, -1) + '">‹ ' + esc(mayuscula(MESES[+mesSumar(r.mes, -1).slice(5, 7) - 1])) + '</button>' +
+        '<strong class="mes-actual">' + esc(mesNombre(r.mes)) + '</strong>' +
+        (r.mes < r.mesActual ? '<button type="button" class="filtro" data-rmes="' + mesSumar(r.mes, 1) + '">' + esc(mayuscula(MESES[+mesSumar(r.mes, 1).slice(5, 7) - 1])) + ' ›</button>' : '') + '</div>';
+    };
+    var avisoHistorial = r.historialCargado === 0
+      ? '<p class="ayuda-editar">Aún no se carga el historial anterior a la app: los publicadores activos se cuentan solo con los meses informados aquí.</p>' : '';
+
+    if (vista === 's1') {
+      var t = r.s1, a = r.asistencia || {};
+      h += navMes() + '<section class="tarjeta s88"><strong>Informe de la congregación (S-1) · ' + esc(mesNombre(r.mes)) + '</strong>' +
+        '<table><tbody>' +
+        '<tr><td>Publicadores activos <small class="s1-nota">(informaron al menos una vez en los últimos ' + r.mesesActivo + ' meses)</small></td><td><b>' + t.activos + '</b></td></tr>' +
+        '<tr><td>Promedio de asistencia fin de semana</td><td>' + (a.finde ? a.finde.promedio : '—') + '</td></tr>' +
+        '<tr><td>Promedio de asistencia entre semana</td><td>' + (a.semana ? a.semana.promedio : '—') + '</td></tr>' +
+        '</tbody></table>' +
+        '<table><thead><tr><th></th><th>Informan</th><th>Horas</th><th>Cursos</th></tr></thead><tbody>' +
+        '<tr><td>Publicadores</td><td>' + t.publicadores.informaron + '</td><td>—</td><td>' + t.publicadores.estudios + '</td></tr>' +
+        '<tr><td>Precursores auxiliares</td><td>' + t.auxiliares.informaron + '</td><td>' + t.auxiliares.horas + '</td><td>' + t.auxiliares.estudios + '</td></tr>' +
+        '<tr><td>Precursores regulares</td><td>' + t.regulares.informaron + '</td><td>' + t.regulares.horas + (t.regulares.otros ? ' <small>+' + t.regulares.otros + '</small>' : '') + '</td><td>' + t.regulares.estudios + '</td></tr>' +
+        '</tbody></table>' +
+        (t.noParticiparon ? '<p class="terr-cifra">' + t.noParticiparon + ' informaron que no participaron (no se cuentan arriba).</p>' : '') + '</section>';
+      h += '<section class="tarjeta s88"><strong>Por grupo</strong><table><thead><tr><th>Grupo</th><th>Informaron</th><th>Activos</th><th>Faltan</th></tr></thead><tbody>' +
+        r.grupos.map(function (g) { return '<tr><td>Grupo ' + g.grupo + '</td><td>' + g.informaron + ' de ' + g.miembros + '</td><td>' + g.activos + '</td><td' + (g.faltan ? ' class="falta"' : '') + '>' + g.faltan + '</td></tr>'; }).join('') +
+        '</tbody></table></section>';
+      if (r.historia.length > 1) {
+        var max = Math.max.apply(null, r.historia.map(function (x) { return x.informaron; }).concat([1]));
+        h += '<section class="tarjeta s88"><strong>Mes a mes</strong><div class="s88-scroll"><table><thead><tr><th>Mes</th><th>Activos</th><th>Informaron</th><th>Horas</th><th>Cursos</th></tr></thead><tbody>' +
+          r.historia.map(function (x) {
+            return '<tr><td>' + esc(mayuscula(MESES[+x.mes.slice(5, 7) - 1]).slice(0, 3) + ' ' + x.mes.slice(2, 4)) + '</td><td>' + x.activos + '</td><td><span class="mini-barra"><span style="width:' + Math.round(100 * x.informaron / max) + '%"></span></span>' + x.informaron + '</td><td>' + x.horas + '</td><td>' + x.estudios + '</td></tr>';
+          }).join('') + '</tbody></table></div></section>';
+      }
+      h += avisoHistorial;
+    } else if (vista === 'actividad') {
+      var filtro = estado.actividadFiltro || 'todos';
+      var tot = { activo: 0, inactivo: 0, sinDatos: 0 };
+      r.grupos.forEach(function (g) { tot.activo += g.activos; tot.inactivo += g.inactivos; tot.sinDatos += g.sinDatos; });
+      var ETQ = { activo: 'Activo', inactivo: 'Inactivo', sinDatos: 'Sin datos' };
+      h += navMes() + '<p class="ayuda-editar">Activo: informó haber participado al menos una vez en los últimos ' + r.mesesActivo + ' meses (hasta ' + esc(mesNombre(r.mes).toLowerCase()) + ').</p>' +
+        '<div class="filtros" role="group" aria-label="Mostrar">' + [['todos', 'Todos (' + (tot.activo + tot.inactivo + tot.sinDatos) + ')'], ['activo', 'Activos (' + tot.activo + ')'], ['inactivo', 'Inactivos (' + tot.inactivo + ')'], ['sinDatos', 'Sin datos (' + tot.sinDatos + ')']].map(function (f) {
+          return '<button type="button" class="filtro' + (filtro === f[0] ? ' activo' : '') + '" data-afiltro="' + f[0] + '">' + f[1] + '</button>';
+        }).join('') + '</div>';
+      r.grupos.forEach(function (g) {
+        var l = g.personas.filter(function (x) { return filtro === 'todos' || x.estado === filtro; });
+        if (!l.length) return;
+        h += '<article class="terr"><div class="terr-cab"><span class="terr-n">' + g.grupo + '</span><div><div class="terr-t">Grupo ' + g.grupo + '</div>' +
+          '<div class="terr-u">' + g.activos + ' activos · ' + g.inactivos + ' inactivos' + (g.sinDatos ? ' · ' + g.sinDatos + ' sin datos' : '') + '</div></div></div>' +
+          '<div class="miembros">' + l.map(function (x) {
+            return '<div class="act-fila"><span><span class="m-nombre">' + esc(x.nombre) + '</span><small>' + esc(x.servicio && /precursor/i.test(x.servicio) ? x.servicio + ' · ' : '') +
+              (x.ultimo ? 'Último: ' + esc(mesNombre(x.ultimo).toLowerCase()) : x.estado === 'inactivo' ? 'Informó sin participar' : 'Sin informes registrados') + ' · ' + x.meses + ' de ' + r.mesesActivo + ' meses</small></span>' +
+              '<span class="estado ' + (x.estado === 'activo' ? 'ok' : x.estado === 'inactivo' ? 'rech' : 'pend') + '">' + ETQ[x.estado] + '</span></div>';
+          }).join('') + '</div></article>';
+      });
+      h += avisoHistorial;
+    } else {
+      h += '<div class="meses-nav"><button type="button" class="filtro" data-ranio="' + (r.anio - 1) + '">‹ ' + (r.anio - 1) + '</button><strong class="mes-actual">Año de servicio ' + r.anio + '</strong>' +
+        (r.anio < r.anioActual ? '<button type="button" class="filtro" data-ranio="' + (r.anio + 1) + '">' + (r.anio + 1) + ' ›</button>' : '') + '</div>' +
+        '<p class="ayuda-editar">Septiembre ' + (r.anio - 1) + ' a agosto ' + r.anio + '. Meta anual: ' + r.metaAnual + ' horas' + (r.anio === r.anioActual ? ' (a la fecha: ' + Math.round(r.metaAnual / 12 * r.transcurridos) + ')' : '') + '.</p>';
+      if (!r.precursores.length) h += '<p class="vacio">No hay precursores regulares con informes en este año.</p>';
+      r.precursores.forEach(function (x) {
+        var pct = Math.min(100, Math.round(100 * x.horas / r.metaAnual));
+        var bien = x.horas >= x.meta;
+        h += '<article class="terr"><div class="terr-cab"><span class="terr-n">' + (x.grupo || '–') + '</span><div><div class="terr-t">' + esc(x.nombre) + '</div>' +
+          '<div class="terr-u' + (bien ? '' : ' viejo') + '">' + x.horas + ' h' + (x.otros ? ' + ' + x.otros + ' otros servicios' : '') + ' · ' + (r.anio === r.anioActual ? 'esperado a la fecha ' + x.meta : 'meta ' + r.metaAnual) + '</div></div></div>' +
+          '<div class="terr-barra"><span style="width:' + pct + '%"></span></div>' +
+          '<div class="s88-scroll s88"><table><thead><tr>' + r.meses.map(function (m) { return '<th>' + esc(m) + '</th>'; }).join('') + '</tr></thead><tbody><tr>' +
+          x.meses.map(function (m) { return '<td>' + (m ? m.horas + (m.otros ? '<small>+' + m.otros + '</small>' : '') : '·') + '</td>'; }).join('') + '</tr></tbody></table></div>' +
+          '<div class="terr-cifra">' + x.informados + ' mes(es) informados · cursos promedio ' + (x.informados ? Math.round(10 * x.estudios / x.informados) / 10 : 0) +
+          (x.anterior ? ' · año ' + x.anterior.anio + ': ' + x.anterior.horas + ' h' : '') + '</div></article>';
+      });
+      if (r.guardados.length) {
+        h += '<section class="tarjeta s88"><strong>Años anteriores</strong><div class="s88-scroll"><table><thead><tr><th>Precursor</th><th>Año</th><th>Meses</th><th>Horas</th></tr></thead><tbody>' +
+          r.guardados.map(function (g) { return '<tr><td>' + esc(g.nombre) + '</td><td>' + g.anio + '</td><td>' + g.meses + '</td><td>' + g.horas + (g.otros ? ' <small>+' + g.otros + '</small>' : '') + '</td></tr>'; }).join('') +
+          '</tbody></table></div></section>';
+      }
+    }
+    fin();
+    app.querySelectorAll('[data-rmes]').forEach(function (b) { b.addEventListener('click', function () { estado.reporteMes = b.getAttribute('data-rmes'); renderReporte(vista); }); });
+    app.querySelectorAll('[data-ranio]').forEach(function (b) { b.addEventListener('click', function () { estado.reporteAnio = +b.getAttribute('data-ranio'); renderReporte(vista); }); });
+    app.querySelectorAll('[data-afiltro]').forEach(function (b) { b.addEventListener('click', function () { estado.actividadFiltro = b.getAttribute('data-afiltro'); renderReporte(vista); }); });
+  }
+
+  /* ---------- Configuración (admin) y permisos (encargados) ---------- */
+  var CAMPOS_LISTA = ['Visible para', 'Estados visibles para', 'Pueden editar', 'Pueden confirmar', 'Pueden ver informes'];
+  var AYUDA_CAMPOS = {
+    'Pueden editar': 'Además del responsable, quiénes editan y aprueban este programa.',
+    'Pueden confirmar': 'Quiénes ven los estados y marcan si cada uno confirmó, sin cambiar al asignado.',
+    'Visible para': 'Quiénes ven el programa (vacío = todos).',
+    'Estados visibles para': 'Quiénes ven si cada asignado confirmó.',
+    'Pueden ver informes': 'Además del superintendente y el auxiliar, quiénes ven y anotan los informes de este grupo.',
+    'Responsable (correo)': 'Correo del responsable: edita, aprueba y da permisos.',
+    'Superintendente': 'Ve los informes del grupo y recibe los recordatorios de los que faltan.',
+    'Auxiliar': 'Igual que el superintendente.'
+  };
+  function listaValores(v) { return String(v || '').split(/[,;]+/).map(function (x) { return x.trim(); }).filter(Boolean); }
+
+  function renderConfig() {
+    var admin = estado.datos.config.admin;
+    var titulo = admin ? 'Configuración' : 'Permisos';
+    document.title = titulo + ' · Cong. Los Romeros';
+    var c = estado.config;
+    var h = '<div class="barra"><div class="barra-top"><button class="volver" type="button" id="volver">' + SVG_ATRAS + 'Inicio</button><h1>' + titulo + '</h1></div></div>';
+    if (!c) {
+      app.innerHTML = h + '<p class="vacio">Cargando…</p>';
+      document.getElementById('volver').addEventListener('click', function () { location.hash = ''; });
+      api('config', { op: 'leer' }).then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        estado.config = r;
+        if (/^#(config|permisos)$/.test(location.hash)) renderConfig();
+      }).catch(function (e) { if (e.message !== 'sesion') aviso(e.message || 'No se pudo cargar.', true); });
+      return;
+    }
+    estado.cfgAbiertas = estado.cfgAbiertas || {};
+    var abierta = function (k) { return estado.cfgAbiertas[k] ? ' open' : ''; };
+    h += '<p class="ayuda-editar">' + (admin
+      ? 'Los cambios se guardan en la planilla central (pestañas Inicio, Programas y Grupos) y quedan en Registro. Si algo no se entiende, déjalo como está.'
+      : 'Aquí das o quitas acceso a otros hermanos en lo que tienes a cargo. Escribe un nombre y toca Agregar.') + '</p>';
+    h += '<datalist id="cfg-opciones">' + c.personas.concat(admin ? c.perfiles : []).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>';
+    var chipsHTML = function (tipo, id, campo, valor) {
+      var l = listaValores(valor);
+      return '<div class="cfg-campo"><div class="cfg-l">' + esc(campo) + '</div>' + (AYUDA_CAMPOS[campo] ? '<div class="cfg-d">' + esc(AYUDA_CAMPOS[campo]) + '</div>' : '') +
+        '<div class="cfg-chips">' + (l.length ? l.map(function (x, i) {
+          return '<span class="cfg-chip">' + esc(x) + '<button type="button" aria-label="Quitar ' + esc(x) + '" data-quitar="' + i + '" data-tipo="' + tipo + '" data-id="' + esc(id) + '" data-campo="' + esc(campo) + '">×</button></span>';
+        }).join('') : '<span class="cfg-vacio">Nadie más</span>') + '</div>' +
+        '<div class="cfg-agregar"><input list="cfg-opciones" autocomplete="off" placeholder="' + (admin ? 'Nombre, perfil o correo' : 'Nombre del hermano') + '" aria-label="Agregar a ' + esc(campo) + '" data-nuevo="' + tipo + '|' + esc(id) + '|' + esc(campo) + '">' +
+        '<button type="button" class="btn btn-sec" data-agregar="' + tipo + '|' + esc(id) + '|' + esc(campo) + '">Agregar</button></div></div>';
+    };
+    var textoHTML = function (tipo, id, campo, valor, opciones) {
+      var ctrl = opciones
+        ? '<select data-valor="' + tipo + '|' + esc(id) + '|' + esc(campo) + '">' + opciones.map(function (o) { return '<option' + (o === valor ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>'
+        : '<input ' + (campo === 'Superintendente' || campo === 'Auxiliar' ? 'list="cfg-opciones" ' : '') + 'autocomplete="off" value="' + esc(valor) + '" data-valor="' + tipo + '|' + esc(id) + '|' + esc(campo) + '">';
+      return '<div class="cfg-campo"><div class="cfg-l">' + esc(campo) + '</div>' + (AYUDA_CAMPOS[campo] ? '<div class="cfg-d">' + esc(AYUDA_CAMPOS[campo]) + '</div>' : '') +
+        '<div class="cfg-agregar">' + ctrl + '<button type="button" class="btn btn-sec" disabled data-guardar="' + tipo + '|' + esc(id) + '|' + esc(campo) + '">Guardar</button></div></div>';
+    };
+    var campoHTML = function (tipo, id, campo, valor) {
+      if (CAMPOS_LISTA.indexOf(campo) >= 0) return chipsHTML(tipo, id, campo, valor);
+      if (campo === 'Visible' || campo === 'Requiere confirmación') return textoHTML(tipo, id, campo, valor || 'Sí', ['Sí', 'No']);
+      return textoHTML(tipo, id, campo, valor);
+    };
+    if (c.grupos.length) {
+      h += '<details class="cfg-sec"' + abierta('grupos') + ' data-sec="grupos"><summary>Informes por grupo</summary>' + c.grupos.map(function (g) {
+        return '<article class="terr"><div class="terr-cab"><span class="terr-n">' + g.grupo + '</span><div><div class="terr-t">Grupo ' + g.grupo + '</div>' +
+          '<div class="terr-u">' + esc([g.superintendente, g.auxiliar].filter(Boolean).join(' y ') || 'Sin encargados') + '</div></div></div>' +
+          Object.keys(g.campos).map(function (k) { return campoHTML('grupo', g.grupo, k, g.campos[k]); }).join('') + '</article>';
+      }).join('') + '</details>';
+    }
+    if (c.programas.length) {
+      h += '<details class="cfg-sec"' + abierta('programas') + ' data-sec="programas"><summary>Programas</summary>' + c.programas.map(function (p) {
+        return '<article class="terr"><div class="terr-t">' + esc(p.nombre) + '</div>' + Object.keys(p.campos).map(function (k) { return campoHTML('programa', p.id, k, p.campos[k]); }).join('') + '</article>';
+      }).join('') + '</details>';
+    }
+    (c.secciones || []).forEach(function (s, i) {
+      h += '<details class="cfg-sec"' + abierta('s' + i) + ' data-sec="s' + i + '"><summary>' + esc(s.titulo) + '</summary><div class="tarjeta">' + s.claves.map(function (k) {
+        var largo = k.valor.length > 40 || /mensaje|aviso|Formularios|Planilla|registroPredicacion|comoLlegar/.test(k.clave);
+        return '<div class="cfg-campo"><div class="cfg-l">' + esc(k.clave) + '</div><div class="cfg-d">' + esc(k.descripcion) + '</div><div class="cfg-agregar">' +
+          (largo ? '<textarea rows="2" data-valor="clave||' + esc(k.clave) + '">' + esc(k.valor) + '</textarea>' : '<input autocomplete="off" value="' + esc(k.valor) + '" data-valor="clave||' + esc(k.clave) + '">') +
+          '<button type="button" class="btn btn-sec" disabled data-guardar="clave||' + esc(k.clave) + '">Guardar</button></div></div>';
+      }).join('') + '</div></details>';
+    });
+    if (admin && c.urlPlanilla) h += '<p class="pie"><a href="' + esc(c.urlPlanilla) + '" target="_blank" rel="noopener">Abrir la planilla central</a></p>';
+    if (!c.grupos.length && !c.programas.length && !(c.secciones || []).length) h += '<p class="vacio">No tienes programas ni grupos a cargo.</p>';
+    app.innerHTML = h;
+    document.getElementById('volver').addEventListener('click', function () { location.hash = ''; });
+    app.querySelectorAll('details[data-sec]').forEach(function (d) { d.addEventListener('toggle', function () { estado.cfgAbiertas[d.getAttribute('data-sec')] = d.open; }); });
+
+    var buscar = function (tipo, id) {
+      if (tipo === 'grupo') return c.grupos.filter(function (g) { return String(g.grupo) === String(id); })[0];
+      return c.programas.filter(function (p) { return p.id === id; })[0];
+    };
+    var guardarCampo = function (tipo, id, campo, valor, boton) {
+      if (boton) boton.disabled = true;
+      var datos = tipo === 'clave' ? { op: 'clave', clave: campo, valor: valor } : tipo === 'grupo' ? { op: 'grupo', grupo: +id, campo: campo, valor: valor } : { op: 'programa', id: id, campo: campo, valor: valor };
+      return api('config', datos).then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        if (tipo === 'clave') (c.secciones || []).forEach(function (s) { s.claves.forEach(function (k) { if (k.clave === campo) k.valor = valor; }); });
+        else buscar(tipo, id).campos[campo] = valor;
+        aviso('Guardado.');
+        renderConfig();
+      }).catch(function (e) { if (boton) boton.disabled = false; if (e.message !== 'sesion') aviso(e.message || 'No se pudo guardar.', true); });
+    };
+    app.querySelectorAll('[data-valor]').forEach(function (el) {
+      var b = app.querySelector('[data-guardar="' + el.getAttribute('data-valor').replace(/"/g, '\\"') + '"]');
+      var inicial = el.value;
+      var cambio = function () { if (b) b.disabled = el.value === inicial; };
+      el.addEventListener('input', cambio); el.addEventListener('change', cambio);
+    });
+    app.querySelectorAll('[data-guardar]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var k = b.getAttribute('data-guardar').split('|');
+        var el = app.querySelector('[data-valor="' + b.getAttribute('data-guardar').replace(/"/g, '\\"') + '"]');
+        guardarCampo(k[0], k[1], k.slice(2).join('|'), el.value.trim(), b);
+      });
+    });
+    app.querySelectorAll('[data-quitar]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var tipo = b.getAttribute('data-tipo'), id = b.getAttribute('data-id'), campo = b.getAttribute('data-campo');
+        var l = listaValores(buscar(tipo, id).campos[campo]);
+        l.splice(+b.getAttribute('data-quitar'), 1);
+        guardarCampo(tipo, id, campo, l.join(', '), b);
+      });
+    });
+    var agregar = function (clave) {
+      var k = clave.split('|'), tipo = k[0], id = k[1], campo = k.slice(2).join('|');
+      var input = app.querySelector('[data-nuevo="' + clave.replace(/"/g, '\\"') + '"]');
+      var v = input.value.trim().replace(/[,;]+/g, ' ');
+      if (!v) { input.focus(); return; }
+      if (!admin && c.personas.map(norm).indexOf(norm(v)) < 0) { aviso('Elige un nombre de la lista.', true); input.focus(); return; }
+      var l = listaValores(buscar(tipo, id).campos[campo]);
+      if (l.map(norm).indexOf(norm(v)) >= 0) { input.value = ''; return; }
+      l.push(v);
+      guardarCampo(tipo, id, campo, l.join(', '), app.querySelector('[data-agregar="' + clave.replace(/"/g, '\\"') + '"]'));
+    };
+    app.querySelectorAll('[data-agregar]').forEach(function (b) { b.addEventListener('click', function () { agregar(b.getAttribute('data-agregar')); }); });
+    app.querySelectorAll('[data-nuevo]').forEach(function (i) { i.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); agregar(i.getAttribute('data-nuevo')); } }); });
   }
 
   /* ---------- No pasar ---------- */
@@ -2526,6 +2806,48 @@
   }
 
   /* ---------- modo demo (solo local) ---------- */
+  function demoReporte(p) {
+    var gente = (estado.datos.personas || []).slice(0, 40);
+    if (!gente.length) gente = ['Ana Pérez', 'Juan Soto', 'Marta Díaz', 'Pedro Rojas', 'Luis Mora', 'Sara Vega'];
+    var mes = p.mes || estado.datos.informe.mes;
+    var base = { ok: true, tipo: p.tipo, todos: true, mes: mes, mesNombre: mes, mesActual: estado.datos.informe.mes, mesesActivo: 6, historialCargado: 0 };
+    if (p.tipo === 's1') {
+      var hist = [];
+      for (var i = 5; i >= 0; i--) hist.push({ mes: mesSumar(mes, -i), activos: 150 + i, informaron: 120 + (i * 7) % 13, horas: 900 + i * 40, estudios: 60 + i });
+      return Object.assign(base, { s1: { activos: 152, publicadores: { informaron: 118, estudios: 40 }, auxiliares: { informaron: 6, horas: 180, estudios: 5 }, regulares: { informaron: 18, horas: 920, otros: 60, estudios: 22 }, noParticiparon: 3 },
+        asistencia: { semana: { reuniones: 4, promedio: 96 }, finde: { reuniones: 4, promedio: 112 } }, historia: hist,
+        grupos: [1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (g) { return { grupo: g, miembros: 20, informaron: 14 + g % 5, activos: 17, faltan: g % 3 }; }) });
+    }
+    if (p.tipo === 'precursores') {
+      var anio = +p.anio || 2027;
+      return Object.assign(base, { anio: anio, anioActual: 2027, meses: ['Sep', 'Oct', 'Nov', 'Dic', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago'], transcurridos: 2, metaAnual: 600,
+        precursores: gente.slice(0, 5).map(function (n, i) {
+          var m = [{ horas: 48 + i, otros: i === 2 ? 20 : 0, estudios: 2 }, { horas: 52 - i * 3, otros: 0, estudios: 3 }].concat([null, null, null, null, null, null, null, null, null, null]);
+          return { nombre: n, grupo: i + 1, meses: m, horas: 100 - i * 2, otros: i === 2 ? 20 : 0, estudios: 5, informados: 2, meta: 100, anterior: i < 3 ? { anio: anio - 1, horas: 610 - i * 30 } : null };
+        }),
+        guardados: gente.slice(0, 3).map(function (n, i) { return { nombre: n, anio: anio - 1, meses: 12, horas: 610 - i * 30, otros: 0 }; }) });
+    }
+    var est = ['activo', 'activo', 'activo', 'inactivo', 'sinDatos'];
+    return Object.assign(base, { grupos: [1, 2, 3].map(function (g) {
+      var l = gente.slice((g - 1) * 6, g * 6).map(function (n, i) { var e = est[(i + g) % 5]; return { nombre: n, servicio: i === 0 ? 'Precursor Regular' : 'Publicador', ultimo: e === 'sinDatos' ? '' : e === 'activo' ? mes : '2026-01', estado: e, meses: e === 'activo' ? 2 : 0, informoEste: e === 'activo' }; });
+      return { grupo: g, personas: l, activos: l.filter(function (x) { return x.estado === 'activo'; }).length, inactivos: l.filter(function (x) { return x.estado === 'inactivo'; }).length, sinDatos: l.filter(function (x) { return x.estado === 'sinDatos'; }).length };
+    }) });
+  }
+
+  function demoConfig(p) {
+    var c = estado.demoConfig;
+    if (!c) {
+      var admin = estado.datos.config.admin;
+      c = estado.demoConfig = { ok: true, admin: admin, urlPlanilla: admin ? 'https://docs.google.com' : '',
+        personas: (estado.datos.personas || ['Felipe González', 'Daniel Gaete', 'Santiago Acevedo']).slice().sort(), perfiles: ['anciano', 'participa', 'capitan', 'secretario', 'todos', 'privilegiados', 'admin', 'editor'],
+        grupos: (admin ? [1, 2, 3] : [2]).map(function (g) { return { grupo: g, superintendente: 'Superintendente ' + g, auxiliar: 'Auxiliar ' + g, campos: admin ? { 'Superintendente': 'Superintendente ' + g, 'Auxiliar': 'Auxiliar ' + g, 'Pueden ver informes': g === 2 ? 'Felipe González' : '' } : { 'Pueden ver informes': 'Felipe González' } }; }),
+        programas: [{ id: 'vmc', nombre: 'Reunión de entre semana', campos: admin ? { 'Responsable (correo)': 'vmc@example.com', 'Visible': 'Sí', 'Visible para': 'todos', 'Estados visibles para': 'anciano', 'Requiere confirmación': 'Sí', 'Pueden editar': '', 'Pueden confirmar': 'Santiago Acevedo' } : { 'Pueden editar': '', 'Pueden confirmar': 'Santiago Acevedo' } }],
+        secciones: admin ? [{ titulo: 'Informes', claves: [{ clave: 'informesVen', valor: 'secretario, Daniel Gaete', descripcion: 'Quiénes ven los informes de todos los grupos' }, { clave: 'diasRecordatorioInformeGrupo', valor: '3,5,7,10,15+', descripcion: 'Días del mes en que se avisa al superintendente y al auxiliar' }, { clave: 'mesesActivo', valor: '6', descripcion: 'Meses para considerar activo' }] },
+          { titulo: 'General', claves: [{ clave: 'mensaje', valor: 'Bienvenidos. Aquí encontrarás los programas y asignaciones de la congregación.', descripcion: 'Texto de bienvenida' }] }] : [] };
+    }
+    return JSON.parse(JSON.stringify(c));
+  }
+
   function demoApi(accion, p) {
     var d = estado.datos;
     if (accion === 'territorios') return fetch('dev-territorios.json').then(function (r) { return r.json(); }).then(function (r) { r.s13 = true; return r; });
@@ -2540,8 +2862,10 @@
       }
       return { ok: true, hoy: '2026-10-26', anioActual: 2027, desde: 2026, url: 'https://docs.google.com', territorios: terrs, vueltas: vueltas };
     })());
+    if (accion === 'reportes') return Promise.resolve(demoReporte(p));
+    if (accion === 'config') return Promise.resolve(demoConfig(p));
     if (accion === 'nopasar') return fetch('dev-nopasar.json').then(function (r) { return r.json(); });
-    if (accion === 'informes') return fetch('dev-informes.json').then(function (r) { return r.json(); });
+    if (accion === 'informes') return fetch('dev-informes.json').then(function (r) { return r.json(); }).then(function (r) { if (p.mes) { r.mes = p.mes; r.mesNombre = mesNombre(p.mes); r.mesAnterior = mesSumar(p.mes, -1); } return r; });
     if (accion === 'mapa') return fetch('dev-mapa.pdf').then(function (r) { return r.arrayBuffer(); }).then(function (b) {
       var u = new Uint8Array(b), t = '';
       for (var i = 0; i < u.length; i++) t += String.fromCharCode(u[i]);

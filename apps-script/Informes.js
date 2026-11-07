@@ -143,12 +143,23 @@ function editableHasta_(cfg, mes) {
   return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
-/** Grupos cuyos informes puede ver el usuario: [] ninguno, 'todos' o lista de números. */
-function gruposVisiblesInformes_(yo) {
+/** Quiénes ven los informes de todos los grupos (Inicio ▸ informesVen). Si la clave aún no existe, el valor por defecto. */
+function informesVen_(cfg) {
+  return cfg && cfg.informesVen != null ? cfg.informesVen : 'secretario, Daniel Gaete';
+}
+
+/**
+ * Grupos cuyos informes puede ver el usuario: [] ninguno, 'todos' o lista de números.
+ * Todos: admin, perfil secretario e Inicio ▸ informesVen. De su grupo: superintendente, auxiliar
+ * y quienes figuren en Grupos ▸ "Pueden ver informes" (los agrega el superintendente desde la app).
+ */
+function gruposVisiblesInformes_(yo, cfg) {
   if (yo.rol === 'admin' || yo.perfiles.indexOf('secretario') >= 0) return 'todos';
+  if (texto_(informesVen_(cfg || config_())) && enAudiencia_(informesVen_(cfg || config_()), yo)) return 'todos';
   var out = [];
   leerTabla_('grupos').forEach(function (g) {
-    if (norm_(g['Superintendente']) === norm_(yo.nombre) || norm_(g['Auxiliar']) === norm_(yo.nombre)) out.push(+g['Grupo']);
+    if (norm_(g['Superintendente']) === norm_(yo.nombre) || norm_(g['Auxiliar']) === norm_(yo.nombre) ||
+      (texto_(g['Pueden ver informes']) && enAudiencia_(g['Pueden ver informes'], yo))) out.push(+g['Grupo']);
   });
   return out;
 }
@@ -163,13 +174,14 @@ function estadoInforme_(yo, cfg) {
     .sort(function (a, b) { return new Date(b.ts) - new Date(a.ts); })[0];
   var persona = dir.personas.filter(function (p) { return norm_(p.nombre) === norm_(yo.nombre); })[0];
   var hasta = editableHasta_(cfg, mes);
-  var grupos = gruposVisiblesInformes_(yo);
+  var grupos = gruposVisiblesInformes_(yo, cfg);
   return {
     mes: mes, mesNombre: nombreMes_(mes),
     enviado: mio ? { servicio: mio.servicio, participo: mio.participo, estudios: mio.estudios, horas: mio.horas, otros: mio.otros || '', comentarios: mio.comentarios, origen: mio.origen } : null,
     editable: hoyISO_() <= hasta, editableHasta: hasta,
     servicio: (mio && mio.servicio) || (ultimo && ultimo.servicio) || (persona && persona.servicio) || 'Publicador',
     verGrupos: grupos === 'todos' || grupos.length > 0,
+    verTodos: grupos === 'todos',
     pedir: informePedido_(cfg, mes)
   };
 }
@@ -183,7 +195,7 @@ function guardarInforme_(yo, p, cfg) {
   if (p.nombre && norm_(p.nombre) !== norm_(yo.nombre)) {
     var persona = reconocer_(p.nombre, dir);
     if (!persona) throw new Error('No encontré a esa persona en el directorio.');
-    var grupos = gruposVisiblesInformes_(yo);
+    var grupos = gruposVisiblesInformes_(yo, cfg);
     if (grupos !== 'todos' && grupos.indexOf(+persona.grupo) < 0) throw new Error('Solo puedes ingresar informes de tu grupo.');
     nombre = persona.nombre; grupo = +persona.grupo || null; correo = persona.correo; ingresadoPor = yo.nombre;
   }
@@ -213,7 +225,7 @@ function guardarInforme_(yo, p, cfg) {
 
 /** Acción "informes": estado de los informes de un mes para los grupos que el usuario puede ver. */
 function informesGrupos_(yo, p, cfg) {
-  var grupos = gruposVisiblesInformes_(yo);
+  var grupos = gruposVisiblesInformes_(yo, cfg);
   if (grupos !== 'todos' && !grupos.length) throw new Error('No tienes acceso a los informes.');
   var mes = /^\d{4}-\d{2}$/.test(String(p.mes || '')) ? p.mes : mesAInformar_();
   var dir = directorio_();

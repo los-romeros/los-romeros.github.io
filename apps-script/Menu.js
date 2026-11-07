@@ -12,6 +12,7 @@ function onOpen() {
     .addItem('Crear hoja de aseo (plantilla)', 'crearPlantillaAseo')
     .addItem('Importar personas (grupo y servicio) desde una planilla', 'importarPersonas')
     .addItem('Reparar pestaña Personas (ordenar y unir duplicados)', 'repararPersonas')
+    .addItem('Informes: traspasar formularios antiguos y armar historial', 'traspasarInformesAntiguos')
     .addSeparator()
     .addItem('Reiniciar prueba de invitaciones', 'reiniciarPruebaInvitaciones')
     .addItem('Preparar planilla (pestañas y formatos)', 'prepararPlanilla')
@@ -68,6 +69,9 @@ var INICIO_POR_DEFECTO = [
   ['ciudad', 'Concón', 'Ciudad (formulario S-1)'],
   ['provincia', 'Valparaíso', 'Provincia o región (formulario S-1)'],
   ['numeroCongregacion', '', 'Número de la congregación (formulario S-1)'],
+  ['informesVen', 'secretario, Daniel Gaete', 'Quiénes ven los informes de todos los grupos y los reportes de la congregación (S-1, precursores, actividad), además del admin'],
+  ['diasRecordatorioInformeGrupo', '3,5,7,10,15+', 'Días del mes en que se avisa al superintendente y al auxiliar de cada grupo cuántos informes faltan. "15+" = desde el día 15, todos los días hasta que el grupo complete'],
+  ['mesesActivo', '6', 'Un publicador es activo si informó haber participado al menos una vez en estos últimos meses (S-1 y reportes)'],
   ['informesDesde', '2026-10', 'Primer mes cuyo informe se pide en la app (AAAA-MM). Los meses anteriores no se piden ni se recuerdan'],
   ['informeEditableHasta', '20', 'Día del mes hasta el que se puede corregir el informe del mes anterior'],
   ['carpetaTerritorios', 'TERRITORIOS LOS ROMEROS', 'Carpeta de Drive donde están el listado No pasar y el mapa'],
@@ -183,6 +187,9 @@ function prepararPlanilla() {
   if (pe) hoja_('programas').getRange(1, pe.getColumn()).setNote('Además del responsable, quiénes pueden editar y aprobar este programa: nombres, perfiles, "grupo N" o correos, separados por coma. Ej.: Pablo Morales');
   var pc = columna_('programas', 'Pueden confirmar');
   if (pc) hoja_('programas').getRange(1, pc.getColumn()).setNote('Quiénes ven los estados de este programa y marcan si cada uno confirmó, sin poder cambiar al asignado: nombres, perfiles, "grupo N" o correos. Ej.: Santiago Acevedo');
+  var pvi = columna_('grupos', 'Pueden ver informes');
+  if (pvi) hoja_('grupos').getRange(1, pvi.getColumn()).setNote('Además del superintendente y el auxiliar, quiénes ven y anotan los informes de este grupo (nombres o correos, separados por coma). El superintendente lo cambia desde la app (Permisos).');
+  sembrarPermisosInformes_();
   hoja_('datos').getRange('C:C').setWrap(false);
   hoja_('inicio').getRange('B:C').setWrap(true);
   ss.setActiveSheet(hoja_('inicio'));
@@ -424,4 +431,13 @@ function repararPersonas() {
   } finally {
     lock.releaseLock();
   }
+}
+
+/** Permisos de informes pedidos el 2026-11-07 (una sola vez): Felipe González ve los informes del grupo 2. */
+function sembrarPermisosInformes_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('PERMISOS_INFORMES_SEMBRADOS')) return;
+  var g2 = leerTabla_('grupos').filter(function (g) { return +g['Grupo'] === 2; })[0];
+  if (g2 && !texto_(g2['Pueden ver informes'])) actualizarFila_('grupos', g2, { 'Pueden ver informes': 'Felipe González' });
+  props.setProperty('PERMISOS_INFORMES_SEMBRADOS', hoyISO_());
 }

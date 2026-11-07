@@ -53,7 +53,7 @@ Todo es gratis: GitHub Pages, Apps Script, Sheets, Calendar (sus invitaciones ll
 ### Planillas que crea la app (en el Drive de la congregación)
 | Planilla | Contenido | Compartida con |
 |---|---|---|
-| Informes de predicación | Informes mensuales enviados en la app | — (los superintendentes los ven en la app) |
+| Informes de predicación | "Informes" (los enviados en la app), "Historial" (último mes informado antes de la app, una fila por persona; se puede completar a mano) y "Precursores regulares" (total por año de servicio; las filas "Calculado" se rehacen cada día, las demás no se tocan) | — (los superintendentes los ven en la app) |
 | Asistencia a las reuniones | Registro + formularios **S-3, S-88 y S-1** listos para imprimir | Secretario (editor) |
 | Contactos de emergencia | Lista para imprimir, se actualiza cada día | Ancianos y secretario (solo ver) |
 | S-13 Registro de asignación de territorio | "Historial" (una fila por vuelta) + un formulario **S-13** por año de servicio, se completa solo cada día | Felipe y el responsable de predicación (editor) |
@@ -104,7 +104,10 @@ Las claves nuevas aparecen al ejecutar **Programas ▸ Preparar planilla**. Si u
 | `informesDesde` | 2026-10 | Primer mes que la app pide |
 | `informeEditableHasta` | 20 | Día límite para corregir |
 | `diasRecordatorioInforme`, `horaRecordatorioInforme` | 1,5,10 / 10 | Recordatorios del informe |
-| `informesFormularios` | | URLs de formularios antiguos que aún se usan |
+| `informesFormularios` | | URLs de formularios antiguos (se leen como informes y sirven para el traspaso) |
+| `informesVen` | secretario, Daniel Gaete | Ven los informes de todos los grupos y los reportes S-1, Actividad y Precursores de toda la congregación |
+| `diasRecordatorioInformeGrupo` | 3,5,7,10,15+ | Días en que se avisa al superintendente y al auxiliar cuántos informes faltan en su grupo; "15+" = desde el 15, cada día hasta que el grupo complete (no cuentan los inactivos) |
+| `mesesActivo` | 6 | Publicador activo = informó haber participado al menos una vez en estos últimos meses |
 | `asistenciaRegistran` | (vacío) | Además de los acomodadores (todos los del programa de acomodación), quiénes ven la asistencia sin formularios y la registran o corrigen **con aprobación** |
 | `asistenciaVen` | secretario | **Encargados** de la asistencia: registran directo, aprueban las solicitudes (reciben notificación) y ven la planilla con los formularios S-1, S-3 y S-88 |
 | `congregacionNombre`, `ciudad`, `provincia`, `numeroCongregacion` | | Encabezado de S-1 y S-3 |
@@ -140,6 +143,7 @@ Separado por comas, cualquiera de: `todos`, `privilegiados` (admin y editores), 
 | Crear hoja de aseo (plantilla) | Para generar el programa anual de aseo |
 | Importar personas… | Completar datos desde una planilla (solo llena lo vacío) |
 | Reparar pestaña Personas | Ordena y une duplicados |
+| **Informes: traspasar formularios antiguos y armar historial** | Con `informesFormularios` lleno: copia a la planilla de informes los meses desde septiembre 2026, llena "Historial" con el último mes informado de cada persona y calcula "Precursores regulares". Se puede repetir sin duplicar |
 | Reiniciar prueba de invitaciones | Borra eventos e invitaciones de prueba |
 | **Preparar planilla** | Después de cada actualización: crea pestañas, columnas y claves nuevas |
 | Activar tareas automáticas | Si las tareas dejaron de correr |
@@ -149,7 +153,7 @@ Separado por comas, cualquiera de: `todos`, `privilegiados` (admin y editores), 
 | Tarea | Frecuencia | Qué hace |
 |---|---|---|
 | `sincronizar` | cada 15 min | Lee las hojas, detecta cambios, invita, avisa choques |
-| `tareasHorarias` | cada hora | Respuestas de calendario, recordatorios, aviso del día anterior (18:00, también a los dueños de casa), resumen del lunes, recordatorio de informes y de avisos (10:00; a los dueños de casa, 7 días antes), y una vez al día: ubicar direcciones y casas de predicación, actualizar contactos de emergencia, datos del S-1 y el S-13 |
+| `tareasHorarias` | cada hora | Respuestas de calendario, recordatorios, aviso del día anterior (18:00, también a los dueños de casa), resumen del lunes, recordatorio de informes (a cada uno y, los días 3, 5, 7, 10 y desde el 15, a superintendentes y auxiliares) y de avisos (10:00; a los dueños de casa, 7 días antes), y una vez al día: ubicar direcciones y casas de predicación, actualizar contactos de emergencia, datos del S-1, precursores regulares y el S-13 |
 | `notificacionesFrecuentes` | cada 10 min | Recordatorio a capitanes para registrar la salida (desde 2 h después; pausa 22–8) |
 
 ---
@@ -167,7 +171,11 @@ Separado por comas, cualquiera de: `todos`, `privilegiados` (admin y editores), 
 | Salida desde tu casa (en Mis asignaciones + aviso 7 días antes y el día anterior) | Dueños de casa (pestaña Casas de predicación) |
 | Territorio N y No pasar (mapa y listado) | Todos |
 | Registro de territorio (manzanas, historial, próxima salida) y botón "Registrar predicación" en esa vista | Ancianos y capitanes |
-| Informes de grupo | Superintendente y auxiliar (su grupo), secretario y admin (todos) |
+| Informes de grupo (Quién falta, Actividad, Precursores) | Superintendente, auxiliar y Grupos ▸ "Pueden ver informes" (su grupo); secretario, `informesVen` y admin (todos) |
+| Informe S-1 en la app | Secretario, `informesVen` y admin |
+| Configuración (todas las claves de Inicio, permisos de programas y grupos) | Admin |
+| Permisos: "Pueden editar"/"Pueden confirmar" de su programa | Responsable del programa o editor asignado en Usuarios (no quien solo figura en "Pueden editar") |
+| Permisos: "Pueden ver informes" de su grupo | Superintendente y auxiliar del grupo |
 | Asistencia (S-88): ver y registrar/corregir con aprobación | Acomodadores (cualquier asignación en acomodación en los últimos 4 meses o próxima) y `asistenciaRegistran` |
 | Asistencia: aprobar, registrar directo y formularios | `asistenciaVen` (encargados) y admin |
 | Aviso "Registra la asistencia" en el inicio (desde que empieza la reunión hasta que se registra, hasta 30 días) | Acomodador del Auditorio de esa reunión y encargados |

@@ -259,32 +259,14 @@ function construirS1_(ss, cfg) {
 /** Recalcula "Datos S-1" con los informes de predicación (los de la app y los de formularios antiguos). */
 function actualizarDatosS1_(cfg) {
   var ss = planillaAsistencia_(cfg);
-  var informes = leerInformes_(cfg, directorio_());
-  var porMes = {};
-  informes.forEach(function (x) {
-    var k = +String(x.mes).replace('-', '');
-    if (!k) return;
-    // El más reciente de cada persona y mes
-    var m = porMes[k] = porMes[k] || {};
-    var n = norm_(x.nombre);
-    if (!m[n] || new Date(x.ts) > new Date(m[n].ts)) m[n] = x;
-  });
-  var claves = Object.keys(porMes).map(Number).sort();
-  var participo = function (x) { return !/^n/i.test(String(x.participo)); };
-  var filas = claves.map(function (k) {
-    var lista = Object.keys(porMes[k]).map(function (n) { return porMes[k][n]; }).filter(participo);
-    var de = function (re) { return lista.filter(function (x) { return re.test(String(x.servicio)); }); };
-    var pub = lista.filter(function (x) { return !/precursor/i.test(String(x.servicio)); }), aux = de(/auxiliar/i), reg = de(/regular/i);
-    var suma = function (l, campo) { return l.reduce(function (s, x) { return s + (+x[campo] || 0); }, 0); };
-    // Activos: informaron haber participado al menos una vez en los últimos 6 meses (incluido este)
-    var activos = {};
-    for (var i = 0; i < 6; i++) {
-      var y = Math.floor(k / 100), mm = k % 100 - i;
-      while (mm < 1) { mm += 12; y--; }
-      var mes = porMes[y * 100 + mm] || {};
-      Object.keys(mes).forEach(function (n) { if (participo(mes[n])) activos[n] = true; });
-    }
-    return [k, pub.length, suma(pub, 'estudios'), aux.length, suma(aux, 'estudios'), suma(aux, 'horas'), reg.length, suma(reg, 'estudios'), suma(reg, 'horas'), Object.keys(activos).length];
+  var porMes = informesPorMes_(leerInformes_(cfg, directorio_()));
+  var historial = leerHistorial_();
+  var meses = +(cfg.mesesActivo || 6) || 6;
+  // Activos: informaron haber participado al menos una vez en los últimos 6 meses (incluido este), con el historial previo a la app
+  var filas = Object.keys(porMes).sort().map(function (mes) {
+    var t = totalesS1_(porMes, historial, mes, meses);
+    return [+mes.replace('-', ''), t.publicadores.informaron, t.publicadores.estudios, t.auxiliares.informaron, t.auxiliares.estudios, t.auxiliares.horas,
+      t.regulares.informaron, t.regulares.estudios, t.regulares.horas, t.activos];
   });
   var sh = hojaAsistencia_(ss, 'Datos S-1');
   sh.clear();
