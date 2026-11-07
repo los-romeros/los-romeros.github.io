@@ -443,7 +443,8 @@ function importarHistorialInformes() {
   var dir = directorio_();
   var src = SpreadsheetApp.openById(HISTORIAL_IMPORTAR_ID);
   var col = function (tit, re) { for (var k = 0; k < tit.length; k++) if (re.test(norm_(tit[k]))) return k; return -1; };
-  var nombreDe = function (t) { var p = reconocer_(nombreFormulario_(t), dir); return { nombre: p ? p.nombre : nombreFormulario_(t), grupo: p ? +p.grupo || '' : '', ok: !!p }; };
+  var nombreDe = function (t) { var p = reconocerFlexible_(nombreFormulario_(t), dir); return { nombre: p ? p.nombre : nombreFormulario_(t), grupo: p ? +p.grupo || '' : '', ok: !!p }; };
+  var corregidas = corregirNombresImportados_(dir);
 
   // Crédito de los precursores regulares por persona y mes (pestaña "Precursores 2026")
   var credito = {}, resumen = {};
@@ -523,7 +524,7 @@ function importarHistorialInformes() {
   if (nuevas.length) hh.getRange(hh.getLastRow() + 1, 1, nuevas.length, TITULOS_HISTORIAL.length).setValues(nuevas);
 
   var faltan = Object.keys(sinReconocer);
-  var msg = filas.length + ' informe(s) importados, ' + nPrec + ' precursor(es) con su total 2026, ' + nuevas.length + ' persona(s) en Historial.' +
+  var msg = (corregidas ? corregidas + ' fila(s) con el nombre corregido, ' : '') + filas.length + ' informe(s) importados, ' + nPrec + ' precursor(es) con su total 2026, ' + nuevas.length + ' persona(s) en Historial.' +
     (faltan.length ? ' No reconocidos en Personas (se guardan con el nombre del archivo): ' + faltan.join(', ') : '');
   registrar_('Historial de informes importado', msg);
   try { actualizarDatosS1_(cfg); } catch (e) { console.warn(e); }
@@ -616,4 +617,60 @@ function analisisGrupo_(yo, p, cfg, base, grupos, dir, porMes, historial, meses)
   base.puntualidad = puntualidad;
   base.anio = anio;
   return base;
+}
+
+/**
+ * Como reconocer_, pero si no encuentra a la persona prueba quitando una palabra del nombre
+ * ("Hermes Moraga Schmidt" -> "Hermes Moraga"). Solo acepta si todas las variantes llevan a la misma persona.
+ */
+function reconocerFlexible_(nombre, dir) {
+  var p = reconocer_(nombre, dir);
+  if (p) return p;
+  var t = texto_(nombre).split(' ');
+  if (t.length < 3) return null;
+  var encontrados = {};
+  for (var i = 0; i < t.length; i++) {
+    var v = t.filter(function (_, j) { return j !== i; }).join(' ');
+    var q = reconocer_(v, dir);
+    if (q) encontrados[q.nombre] = q;
+  }
+  var k = Object.keys(encontrados);
+  return k.length === 1 ? encontrados[k[0]] : null;
+}
+
+/**
+ * Filas importadas guardadas con el nombre del archivo que ahora se reconocen: se cambian al nombre del directorio
+ * (Informes, Historial, Precursores regulares) y el nombre del archivo queda como "Otras formas de escribirlo" en Personas.
+ */
+function corregirNombresImportados_(dir) {
+  var ss = planillaInformes_(), n = 0, alias = {};
+  var cambiar = function (hoja, colNombre, colGrupo) {
+    var sh = ss.getSheetByName(hoja);
+    if (!sh || sh.getLastRow() < 2) return;
+    var v = sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).getValues();
+    v.forEach(function (r, i) {
+      var nom = texto_(r[colNombre]);
+      if (!nom || reconocer_(nom, dir)) return;
+      var p = reconocerFlexible_(nom, dir);
+      if (!p || norm_(p.nombre) === norm_(nom)) return;
+      sh.getRange(i + 2, colNombre + 1).setValue(p.nombre);
+      if (colGrupo >= 0 && +p.grupo) sh.getRange(i + 2, colGrupo + 1).setValue(+p.grupo);
+      alias[p.nombre] = alias[p.nombre] || {};
+      alias[p.nombre][nom] = true;
+      n++;
+    });
+  };
+  cambiar('Informes', 2, 3);
+  cambiar('Historial', 0, 1);
+  cambiar('Precursores regulares', 0, -1);
+  var personas = leerTabla_('personas');
+  Object.keys(alias).forEach(function (nombre) {
+    var fila = personas.filter(function (x) { return x['Nombre'] === nombre; })[0];
+    if (!fila) return;
+    var actuales = String(fila['Otras formas de escribirlo (separadas por ;)'] || '').split(';').map(texto_).filter(Boolean);
+    Object.keys(alias[nombre]).forEach(function (a) { if (actuales.map(norm_).indexOf(norm_(a)) < 0) actuales.push(a); });
+    actualizarFila_('personas', fila, { 'Otras formas de escribirlo (separadas por ;)': actuales.join('; ') });
+  });
+  if (n) registrar_('Nombres importados corregidos', n + ' fila(s): ' + Object.keys(alias).map(function (k) { return Object.keys(alias[k]).join('/') + ' → ' + k; }).join(', '));
+  return n;
 }
