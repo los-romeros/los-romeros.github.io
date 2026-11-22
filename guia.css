@@ -1,0 +1,32 @@
+:root {
+  --paper: #f6f1e8; --surface: #fdfaf4; --ink: #1f3442; --muted: #6b7a83; --line: #e4dccd;
+  --hero: #5e8499; --soft: #dfe9ed; --beige: #ecd8bd; --beige-ink: #7a5a32;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --paper: #141b20; --surface: #1c252c; --ink: #e8eef2; --muted: #9cabb4; --line: #2d3a44; --hero: #34505f; --soft: #23343e; --beige: #4a3c2a; --beige-ink: #ecd3ae; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: "Figtree", system-ui, sans-serif; font-size: 17px; line-height: 1.55; }
+header { background: var(--hero); padding: 20px; font-size: 19px; font-weight: 600; }
+header a { color: #fff; text-decoration: none; }
+main { max-width: 720px; margin: 0 auto; padding: 24px 16px 56px; display: flex; flex-direction: column; gap: 18px; }
+h1 { font-size: clamp(28px, 7vw, 36px); font-weight: 800; line-height: 1.1; margin: 0; text-wrap: balance; }
+.intro { margin: 0; color: var(--muted); font-size: 18px; max-width: 60ch; }
+.indice { display: flex; flex-wrap: wrap; gap: 8px; }
+.indice a { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 14px; font-weight: 600; color: var(--ink); text-decoration: none; }
+section { background: var(--surface); border-radius: 16px; padding: 18px; box-shadow: 0 6px 18px rgba(55, 70, 80, .07); scroll-margin-top: 12px; }
+h2 { margin: 0 0 8px; font-size: 20px; display: flex; align-items: center; gap: 10px; }
+h3 { margin: 0 0 4px; font-size: 16px; }
+.n { width: 30px; height: 30px; border-radius: 50%; background: var(--soft); display: inline-grid; place-items: center; font-size: 15px; font-weight: 800; flex: none; }
+p, li { max-width: 62ch; }
+ol, ul { padding-left: 22px; margin: 6px 0; }
+li { margin: 4px 0; }
+.nota { background: var(--beige); color: var(--beige-ink); border-radius: 10px; padding: 8px 12px; font-size: 15px; margin: 10px 0 0; }
+.dos { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 600px) { .dos { grid-template-columns: 1fr 1fr; } }
+.caja { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.estados { list-style: none; padding: 0; }
+.p { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+.p.ok { background: #3f9a5a; } .p.pend { background: #e0a100; } .p.rech { background: #cc4433; } .p.manual { background: #4a7fb5; }
+.volver { text-align: center; color: var(--muted); }
+.volver a { color: inherit; }
